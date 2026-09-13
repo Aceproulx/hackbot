@@ -161,7 +161,9 @@ load_config() {
 
 create_dirs() {
   mkdir -p "$HOME/Projects/hackbot-misc/notify"
-  mkdir -p "$HOME/Projects/hacks/sessions"
+  mkdir -p "$HOME/Projects/hunts/sessions"
+  mkdir -p "$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  mkdir -p "$HOME/.agent-browser"
   mkdir -p "$HACKBOT_DIR"
   mkdir -p "$HOME/.local/bin"
   ok "Directory structure ready"
@@ -250,6 +252,32 @@ install_mcps() {
   fi
 }
 
+install_browser_profiles() {
+  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  local AGENT_CFG="$HOME/.agent-browser/config.json"
+  mkdir -p "$PROFILES_DIR" "$HOME/.agent-browser"
+  if [[ -d "$REPO_ROOT/browser-profiles" ]]; then
+    cp -a "$REPO_ROOT/browser-profiles/." "$PROFILES_DIR/"
+    chmod +x "$PROFILES_DIR"/*.sh 2>/dev/null || true
+    # Resolve {{HACKBOT_MISC_DIR}} in the installed scripts in place (same
+    # placeholder substitution install-skills.sh does for skills, mirrored here).
+    sed -i -e "s|{{HACKBOT_MISC_DIR}}|$HOME/Projects/hackbot-misc|g" \
+      "$PROFILES_DIR"/*.sh "$PROFILES_DIR"/README.md 2>/dev/null || true
+    ok "Browser profiles installed (seed + clone/switch/sync scripts)"
+  else
+    warn "browser-profiles/ not found — skipping browser profiles"
+  fi
+  # Default agent-browser config: headed, anti-detection args, seeded profile.
+  if [[ ! -f "$AGENT_CFG" ]]; then
+    local DEFAULT_PROFILE
+    DEFAULT_PROFILE="$PROFILES_DIR/Profile-Default"
+    jq -n --arg profile "$DEFAULT_PROFILE" \
+      '{headed:true,args:"--disable-blink-features=AutomationControlled,--start-maximized",profile:$profile}' \
+      > "$AGENT_CFG"
+    ok "Created ~/.agent-browser/config.json -> Profile-Default"
+  fi
+}
+
 validate() {
   export PATH="$HOME/.local/bin:$PATH"
   echo ""
@@ -305,7 +333,9 @@ summary() {
   echo ""
   echo "  Manual steps remaining:"
   echo "    1. Caido: create an API token (Settings → API Tokens) and wire it into your environment"
-  echo "    2. Browser: install the CAPTCHA-solver Chrome extension and start the agent-browser daemon (agent-browser serve)"
+  echo "    2. Browser: start the agent-browser daemon (agent-browser serve). FoxyProxy + rules ship in the"
+  echo "       seeded Profile-Default; the CAPTCHA-solver unpacked extension is NOT in the repo (load it once"
+  echo "       manually via chrome://extensions → Developer mode → Load unpacked)"
   echo "    3. OOB tunnel: if you left the cloudflared URL empty, set oob_tunnel_url in $CONFIG_LOCATION later"
   echo "    4. Intigriti: confirm your account/MCP login is active so the queue can pull programs"
   echo "    5. Telegram: if token/chat ID are empty, fill $CONFIG_LOCATION and run hackbot-notify test again"
@@ -351,6 +381,7 @@ main() {
   install_tools
   install_symlinks
   install_mcps
+  install_browser_profiles
   apply_config_to_installed
   validate
   summary

@@ -6,6 +6,10 @@
 *.log
 /tmp/
 
+# ...except the shipped seed's LevelDB data files (FoxyProxy rules live in
+# Local Extension Settings as *.log); those ARE meant to be committed.
+!browser-profiles/Profile-Default/Default/Local Extension Settings/*/*.log
+
 # Credentials and secrets
 *.creds
 *.key
@@ -33,3 +37,42 @@ node_modules/
 # Python
 __pycache__/
 *.pyc
+
+# Chrome profile session data (NEVER commit account-specific browsing state).
+# The repo only ships a sanitized seed (browser-profiles/Profile-Default);
+# these rules keep live session/cookie/history/cache data out of the repo even
+# if someone copies a full profile in.
+browser-profiles/Profile-*/Default/Sessions/
+browser-profiles/Profile-*/Default/Session Storage/
+browser-profiles/Profile-*/Default/Cookies*
+browser-profiles/Profile-*/Default/History*
+browser-profiles/Profile-*/Default/Login Data*
+browser-profiles/Profile-*/Default/Web Data*
+browser-profiles/Profile-*/Default/Favicons*
+browser-profiles/Profile-*/Default/Top Sites*
+browser-profiles/Profile-*/Default/Trust Tokens*
+browser-profiles/Profile-*/Default/Local Storage/
+browser-profiles/Profile-*/Default/Cache/
+browser-profiles/Profile-*/Default/Code Cache/
+browser-profiles/Profile-*/Default/GPUCache/
+browser-profiles/Profile-*/Default/DawnGraphiteCache/
+browser-profiles/Profile-*/Default/DawnWebGPUCache/
+browser-profiles/Profile-*/Default/Service Worker/
+browser-profiles/Profile-*/Default/Extension Rules/
+browser-profiles/Profile-*/Default/Extension Scripts/
+browser-profiles/Profile-*/Default/Extension State/
+browser-profiles/Profile-*/Default/chrome_cart_db/
+browser-profiles/Profile-*/Default/Site Characteristics Database/
+browser-profiles/Profile-*/Default/net_internals_log.json
+browser-profiles/Profile-*/Default/LOCK
+browser-profiles/Profile-*/Default/LOG
+browser-profiles/Profile-*/Default/*-journal
+browser-profiles/Profile-*/Default/*/LOCK
+browser-profiles/Profile-*/Default/*/LOG
+browser-profiles/Profile-*/Default/*/manifest.json.db
+browser-profiles/Profile-*/Singleton*
+browser-profiles/Profile-*/GPUPersistentCache/
+browser-profiles/Profile-*/segmentation_platform/
+browser-profiles/Profile-*/WidevineCdm/
+browser-profiles/Profile-*/Variations*
+browser-profiles/Profile-*/extensions_crx_cache/

@@ -114,11 +114,34 @@ sync_scripts() {
   done
 }
 
+sync_browser_profiles_scripts() {
+  # Only scripts + README sync back. Profile-Default's installed copy contains
+  # live session data (sessions, cookies, history), so the sanitized seed in the
+  # repo is intentionally NOT overwritten from the live install.
+  local SRC_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  local DST_DIR="$REPO_ROOT/browser-profiles"
+  if [[ ! -d "$SRC_DIR" ]]; then
+    warn "skip (missing dir): $SRC_DIR"
+    return 0
+  fi
+  mkdir -p "$DST_DIR"
+  local F
+  for F in clone-profile.sh switch-account.sh sync-extensions.sh README.md; do
+    if [[ -f "$SRC_DIR/$F" ]]; then
+      cp "$SRC_DIR/$F" "$DST_DIR/$F"
+      desubstitute "$DST_DIR/$F"
+      chmod +x "$DST_DIR/$F" 2>/dev/null || true
+      ok "synced browser-profiles/$F"
+    fi
+  done
+}
+
 info "Syncing from live install to repo..."
 sync_antigravity_skills
 sync_opencode_skills
 sync_opencode_agents
 sync_scripts
+sync_browser_profiles_scripts
 
 echo ""
 info "All files synced. Review git diff before committing."

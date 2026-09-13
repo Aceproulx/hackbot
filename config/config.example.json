@@ -1,0 +1,20 @@
+{
+  "_comment": "Hackbot configuration template. Copy to ~/.hackbot/config.json and fill in your values. setup.sh does this automatically.",
+  "platform": "",
+  "intigriti_username": "",
+  "email_base": "",
+  "email_domain": "intigriti.me",
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "blind_xss_url": "",
+  "caido_proxy_port": 8080,
+  "curl_proxy_port": 8081,
+  "oob_tunnel_url": "",
+  "payloads_dir": "~/Projects/payloads/coffinxp-payloads",
+  "sessions_dir": "~/Projects/hunts/sessions",
+  "hackbot_misc_dir": "~/Projects/hackbot-misc",
+  "max_worker_slots": 2,
+  "default_budget_usd": 15,
+  "installed_at": "",
+  "version": ""
+}

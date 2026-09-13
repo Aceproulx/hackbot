@@ -1,0 +1,35 @@
+# Personal config (contains tokens/secrets)
+~/.hackbot/config.json
+
+# Runtime data
+*.jsonl
+*.log
+/tmp/
+
+# Credentials and secrets
+*.creds
+*.key
+*.token
+.env
+.env.*
+config.local.*
+config/config.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node artifacts
+node_modules/
+.npm/
+
+# Python
+__pycache__/
+*.pyc

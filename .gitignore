@@ -76,3 +76,6 @@ browser-profiles/Profile-*/segmentation_platform/
 browser-profiles/Profile-*/WidevineCdm/
 browser-profiles/Profile-*/Variations*
 browser-profiles/Profile-*/extensions_crx_cache/
+
+# opencode session state
+.opencode/

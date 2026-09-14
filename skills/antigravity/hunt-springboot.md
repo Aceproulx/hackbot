@@ -1,8 +1,9 @@
 ---
 name: hunt-springboot
-description: "Hunt Spring Boot specific vulnerabilities — Actuator endpoints (heapdump, env, loggers, mappings, shutdown), Spring Expression Language (SpEL) injection → RCE, H2 console RCE, Jolokia JMX …"
+description: Hunt Spring Boot specific vulnerabilities — Actuator endpoints (heapdump, env, loggers, mappings, shutdown), Spring Expression Language (SpEL) injection → RCE, H2 console RCE, Jolokia JMX …
+sources: hackerone_public, cve_database, spring_security_advisories
+report_count: 16
 ---
-
 
 # HUNT-SPRINGBOOT — Spring Boot Specific Vulnerabilities
 

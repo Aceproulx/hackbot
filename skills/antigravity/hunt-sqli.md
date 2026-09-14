@@ -1,8 +1,9 @@
 ---
 name: hunt-sqli
-description: "Hunting skill for sqli vulnerabilities. Built from 12 public bug bounty reports including modern NoSQL injection (Rocket.Chat CVE-2021-22911 MongoDB $regex, Mongoose ORM CVE-2024-53900 …"
+description: Hunting skill for sqli vulnerabilities. Built from 12 public bug bounty reports including modern NoSQL injection (Rocket.Chat CVE-2021-22911 MongoDB $regex, Mongoose ORM CVE-2024-53900 …
+sources: github, hackerone_public, github_security_advisories, snyk_research, sonarsource_research
+report_count: 29
 ---
-
 
 ## Autonomous Testing Priority
 

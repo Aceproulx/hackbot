@@ -1,8 +1,9 @@
 ---
 name: hunt-session
-description: "Hunt Session Management vulnerabilities — session fixation (no regeneration on login), insufficient invalidation on logout / password-change / email-change, predictable or low-entropy …"
+description: Hunt Session Management vulnerabilities — session fixation (no regeneration on login), insufficient invalidation on logout / password-change / email-change, predictable or low-entropy …
+sources: hackerone_public, portswigger_research, owasp_wstg
+report_count: 18
 ---
-
 
 ## Autonomous Testing Priority
 

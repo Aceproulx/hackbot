@@ -1,8 +1,8 @@
 ---
 name: report-writing
-description: "Bug bounty report writing for H1/Bugcrowd/Intigriti/Immunefi — report templates, human tone guidelines, impact-first writing, CVSS 3.1 scoring, title formula, impact statement formula, …"
+description: Bug bounty report writing for H1/Bugcrowd/Intigriti/Immunefi — report templates, human tone guidelines, impact-first writing, CVSS 3.1 scoring, title formula, impact statement formula, …
+sources: community, operator_experience
 ---
-
 
 # REPORT WRITING
 

@@ -1,8 +1,9 @@
 ---
 name: hunt-host-header
-description: "Hunt Host Header Injection — password reset poisoning → ATO, web cache poisoning via unkeyed Host/X-Forwarded-Host, routing-based SSRF (Host picks upstream → cloud metadata/internal …"
+description: Hunt Host Header Injection — password reset poisoning → ATO, web cache poisoning via unkeyed Host/X-Forwarded-Host, routing-based SSRF (Host picks upstream → cloud metadata/internal …
+sources: portswigger_research, hackerone_public
+report_count: 16
 ---
-
 
 # HUNT-HOST-HEADER — Host Header Injection
 

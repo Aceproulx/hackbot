@@ -25,6 +25,10 @@ INTIGRITI_USERNAME="$(jq -r '.intigriti_username' "$CONFIG")"
 BLIND_XSS_URL="$(jq -r '.blind_xss_url' "$CONFIG")"
 TELEGRAM_TOKEN="$(jq -r '.telegram_bot_token' "$CONFIG")"
 TELEGRAM_CHAT="$(jq -r '.telegram_chat_id' "$CONFIG")"
+OOB_TUNNEL_URL="$(jq -r '.oob_tunnel_url' "$CONFIG")"
+PAYLOADS_DIR="$(jq -r '.payloads_dir' "$CONFIG")"
+SESSIONS_DIR="$(jq -r '.sessions_dir' "$CONFIG")"
+HACKBOT_MISC_DIR="$(jq -r '.hackbot_misc_dir' "$CONFIG")"
 
 desubstitute() {
   local FILE="$1"
@@ -44,6 +48,10 @@ desubstitute() {
   [[ -n "$EMAIL_DOMAIN" ]]     && CMD+=(-e "s|@${EMAIL_DOMAIN}|@{{EMAIL_DOMAIN}}|g")
   [[ -n "$EMAIL_DOMAIN" ]]     && CMD+=(-e "s|${EMAIL_DOMAIN}|{{EMAIL_DOMAIN}}|g")
   [[ -n "$INTIGRITI_USERNAME" ]] && CMD+=(-e "s|${INTIGRITI_USERNAME}|{{INTIGRITI_USERNAME}}|g")
+  [[ -n "$OOB_TUNNEL_URL" ]]   && CMD+=(-e "s|${OOB_TUNNEL_URL}|{{OOB_TUNNEL_URL}}|g")
+  [[ -n "$PAYLOADS_DIR" ]]     && CMD+=(-e "s|${PAYLOADS_DIR}|{{PAYLOADS_DIR}}|g")
+  [[ -n "$SESSIONS_DIR" ]]     && CMD+=(-e "s|${SESSIONS_DIR}|{{SESSIONS_DIR}}|g")
+  [[ -n "$HACKBOT_MISC_DIR" ]] && CMD+=(-e "s|${HACKBOT_MISC_DIR}|{{HACKBOT_MISC_DIR}}|g")
 
   if [[ ${#CMD[@]} -gt 0 ]]; then
     sed "${CMD[@]}" "$TMP" > "$FILE.new" && mv "$FILE.new" "$FILE"
@@ -51,19 +59,21 @@ desubstitute() {
   rm -f "$TMP"
 }
 
-CORE_SKILLS=(bug-hunting hunter-orchestrator notify target-queue findings-dashboard parallel-workers repo-recon)
-
 sync_antigravity_skills() {
+  # Antigravity skills are 1:1 mirrors of the opencode skills (same frontmatter,
+  # naming by `name:` field). Discovered by glob — everything in the live
+  # ~/.gemini/antigravity-cli/skills dir is synced, new skills picked up
+  # automatically.
   local SRC_DIR="$HOME/.gemini/antigravity-cli/skills"
   local DST_DIR="$REPO_ROOT/skills/antigravity"
   mkdir -p "$DST_DIR"
-  local NAME
-  for NAME in "${CORE_SKILLS[@]}"; do
-    local SRC="$SRC_DIR/$NAME.md" DST="$DST_DIR/$NAME.md"
-    [[ -f "$SRC" ]] || { warn "skip (missing): $SRC"; continue; }
+  local SRC DST
+  for SRC in "$SRC_DIR"/*.md; do
+    [[ -f "$SRC" ]] || continue
+    DST="$DST_DIR/$(basename "$SRC")"
     cp "$SRC" "$DST"
     desubstitute "$DST"
-    ok "synced skills/antigravity/$NAME.md"
+    ok "synced skills/antigravity/$(basename "$SRC")"
   done
 }
 
@@ -71,10 +81,16 @@ sync_opencode_skills() {
   local SRC_DIR="$HOME/.config/opencode/skill"
   local DST_DIR="$REPO_ROOT/skills/opencode"
   mkdir -p "$DST_DIR"
-  local NAME
-  for NAME in "${CORE_SKILLS[@]}"; do
-    local SRC="$SRC_DIR/$NAME/SKILL.md" DST="$DST_DIR/$NAME/SKILL.md"
-    [[ -f "$SRC" ]] || { warn "skip (missing): $SRC"; continue; }
+
+  # Discover all skill directories from source — no hardcoded list needed.
+  # A skill dir is any directory containing a SKILL.md file.
+  local SKILL_DIR NAME SRC DST
+  for SKILL_DIR in "$SRC_DIR"/*/; do
+    [[ -d "$SKILL_DIR" ]] || continue
+    NAME="$(basename "$SKILL_DIR")"
+    SRC="$SKILL_DIR/SKILL.md"
+    DST="$DST_DIR/$NAME/SKILL.md"
+    [[ -f "$SRC" ]] || { warn "skip (no SKILL.md): $SKILL_DIR"; continue; }
     mkdir -p "$(dirname "$DST")"
     cp "$SRC" "$DST"
     desubstitute "$DST"
@@ -125,15 +141,24 @@ sync_browser_profiles_scripts() {
     return 0
   fi
   mkdir -p "$DST_DIR"
-  local F
-  for F in clone-profile.sh switch-account.sh sync-extensions.sh README.md; do
-    if [[ -f "$SRC_DIR/$F" ]]; then
-      cp "$SRC_DIR/$F" "$DST_DIR/$F"
-      desubstitute "$DST_DIR/$F"
-      chmod +x "$DST_DIR/$F" 2>/dev/null || true
-      ok "synced browser-profiles/$F"
-    fi
+
+  # Sync ALL .sh scripts (glob — new scripts are picked up automatically)
+  local SRC DST
+  for SRC in "$SRC_DIR"/*.sh; do
+    [[ -f "$SRC" ]] || continue
+    DST="$DST_DIR/$(basename "$SRC")"
+    cp "$SRC" "$DST"
+    desubstitute "$DST"
+    chmod +x "$DST"
+    ok "synced browser-profiles/$(basename "$SRC")"
   done
+
+  # Sync README separately
+  if [[ -f "$SRC_DIR/README.md" ]]; then
+    cp "$SRC_DIR/README.md" "$DST_DIR/README.md"
+    desubstitute "$DST_DIR/README.md"
+    ok "synced browser-profiles/README.md"
+  fi
 }
 
 info "Syncing from live install to repo..."

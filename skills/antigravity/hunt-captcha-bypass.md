@@ -1,8 +1,9 @@
 ---
 name: hunt-captcha-bypass
-description: "Hunt CAPTCHA Bypass — 6 distinct patterns: (1) CAPTCHA field simply omitted from the request (server-side validation absent), (2) CAPTCHA token replayed from a solved challenge (no …"
+description: Hunt CAPTCHA Bypass — 6 distinct patterns: (1) CAPTCHA field simply omitted from the request (server-side validation absent), (2) CAPTCHA token replayed from a solved challenge (no …
+sources: public_research, operator_experience
+report_count: 6
 ---
-
 
 ## Autonomous Testing Priority
 

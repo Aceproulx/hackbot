@@ -1,8 +1,9 @@
 ---
 name: hunt-http-smuggling
-description: "Hunt HTTP request smuggling (CL.TE, TE.CL, H2.CL, H2.TE). …"
+description: Hunt HTTP request smuggling (CL.TE, TE.CL, H2.CL, H2.TE). …
+sources: hackerone_public, cve_database, portswigger_research, public_research
+report_count: 12
 ---
-
 
 ## 17. HTTP REQUEST SMUGGLING
 > Lowest dup rate. $5K–$30K. PortSwigger research by James Kettle.

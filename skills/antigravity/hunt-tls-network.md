@@ -1,8 +1,9 @@
 ---
 name: hunt-tls-network
-description: "Hunt TLS/SSL and DNS misconfigurations — missing HSTS (downgrade attack), weak cipher suites, expired/invalid certificates, mTLS bypass, missing SPF/DKIM/DMARC (email spoofing), DNS Zone …"
+description: Hunt TLS/SSL and DNS misconfigurations — missing HSTS (downgrade attack), weak cipher suites, expired/invalid certificates, mTLS bypass, missing SPF/DKIM/DMARC (email spoofing), DNS Zone …
+report_count: 6
+sources: portswigger_research, ssl_labs_research, hstspreload_org
 ---
-
 
 # HUNT-TLS-NETWORK — TLS/SSL & DNS Security
 

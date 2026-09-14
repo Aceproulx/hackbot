@@ -1,8 +1,9 @@
 ---
 name: hunt-spa-api
-description: "Discover a single-page-app's hidden backend API from its public JS bundle, then test that API for broken access control / missing authentication. …"
+description: Discover a single-page-app's hidden backend API from its public JS bundle, then test that API for broken access control / missing authentication. …
+sources: authorized-engagement
+report_count: 1
 ---
-
 
 ## When to use this skill
 

@@ -1,8 +1,9 @@
 ---
 name: hunt-forgot-password
-description: "Hunt Forgot Password / Account Recovery Authentication Flaws — 5 distinct patterns: (1) username enumeration via different responses for valid vs invalid email, (2) reset token exposed …"
+description: Hunt Forgot Password / Account Recovery Authentication Flaws — 5 distinct patterns: (1) username enumeration via different responses for valid vs invalid email, (2) reset token exposed …
+sources: hackerone_public, public_research
+report_count: 6
 ---
-
 
 ## Autonomous Testing Priority
 

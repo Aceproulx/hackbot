@@ -1,8 +1,9 @@
 ---
 name: hunt-business-logic
-description: "Hunting skill for business logic vulnerabilities. …"
+description: Hunting skill for business logic vulnerabilities. …
+sources: hackerone_public, github
+report_count: 25
 ---
-
 
 ## Crown Jewel Targets
 

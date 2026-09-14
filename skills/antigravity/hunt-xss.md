@@ -1,8 +1,9 @@
 ---
 name: hunt-xss
-description: "Hunting skill for xss vulnerabilities. Built from 174 public bug bounty reports. Use when hunting xss on any target. For markup injection that reflects raw HTML but does NOT execute …"
+description: Hunting skill for xss vulnerabilities. Built from 174 public bug bounty reports. Use when hunting xss on any target. For markup injection that reflects raw HTML but does NOT execute …
+sources: github, hackerone_public
+report_count: 174
 ---
-
 
 ## Autonomous Testing Priority
 

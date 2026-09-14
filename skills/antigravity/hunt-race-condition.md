@@ -1,8 +1,9 @@
 ---
 name: hunt-race-condition
-description: "Hunting skill for race condition vulnerabilities. …"
+description: Hunting skill for race condition vulnerabilities. …
+sources: github, hackerone_public, portswigger_research, flatt_security
+report_count: 10
 ---
-
 
 ## Firing a race — two primitives (tooling-agnostic)
 

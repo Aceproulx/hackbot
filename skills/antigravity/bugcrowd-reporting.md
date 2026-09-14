@@ -1,8 +1,8 @@
 ---
 name: bugcrowd-reporting
-description: "Bugcrowd-specific reporting tactics complementing report-writing: VRT category search-and-fallback strategy when no exact match exists, manual severity override when VRT defaults underrate …"
+description: Bugcrowd-specific reporting tactics complementing report-writing: VRT category search-and-fallback strategy when no exact match exists, manual severity override when VRT defaults underrate …
+sources: bugcrowd, community
 ---
-
 
 # BUGCROWD REPORTING — Program-Specific Tactics
 

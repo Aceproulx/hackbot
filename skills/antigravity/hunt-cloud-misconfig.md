@@ -1,8 +1,9 @@
 ---
 name: hunt-cloud-misconfig
-description: "Hunt cloud / infrastructure misconfigurations. …"
+description: Hunt cloud / infrastructure misconfigurations. …
+sources: hackerone_public, public_research
+report_count: 6
 ---
-
 
 ## 16. CLOUD / INFRA MISCONFIGS
 

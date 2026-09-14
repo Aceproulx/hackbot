@@ -1,8 +1,9 @@
 ---
 name: hunt-open-redirect
-description: "Hunt Open Redirect — all types including low-impact, chained to OAuth token theft → ATO, phishing chains. …"
+description: Hunt Open Redirect — all types including low-impact, chained to OAuth token theft → ATO, phishing chains. …
+sources: hackerone_public
+report_count: 28
 ---
-
 
 # HUNT-OPEN-REDIRECT — Open Redirect
 

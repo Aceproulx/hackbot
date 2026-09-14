@@ -1,8 +1,9 @@
 ---
 name: hunt-html-injection
-description: "Hunt HTML Injection — user-supplied input is rendered as raw HTML in the response without sanitisation, allowing an attacker to inject arbitrary HTML tags (but not necessarily JavaScript). …"
+description: Hunt HTML Injection — user-supplied input is rendered as raw HTML in the response without sanitisation, allowing an attacker to inject arbitrary HTML tags (but not necessarily JavaScript). …
+sources: hackerone_public, public_research
+report_count: 6
 ---
-
 
 ## What is HTML Injection
 

@@ -1,8 +1,7 @@
 ---
 name: mobile-hacking
-description: "Android app pentesting on non-rooted devices. ADB is the default for interaction (tap/swipe/text/keyevent — instant, no ref management). agent-device is used for UI discovery (snapshot -i to find element refs/labels) and evidence capture (screenshot --overlay-refs). Objection for FLAG_SECURE bypass, Frida Gadget for runtime hooking, Caido MCP for traffic, jadx MCP for static analysis."
+description: Android app pentesting on non-rooted devices. ADB is the default for interaction (tap/swipe/text/keyevent — instant, no ref management). agent-device is used for UI discovery (snapshot -i to find element refs/labels) and evidence capture (screenshot --overlay-refs). Objection for FLAG_SECURE bypass, Frida Gadget for runtime hooking, Caido MCP for traffic, jadx MCP for static analysis.
 ---
-
 
 # Mobile Hacking (Android, Non-Rooted)
 

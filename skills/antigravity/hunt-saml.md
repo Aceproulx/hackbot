@@ -1,8 +1,9 @@
 ---
 name: hunt-saml
-description: "Hunt SAML / SSO attacks. Patterns: XML Signature Wrapping (XSW) — modify Assertion while keeping Signature valid by relocating signed element, comment injection in NameID …"
+description: Hunt SAML / SSO attacks. Patterns: XML Signature Wrapping (XSW) — modify Assertion while keeping Signature valid by relocating signed element, comment injection in NameID …
+sources: cve_database, oasis_saml_spec, academic_research, public_research
+report_count: 6
 ---
-
 
 ## 20. SAML / SSO ATTACKS
 > SSO bugs frequently pay High–Critical. XML parsers are notoriously inconsistent.

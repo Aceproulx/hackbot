@@ -1,8 +1,9 @@
 ---
 name: hunt-auth-bypass
-description: "Hunting skill for auth bypass vulnerabilities. …"
+description: Hunting skill for auth bypass vulnerabilities. …
+sources: github, hackerone_public, github_security_lab, projectdiscovery_research
+report_count: 12
 ---
-
 
 ## Crown Jewel Targets
 

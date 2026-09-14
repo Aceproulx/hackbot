@@ -1,8 +1,9 @@
 ---
 name: hunt-brute-force
-description: "Hunt Missing/Weak Rate Limiting — login brute force, OTP/2FA brute force (10^6 keyspace), password-reset-token brute, credential stuffing, username/email enumeration via error-string / …"
+description: Hunt Missing/Weak Rate Limiting — login brute force, OTP/2FA brute force (10^6 keyspace), password-reset-token brute, credential stuffing, username/email enumeration via error-string / …
+sources: public_research
+report_count: 6
 ---
-
 
 # HUNT-BRUTE-FORCE — Rate Limiting / Brute Force / Enumeration
 

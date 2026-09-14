@@ -1,8 +1,9 @@
 ---
 name: hunt-ntlm-info
-description: "Hunt NTLM/Negotiate information disclosure on internet-reachable IIS/SharePoint/Exchange. …"
+description: Hunt NTLM/Negotiate information disclosure on internet-reachable IIS/SharePoint/Exchange. …
+sources: github, authorized-engagement
+report_count: 1
 ---
-
 
 ## Crown Jewel Targets
 

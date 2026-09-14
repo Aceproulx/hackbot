@@ -1,8 +1,9 @@
 ---
 name: hunt-nosqli
-description: "Hunt NoSQL Injection — MongoDB operator injection ($where, $regex, $gt, $ne), CouchDB, Redis command injection, auth bypass via NoSQLi, data dump. …"
+description: Hunt NoSQL Injection — MongoDB operator injection ($where, $regex, $gt, $ne), CouchDB, Redis command injection, auth bypass via NoSQLi, data dump. …
+sources: hackerone_public
+report_count: 14
 ---
-
 
 # HUNT-NOSQLI — NoSQL Injection
 

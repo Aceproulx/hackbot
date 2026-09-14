@@ -1,8 +1,9 @@
 ---
 name: hunt-aspnet
-description: "Hunt ASP.NET-specific surface — ViewState deserialization (signed-only vs encrypted), machineKey recovery, dual-parser MAC-bypass anti-pattern, request-validator bypass, trace.axd/elmah.axd …"
+description: Hunt ASP.NET-specific surface — ViewState deserialization (signed-only vs encrypted), machineKey recovery, dual-parser MAC-bypass anti-pattern, request-validator bypass, trace.axd/elmah.axd …
+sources: github, authorized-engagement
+report_count: 1
 ---
-
 
 ## Crown Jewel Targets
 

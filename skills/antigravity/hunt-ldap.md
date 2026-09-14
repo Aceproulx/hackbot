@@ -1,8 +1,9 @@
 ---
 name: hunt-ldap
-description: "Hunt LDAP Injection and XPath Injection — authentication bypass, blind char-by-char attribute exfiltration, AD user/group enumeration, XML-store XPath bypass. …"
+description: Hunt LDAP Injection and XPath Injection — authentication bypass, blind char-by-char attribute exfiltration, AD user/group enumeration, XML-store XPath bypass. …
+sources: hackerone_public, owasp, portswigger
+report_count: 0
 ---
-
 
 # HUNT-LDAP — LDAP Injection & XPath Injection
 

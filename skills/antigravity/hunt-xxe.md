@@ -1,8 +1,9 @@
 ---
 name: hunt-xxe
-description: "Hunting skill for xxe vulnerabilities. Built from 10 public bug bounty reports including SVG-upload XXE, Office-doc (PPTX/DOCX) XXE, SOAP XXE, SAML AssertionConsumer XXE, blind OOB XXE via …"
+description: Hunting skill for xxe vulnerabilities. Built from 10 public bug bounty reports including SVG-upload XXE, Office-doc (PPTX/DOCX) XXE, SOAP XXE, SAML AssertionConsumer XXE, blind OOB XXE via …
+sources: github, hackerone_public, assetnote_research, splunk_security
+report_count: 10
 ---
-
 
 ## Crown Jewel Targets
 

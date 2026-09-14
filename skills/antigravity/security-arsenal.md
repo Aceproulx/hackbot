@@ -1,8 +1,8 @@
 ---
 name: security-arsenal
-description: "Security payloads, bypass tables, wordlists, gf pattern names, always-rejected bug list, and conditionally-valid-with-chain table. …"
+description: Security payloads, bypass tables, wordlists, gf pattern names, always-rejected bug list, and conditionally-valid-with-chain table. …
+sources: community, public_research
 ---
-
 
 # SECURITY ARSENAL
 

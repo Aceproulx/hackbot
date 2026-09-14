@@ -1,8 +1,9 @@
 ---
 name: hunt-dom
-description: "Hunt client-side DOM vulnerabilities — DOM Clobbering (overwrite JS globals via HTML injection), PostMessage hijacking (missing origin check), Service Worker abuse (intercept requests from …"
+description: Hunt client-side DOM vulnerabilities — DOM Clobbering (overwrite JS globals via HTML injection), PostMessage hijacking (missing origin check), Service Worker abuse (intercept requests from …
+sources: portswigger_research, hackerone_public, github_security_advisories
+report_count: 14
 ---
-
 
 # HUNT-DOM — DOM Clobbering / PostMessage / Service Worker / CSS Exfil
 

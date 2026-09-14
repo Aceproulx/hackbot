@@ -1,8 +1,9 @@
 ---
 name: hunt-oauth
-description: "Hunting skill for oauth vulnerabilities. …"
+description: Hunting skill for oauth vulnerabilities. …
+sources: github, hackerone_public, salt_labs, descope, detectify_labs, harel_research
+report_count: 22
 ---
-
 
 ## Crown Jewel Targets
 

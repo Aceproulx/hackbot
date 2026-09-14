@@ -1,8 +1,9 @@
 ---
 name: hunt-api-misconfig
-description: "Hunt API security misconfiguration — mass assignment, prototype pollution, HTTP verb tampering. …"
+description: Hunt API security misconfiguration — mass assignment, prototype pollution, HTTP verb tampering. …
+sources: hackerone_public, owasp_api_top10_2023, public_research
+report_count: 0
 ---
-
 
 ## 12. API SECURITY MISCONFIGURATION
 

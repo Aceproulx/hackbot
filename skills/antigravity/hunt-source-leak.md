@@ -1,8 +1,9 @@
 ---
 name: hunt-source-leak
-description: "Hunt source code and build artifact leakage — JavaScript source maps (.js.map) reconstructing TypeScript/ES6 source, Swagger/OpenAPI JSON endpoint discovery, .env/.git exposure, webpack …"
+description: Hunt source code and build artifact leakage — JavaScript source maps (.js.map) reconstructing TypeScript/ES6 source, Swagger/OpenAPI JSON endpoint discovery, .env/.git exposure, webpack …
+sources: hackerone_public, offensive_research
+report_count: 7
 ---
-
 
 # HUNT-SOURCE-LEAK — Source Code & Build Artifact Leakage
 

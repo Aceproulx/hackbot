@@ -49,7 +49,7 @@ const { execSync } = require('child_process');
 // Try to call the intigriti MCP server directly
 try {
   const result = execSync(
-    'node ~/Projects/intigriti-mcp/dist/index.js list-programs 2>/dev/null',
+    'node /home/aceos/Projects/intigriti-mcp/dist/index.js list-programs 2>/dev/null',
     { timeout: 15000 }
   ).toString();
   console.log(result);

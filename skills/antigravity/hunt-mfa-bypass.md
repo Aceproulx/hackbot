@@ -1,8 +1,9 @@
 ---
 name: hunt-mfa-bypass
-description: "Hunt MFA / 2FA bypass — 7 distinct patterns. …"
+description: Hunt MFA / 2FA bypass — 7 distinct patterns. …
+sources: hackerone_public, cve_database, nist_800_63b, public_research
+report_count: 5
 ---
-
 
 ## Autonomous Testing Priority
 

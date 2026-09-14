@@ -1,8 +1,9 @@
 ---
 name: hunt-laravel
-description: "Hunt Laravel specific vulnerabilities — Debug mode leakage (APP_DEBUG=true exposes full stack trace + env vars), Laravel Telescope/Horizon dashboard unauthorized access, Ignition RCE …"
+description: Hunt Laravel specific vulnerabilities — Debug mode leakage (APP_DEBUG=true exposes full stack trace + env vars), Laravel Telescope/Horizon dashboard unauthorized access, Ignition RCE …
+sources: hackerone_public, cve_database
+report_count: 14
 ---
-
 
 # HUNT-LARAVEL — Laravel Specific Vulnerabilities
 

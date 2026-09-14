@@ -1,8 +1,9 @@
 ---
 name: hunt-rag-vector
-description: "Hunt vector-store / embedding-layer weaknesses in RAG pipelines (OWASP LLM08 Vector and Embedding Weaknesses) — persistent corpus poisoning that survives across sessions and users (distinct …"
+description: Hunt vector-store / embedding-layer weaknesses in RAG pipelines (OWASP LLM08 Vector and Embedding Weaknesses) — persistent corpus poisoning that survives across sessions and users (distinct …
+sources: owasp_genai_2025_2026, public_research
+report_count: 0
 ---
-
 
 ## LLM08 — Vector & Embedding Weaknesses (RAG Pipeline Attacks)
 

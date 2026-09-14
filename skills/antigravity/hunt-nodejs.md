@@ -1,8 +1,9 @@
 ---
 name: hunt-nodejs
-description: "Hunt Node.js specific vulnerabilities — Prototype Pollution → RCE chains (lodash/merge/assign), Express trust proxy misconfiguration, child_process/eval injection, template engine SSTI …"
+description: Hunt Node.js specific vulnerabilities — Prototype Pollution → RCE chains (lodash/merge/assign), Express trust proxy misconfiguration, child_process/eval injection, template engine SSTI …
+sources: hackerone_public, snyk_research, portswigger_research
+report_count: 24
 ---
-
 
 # HUNT-NODEJS — Node.js Specific Vulnerabilities
 

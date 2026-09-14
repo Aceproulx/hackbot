@@ -1,8 +1,9 @@
 ---
 name: hunt-nextjs
-description: "Hunt Next.js specific vulnerabilities — Server Actions arbitrary function execution, Middleware auth bypass via static asset paths, ISR cache poisoning, Image Optimization SSRF …"
+description: Hunt Next.js specific vulnerabilities — Server Actions arbitrary function execution, Middleware auth bypass via static asset paths, ISR cache poisoning, Image Optimization SSRF …
+sources: "cve_database (CVE-2024-34351 / GHSA-fr5h-rqp8-mj6g), Next.js advisories"
+report_count: 0
 ---
-
 
 # HUNT-NEXTJS — Next.js / SSR Framework Vulnerabilities
 

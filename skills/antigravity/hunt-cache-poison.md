@@ -1,8 +1,9 @@
 ---
 name: hunt-cache-poison
-description: "Hunting skill for cache poison vulnerabilities. …"
+description: Hunting skill for cache poison vulnerabilities. …
+sources: github, hackerone_public, portswigger_research, omergil_research, youstin_research
+report_count: 8
 ---
-
 
 ## Crown Jewel Targets
 

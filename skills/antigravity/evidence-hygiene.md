@@ -1,8 +1,8 @@
 ---
 name: evidence-hygiene
-description: "Evidence-capture and PoC-redaction discipline for bug-bounty submissions: cookie redaction protocol (which fields to mask, Preview annotation / Burp panel hiding / DevTools workflow), PII …"
+description: Evidence-capture and PoC-redaction discipline for bug-bounty submissions: cookie redaction protocol (which fields to mask, Preview annotation / Burp panel hiding / DevTools workflow), PII …
+sources: community, operator_experience
 ---
-
 
 # EVIDENCE HYGIENE — PoC Capture & Redaction Discipline
 

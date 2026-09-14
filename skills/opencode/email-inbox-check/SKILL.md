@@ -40,7 +40,7 @@ thread) and never `headers`.
   context burn this skill exists to prevent.
 
 ## Address Generation — For Test Account Registration
-Base address: `{{EMAIL_BASE}}@{{EMAIL_DOMAIN}}`. Both `+` and `-` are valid separators
+Base address: `{{INTIGRITI_USERNAME}}@{{EMAIL_DOMAIN}}`. Both `+` and `-` are valid separators
 — anything appended after either lands in the same inbox:
 - `{{EMAIL_BASE}}+<tag>@{{EMAIL_DOMAIN}}`
 - `{{EMAIL_BASE}}-<tag>@{{EMAIL_DOMAIN}}`
@@ -142,7 +142,7 @@ Unknown slug → `composio search "<use case>"`, then check inputs with
 All `{{EMAIL_BASE}}+<tag>@{{EMAIL_DOMAIN}}` mail forwards into this Gmail too — same
 messages as the AgentMail inbox, so every flow above (tagged test-account
 registrations, OTP extraction, per-target triage) works unchanged as a
-fallback. Filter by tag (`to:{{EMAIL_DOMAIN}}` is precise; bare `to:{{EMAIL_BASE}}`
+fallback. Filter by tag (`to:{{EMAIL_DOMAIN}}` is precise; bare `to:{{INTIGRITI_USERNAME}}`
 over-matches GitHub notifications):
 ```bash
 composio execute GMAIL_FETCH_EMAILS \

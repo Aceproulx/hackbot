@@ -1,8 +1,9 @@
 ---
 name: hunt-ssti
-description: "Hunt server-side template injection (SSTI) across Jinja2 (Flask/Django), Twig (Symfony), Freemarker (Java), ERB (Rails), Spring, Velocity, Mako, Thymeleaf, Smarty. …"
+description: Hunt server-side template injection (SSTI) across Jinja2 (Flask/Django), Twig (Symfony), Freemarker (Java), ERB (Rails), Spring, Velocity, Mako, Thymeleaf, Smarty. …
+sources: hackerone_public, cve_database, public_research
+report_count: 6
 ---
-
 
 ## Autonomous Testing Priority
 

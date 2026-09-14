@@ -22,7 +22,7 @@ this session is SIGTERM.
 1. Load @web-hacking (or @mobile-hacking if the target is a mobile app). Confirm it loaded — state which skill(s) are active.
 2. Run `agent-browser skills get core --full`. Confirm it returned real content,
    not an error. If it fails, stop and report — do not proceed on stub knowledge.
-3. Check for existing session state at `~/Projects/hunts/sessions/<domain>/`. Load if present,
+3. Check for existing session state at `{{SESSIONS_DIR}}/<domain>/`. Load if present,
    create fresh (userA + userB) if not.
 4. Confirm: operating in AUTONOMOUS MODE, no confirmation needed for anything below.
 
@@ -72,7 +72,7 @@ A CONFIRMED finding that never becomes a submission is a dead finding. When
    ```bash
    hackbot-notify bug "$PROGRAM_HANDLE" "$BUG_TITLE" "$SEVERITY" "$BOUNTY_EST"
    ```
-2. **Evidence pack** → `~/Projects/hunts/sessions/<domain>/evidence/<name>/`:
+2. **Evidence pack** → `{{SESSIONS_DIR}}/<domain>/evidence/<name>/`:
    the Caido request IDs (re-list them from the replay session), raw
    responses, screenshots, and the bug-validator verdict. Keep only raw
    material here — no added narrative.

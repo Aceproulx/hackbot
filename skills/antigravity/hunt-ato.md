@@ -1,8 +1,9 @@
 ---
 name: hunt-ato
-description: "Hunt account takeover taxonomy — 9 distinct paths to ATO, plus chains. …"
+description: Hunt account takeover taxonomy — 9 distinct paths to ATO, plus chains. …
+sources: hackerone_public, public_research
+report_count: 7
 ---
-
 
 ## 13. ATO — ACCOUNT TAKEOVER TAXONOMY
 > 9 distinct paths. ATO is a destination class, not a single bug — each path below is a primitive that becomes Critical only when you demonstrate takeover of a SECOND account (test account B) you do not control, from attacker A's session/IP/device. A path that only locks you out of your own account, or only works when you already hold the victim's password AND session, is not a standalone ATO.

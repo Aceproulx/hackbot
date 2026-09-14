@@ -1,8 +1,9 @@
 ---
 name: hunt-fintech-graphql
-description: "Hunt fintech-specific GraphQL vulnerabilities: money-movement mutations (transfers, redemptions, withdrawals, card top-ups), ledger/balance/portfolio query IDOR, decimal-precision and …"
+description: Hunt fintech-specific GraphQL vulnerabilities: money-movement mutations (transfers, redemptions, withdrawals, card top-ups), ledger/balance/portfolio query IDOR, decimal-precision and …
+sources: owasp_api_top10_2023, public_research
+report_count: 0
 ---
-
 
 ## Why Fintech GraphQL Is a Different Risk Class
 

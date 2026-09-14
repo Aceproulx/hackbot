@@ -1,8 +1,9 @@
 ---
 name: hunt-csrf
-description: "Hunting skill for csrf vulnerabilities. Built from 15 public bug bounty reports including modern variants — SameSite=Lax sibling-subdomain bypass (Argo CD CVE-2024-22424), GraphQL …"
+description: Hunting skill for csrf vulnerabilities. Built from 15 public bug bounty reports including modern variants — SameSite=Lax sibling-subdomain bypass (Argo CD CVE-2024-22424), GraphQL …
+sources: github, hackerone_public, bugcrowd_public, github_security_advisories
+report_count: 18
 ---
-
 
 ## Shortcut: a raw HTTP client beats a real cross-origin page for header-check CSRF
 

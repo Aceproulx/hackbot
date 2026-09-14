@@ -1,8 +1,9 @@
 ---
 name: hunt-llm-ai
-description: "Hunt LLM/AI feature bugs — prompt injection, indirect injection, exfiltration via tool-use/markdown, ASCII smuggling, agentic AI security (OWASP Agentic Apps 2026, ASI01-ASI10). …"
+description: Hunt LLM/AI feature bugs — prompt injection, indirect injection, exfiltration via tool-use/markdown, ASCII smuggling, agentic AI security (OWASP Agentic Apps 2026, ASI01-ASI10). …
+sources: owasp_genai_2025_2026, portswigger_research, embracethered_research, hackerone_public
+report_count: 0
 ---
-
 
 ## 11. LLM / AI FEATURES
 

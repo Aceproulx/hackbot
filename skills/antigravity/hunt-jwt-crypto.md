@@ -1,8 +1,9 @@
 ---
 name: hunt-jwt-crypto
-description: "Hunt JWT cryptographic failures — alg:none signature-stripping and RS256→HS256 key-confusion that let an attacker forge a token for any identity (e.g. …"
+description: Hunt JWT cryptographic failures — alg:none signature-stripping and RS256→HS256 key-confusion that let an attacker forge a token for any identity (e.g. …
+report_count: 6
+sources: hackerone_public
 ---
-
 
 # HUNT-JWT-CRYPTO — Forgeable JSON Web Tokens (A04 Cryptographic Failures)
 

@@ -1,8 +1,9 @@
 ---
 name: hunt-file-upload
-description: "Hunt file upload bugs — RCE via webshell, XSS via SVG/HTML, SSRF via XXE in DOCX, path traversal via filename. …"
+description: Hunt file upload bugs — RCE via webshell, XSS via SVG/HTML, SSRF via XXE in DOCX, path traversal via filename. …
+sources: hackerone_public, cve_database, owasp, public_research
+report_count: 5
 ---
-
 
 ## 9. FILE UPLOAD
 

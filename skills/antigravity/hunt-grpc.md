@@ -1,8 +1,9 @@
 ---
 name: hunt-grpc
-description: "Hunt gRPC vulnerabilities — server reflection enabled (enumerate all services/methods), missing authentication / metadata-stripping on internal endpoints, plaintext gRPC over HTTP/2, …"
+description: Hunt gRPC vulnerabilities — server reflection enabled (enumerate all services/methods), missing authentication / metadata-stripping on internal endpoints, plaintext gRPC over HTTP/2, …
+sources: hackerone_public, grpc_security_research, cert_cc_advisory
+report_count: 6
 ---
-
 
 # HUNT-GRPC — gRPC Security
 

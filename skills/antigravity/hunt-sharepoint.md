@@ -1,8 +1,9 @@
 ---
 name: hunt-sharepoint
-description: "Hunt Microsoft SharePoint Server (2013/2016/2019/Subscription Edition) on-prem farms — anonymous endpoint enumeration, version disclosure, legacy SOAP login bypass (Authentication.asmx), …"
+description: Hunt Microsoft SharePoint Server (2013/2016/2019/Subscription Edition) on-prem farms — anonymous endpoint enumeration, version disclosure, legacy SOAP login bypass (Authentication.asmx), …
+sources: github, authorized-engagement
+report_count: 1
 ---
-
 
 ## Crown Jewel Targets
 

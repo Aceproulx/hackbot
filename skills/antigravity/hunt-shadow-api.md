@@ -1,8 +1,9 @@
 ---
 name: hunt-shadow-api
-description: "Hunt shadow / zombie / undocumented API surface (OWASP API9 Improper Inventory Management) — enumerate the full API version history (v1/v2/beta/legacy paths, header- and subdomain-based …"
+description: Hunt shadow / zombie / undocumented API surface (OWASP API9 Improper Inventory Management) — enumerate the full API version history (v1/v2/beta/legacy paths, header- and subdomain-based …
+sources: owasp_api_top10_2023, portswigger_research, public_research
+report_count: 0
 ---
-
 
 ## OWASP API9 — Improper Inventory Management (Shadow / Zombie APIs)
 

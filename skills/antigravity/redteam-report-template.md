@@ -1,8 +1,9 @@
 ---
 name: redteam-report-template
-description: "Client-facing red-team deliverable format — codifies the Subject / Observations / Description / Impact / Recommendation / PoC structure used for external red-team engagements (not …"
+description: Client-facing red-team deliverable format — codifies the Subject / Observations / Description / Impact / Recommendation / PoC structure used for external red-team engagements (not …
+sources: authorized-engagement-deliverable, enterprise-redteam-report-conventions
+report_count: 1
 ---
-
 
 ## When to use
 

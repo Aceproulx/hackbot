@@ -1,8 +1,7 @@
 ---
 name: objection
-description: "Use when running Objection for Android app pentesting with Frida. Covers connect, hooking, SSL pinning bypass, FLAG_SECURE bypass, memory/sqlite/keystore operations, and custom Frida scripts via the patched Aceproulx/objection fork. Tested Android 14, Frida gadget 17.16.2."
+description: Use when running Objection for Android app pentesting with Frida. Covers connect, hooking, SSL pinning bypass, FLAG_SECURE bypass, memory/sqlite/keystore operations, and custom Frida scripts via the patched Aceproulx/objection fork. Tested Android 14, Frida gadget 17.16.2.
 ---
-
 
 # Objection — HackTricks Command Reference (Aceproulx fork)
 

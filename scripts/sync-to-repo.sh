@@ -42,7 +42,15 @@ desubstitute() {
   # corrupt the file by matching every empty string).
   [[ -n "$TELEGRAM_TOKEN" ]]   && CMD+=(-e "s|${TELEGRAM_TOKEN}|{{TELEGRAM_BOT_TOKEN}}|g")
   [[ -n "$TELEGRAM_CHAT" ]]    && CMD+=(-e "s|${TELEGRAM_CHAT}|{{TELEGRAM_CHAT_ID}}|g")
-  [[ -n "$BLIND_XSS_URL" ]]    && CMD+=(-e "s|${BLIND_XSS_URL}|{{BLIND_XSS_URL}}|g")
+  # Blind XSS URL can appear in three forms in live files (with scheme,
+  # protocol-relative, or bare host/path). NOSCHEME is derived from the
+  # configured URL so all three scrub down to a single {{BLIND_XSS_URL}}.
+  if [[ -n "$BLIND_XSS_URL" ]]; then
+    local NOSCHEME="${BLIND_XSS_URL#*://}"
+    CMD+=(-e "s|${BLIND_XSS_URL}|{{BLIND_XSS_URL}}|g")
+    CMD+=(-e "s|//${NOSCHEME}|{{BLIND_XSS_URL}}|g")
+    CMD+=(-e "s|${NOSCHEME}|{{BLIND_XSS_URL}}|g")
+  fi
   [[ -n "$EMAIL_BASE" ]]       && CMD+=(-e "s|${EMAIL_BASE}+|{{EMAIL_BASE}}+|g")
   [[ -n "$EMAIL_BASE" ]]       && CMD+=(-e "s|${EMAIL_BASE}-|{{EMAIL_BASE}}-|g")
   [[ -n "$EMAIL_DOMAIN" ]]     && CMD+=(-e "s|@${EMAIL_DOMAIN}|@{{EMAIL_DOMAIN}}|g")
@@ -126,6 +134,7 @@ sync_scripts() {
     DST="$DST_DIR/$(basename "$SRC")"
     cp "$SRC" "$DST"
     desubstitute "$DST"
+    chmod +x "$DST"
     ok "synced scripts/$(basename "$SRC")"
   done
 }

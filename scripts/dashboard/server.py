@@ -33,16 +33,22 @@ class Handler(BaseHTTPRequestHandler):
         from urllib.parse import parse_qs
         qs = parse_qs(qraw)
         try:
-            data = route(path, qs)
+            res = route(path, qs)
         except Exception as e:
-            data = (f'<!doctype html><html><body style="font-family:monospace;padding:30px"><h2>Dashboard error</h2>'
+            res = (f'<!doctype html><html><body style="font-family:monospace;padding:30px"><h2>Dashboard error</h2>'
                     f'<pre>{esc(e.__class__.__name__)}: {esc(e)}</pre></body></html>').encode()
-        if path.startswith("/api/"):
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+        status = 200
+        ctype = "application/json" if path.startswith("/api/") else "text/html; charset=utf-8"
+        if isinstance(res, tuple):
+            data = res[0]
+            if len(res) > 1 and res[1] is not None:
+                status = res[1]
+            if len(res) > 2 and res[2] is not None:
+                ctype = res[2]
         else:
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            data = res
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

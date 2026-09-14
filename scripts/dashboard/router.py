@@ -47,6 +47,7 @@ from .state import get_run_dirs
 from .state import get_session_dirs
 from .state import get_workers
 from .state import hunt_stats
+from .helpers import decorate_curls
 from .helpers import render_markdown
 from .state import mark_report_read
 from .layout import hero
@@ -81,6 +82,26 @@ from .layout import need_attention
 TEXT_EXTS = {".md", ".markdown", ".txt", ".log", ".json", ".req", ".http", ".py", ".sh", ".yaml", ".yml",
              ".toml", ".csv", ".ts", ".js", ".html", ".htm", ".xml", ".graphql", ".gql", ".conf",
              ".ini", ".env", ".j2", ".crt", ".pem", ".sql", ".css", ".scss"}
+
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp", ".avif"}
+
+MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".bmp": "image/bmp",
+    ".avif": "image/avif",
+    ".pdf": "application/pdf",
+    ".json": "application/json",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".har": "application/json",
+}
 
 
 def looks_text(path):
@@ -206,8 +227,8 @@ function closePanel(){var p=document.getElementById('evpanel');if(p)p.classList.
 function toPanel(){setEvidenceMode('panel');closeEvidence();openEvidence();}
 function toPopup(){setEvidenceMode('popup');closePanel();openEvidence();}
 function evShowPacks(id){var el=document.getElementById(id);var h=EV_PACKS.map(function(p){return '<div class="ev-pack"><button class="ev-open" onclick="evShowPack(\\''+id+'\\',EV_SAFE,\\''+p.nq+'\\')"><span class="pkg">'+escapeHtml(p.name)+'</span><span class="meta">'+p.count+' '+(p.count===1?'item':'items')+' · '+escapeHtml(p.age)+'</span></button><a class="ev-pg" href="'+p.url+'" title="Open full page">↗</a></div>';}).join('');el.innerHTML='<div class="ev-subhead"><b>Evidence packs</b><span class="sp"></span><span class="muted small">'+EV_PACKS.length+'</span></div>'+h;}
-function evShowPack(id,safe,pack){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evpack/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+'</div>';return;}var rows=d.files.map(function(f){if(f.bin){return '<div class="ev-file"><span class="nm">'+escapeHtml(f.name)+'</span><span class="sz tag">binary · '+f.hsize+'</span></div>';}return '<button class="ev-file" onclick="evShowFile(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\',\\''+f.rq+'\\')"><span class="nm">'+escapeHtml(f.name)+'</span><span class="sz">'+f.hsize+' · '+escapeHtml(f.age)+'</span></button>';}).join('');el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPacks(\\''+id+'\\')">'+EV_BACK+' All packs</button><b>'+escapeHtml(pack)+'</b></div>'+rows;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
-function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evfile/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)+'/'+rel.split('/').map(encodeURIComponent).join('/')).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+(d.url?' <a href="'+d.url+'">open full page ↗</a>':'')+'</div>';return;}var c=d.kind==='md'?d.html:'<pre class="ev-body">'+escapeHtml(d.text)+'</pre>';el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPack(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\')">'+EV_BACK+' '+escapeHtml(pack)+'</button><b>'+escapeHtml(d.name)+'</b></div>'+c;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
+function evShowPack(id,safe,pack){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evpack/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+'</div>';return;}var rows=d.files.map(function(f){if(f.bin){return '<div class="ev-file"><span class="nm">'+escapeHtml(f.name)+'</span><span class="sz tag">binary · '+f.hsize+'</span></div>';}var tag=f.img?'<span class="sz tag img">image · '+f.hsize+'</span>':'<span class="sz">'+f.hsize+' · '+escapeHtml(f.age)+'</span>';return '<button class="ev-file" onclick="evShowFile(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\',\\''+f.rq+'\\')"><span class="nm">'+escapeHtml(f.name)+'</span>'+tag+'</button>';}).join('');el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPacks(\\''+id+'\\')">'+EV_BACK+' All packs</button><b>'+escapeHtml(pack)+'</b></div>'+rows;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
+function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evfile/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)+'/'+rel.split('/').map(encodeURIComponent).join('/')).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+(d.url?' <a href="'+d.url+'" target="_blank">open raw file ↗</a>':'')+'</div>';return;}var c='';if(d.kind==='image'){c='<div class="ev-img-wrap"><div class="ev-img-bar"><span class="sz tag img">image · '+escapeHtml(d.hsize)+'</span><span class="sp"></span><a class="btn ghost small" href="'+d.url+'" target="_blank">Open original ↗</a></div><div class="ev-img-box"><a href="'+d.url+'" target="_blank" title="Click to open original in new tab"><img class="ev-img" src="'+d.url+'" alt="'+escapeHtml(d.name)+'"></a></div></div>';}else{c=d.kind==='cv'?d.html:(d.kind==='md'?d.html:'<pre class="ev-body">'+escapeHtml(d.text)+'</pre>');}el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPack(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\')">'+EV_BACK+' '+escapeHtml(pack)+'</button><b>'+escapeHtml(d.name)+'</b></div>'+c;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
 """
             ev_js = (ev_js_tpl
                      .replace("__SAFE__", json.dumps(safe))
@@ -216,27 +237,96 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
             body = f'<div class="breadcrumb">Hunt / Reports / <b>{esc(fname)}</b></div>'
             body += (f'<div class="card"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
 f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
-                     f'<div class="bd md">{render_markdown(read_file(rp))}</div></div>')
+                     f'<div class="bd md">{decorate_curls(render_markdown(read_file(rp)))}</div></div>')
             body += ev_ui
-            return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn),
-                        body, scripts=ev_js).encode()
+            cv_toggle = (
+                f'<button class="cv-toggle" id="cv-toggle" onclick="cvToggle()" '
+                f'title="Curl verify: toggle curl runner" '
+                f'aria-label="Curl verify">{icon("terminal", 20)}</button>'
+            )
+            cv_js = (
+                "function cvCookie(){var m=document.cookie.match(/(?:^|; )curlverify=([^;]+)/);return m?m[1]:'off';}\n"
+                "function cvApply(){var on=cvCookie()==='on';document.body.classList.toggle('cv-on',on);var t=document.getElementById('cv-toggle');if(t){t.classList.toggle('on',on);}}\n"
+                "function cvToggle(){document.cookie='curlverify='+(cvCookie()==='on'?'off':'on')+';max-age=31536000;path=/';cvApply();}\n"
+                "function cvEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');}\n"
+                "function cvRun(btn){var u=atob(btn.getAttribute('data-curl'));var k=btn.getAttribute('data-k')||'curl';var ep='api/'+(k==='raw'?'rawverify':'curlverify');var wrap=btn.closest('.cv-wrap');var out=wrap.querySelector('.cv-out');\n"
+                "btn.disabled=true;btn.classList.add('run');var tri=btn.querySelector('.tri');var old=tri?tri.textContent:'';if(tri){tri.textContent='…';}\n"
+                "out.hidden=false;out.innerHTML='<div class=\"cv-st ok\">running…</div>';\n"
+                "var bodyObj=(k==='raw')?{raw:u}:{cmd:u};\n"
+                "fetch('/'+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(bodyObj)})\n"
+                ".then(function(r){return r.json().catch(function(){return {ok:false,reason:'bad response'};});})\n"
+                ".then(function(d){btn.disabled=false;if(tri){tri.textContent=old;}btn.classList.remove('run');\n"
+                "if(!d.ok){btn.classList.add('bad');out.innerHTML='<div class=\"cv-st bad\">'+cvEsc(d.reason||'failed')+'</div>'+((d.out)?'<pre>'+cvEsc(d.out)+'</pre>':'');return;}\n"
+                "var head='';if(d.code){head+='HTTP '+cvEsc(d.code)+' · ';}head+=d.ms+'ms · exit '+d.exit;\n"
+                "var cls=(d.code && d.code.charAt(0)==='5')?'bad':((d.code && d.code.charAt(0)==='4')?'warn':'ok');\n"
+                "btn.classList.add(cls==='bad'?'bad':'ok');\n"
+                "out.innerHTML='<div class=\"cv-st '+cls+'\">'+head+'</div><pre>'+cvEsc(d.out)+'</pre>';})\n"
+                ".catch(function(e){btn.disabled=false;if(tri){tri.textContent=old;}btn.classList.remove('run');out.hidden=false;out.innerHTML='<div class=\"cv-st bad\">request failed: '+cvEsc(e)+'</div>';});}\n"
+                "cvApply();")
+            return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn + cv_toggle),
+                        body, scripts=ev_js + cv_js).encode()
         return b"404 report not found"
 
     if p[0] == "evidence":
         safe = os.path.basename(os.path.normpath(p[1])) if len(p) > 1 else ""
-        ep = os.path.join(SESSIONS_ROOT, safe, "evidence")
-        if not os.path.isdir(ep):
-            ep = os.path.join(HUNTS_ROOT, safe, "evidence")
-        if os.path.isdir(ep):
-            rows = ""
-            for f in sorted(os.listdir(ep)):
-                fp = os.path.join(ep, f)
-                rows += f'<tr><td>{icon("archive", 16)}</td><td class="mono">{esc(f)}</td><td class="num">{count_files(fp) if os.path.isdir(fp) else 1}</td><td>{age(fp)}</td></tr>'
-            body = (f'<div class="card"><div class="hd">Evidence · {esc(safe)} <span class="sp"></span>'
-                    f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
-                    f'<table><thead><tr><th></th><th>PACK</th><th class="num">ITEMS</th><th>UPDATED</th></tr></thead>'
-                    f'<tbody>{rows}</tbody></table></div>')
-            return page("report", hero("Evidence", f"Replay packs for {esc(safe)}", back=f"/hunts?name={esc(safe)}"), body).encode()
+        ep = _evidence_root(safe)
+        if not ep or not os.path.isdir(ep):
+            return b"404 evidence not found"
+        if len(p) >= 3 and p[2]:
+            pack = os.path.basename(os.path.normpath(urllib.parse.unquote(p[2])))
+            pd = os.path.join(ep, pack)
+            if not os.path.isdir(pd):
+                return b"404 evidence pack not found"
+            files_html = []
+            for root, _dirs, fns in os.walk(pd):
+                for fn in sorted(fns):
+                    fp = os.path.join(root, fn)
+                    rp = os.path.relpath(fp, pd)
+                    sz = os.path.getsize(fp)
+                    ext = os.path.splitext(rp)[1].lower()
+                    raw_url = f"/api/evraw/{urllib.parse.quote(safe)}/{urllib.parse.quote(pack)}/{'/'.join(urllib.parse.quote(x) for x in rp.split(os.sep))}"
+                    if ext in IMAGE_EXTS:
+                        files_html.append(
+                            f'<div class="card" style="margin-bottom:14px"><div class="hd">{icon("eye", 15)} {esc(rp)} '
+                            f'<span class="sp"></span><span class="sz tag img">image · {fmt_size(sz)}</span> '
+                            f'<a class="btn ghost small" href="{raw_url}" target="_blank">Open original ↗</a></div>'
+                            f'<div class="bd" style="text-align:center;background:#181b22;padding:14px;border-radius:0 0 10px 10px">'
+                            f'<a href="{raw_url}" target="_blank"><img class="ev-img" src="{raw_url}" alt="{esc(rp)}" style="display:inline-block"></a>'
+                            f'</div></div>'
+                        )
+                    elif looks_text(fp):
+                        content = read_file(fp)
+                        if len(content) > 100000:
+                            content = content[:100000] + "\n…(truncated)…"
+                        rendered = render_markdown(content) if ext in (".md", ".markdown") else f'<pre class="ev-body">{esc(content)}</pre>'
+                        files_html.append(
+                            f'<div class="card" style="margin-bottom:14px"><div class="hd">{icon("file-text", 15)} {esc(rp)} '
+                            f'<span class="sp"></span><span class="sz tag">{fmt_size(sz)}</span> '
+                            f'<a class="btn ghost small" href="{raw_url}" target="_blank">Raw ↗</a></div>'
+                            f'<div class="bd">{rendered}</div></div>'
+                        )
+                    else:
+                        files_html.append(
+                            f'<div class="card" style="margin-bottom:14px"><div class="hd">{icon("archive", 15)} {esc(rp)} '
+                            f'<span class="sp"></span><span class="sz tag">binary · {fmt_size(sz)}</span> '
+                            f'<a class="btn ghost small" href="{raw_url}" target="_blank">Raw ↗</a></div></div>'
+                        )
+            body = (f'<div class="breadcrumb">Hunt / <a href="/evidence/{esc(safe)}">Evidence</a> / <b>{esc(pack)}</b></div>'
+                    f'<div class="card" style="margin-bottom:14px"><div class="hd">Pack: {esc(pack)} <span class="sp"></span>'
+                    f'<a class="btn ghost small" href="/evidence/{esc(safe)}">{icon("arrow-left", 13)} All packs</a></div></div>'
+                    + "".join(files_html))
+            return page("report", hero("Evidence", f"Pack {esc(pack)} for {esc(safe)}", back=f"/evidence/{esc(safe)}"), body).encode()
+
+        rows = ""
+        for f in sorted(os.listdir(ep)):
+            fp = os.path.join(ep, f)
+            pack_url = f"/evidence/{safe}/{urllib.parse.quote(f)}"
+            rows += f'<tr><td>{icon("archive", 16)}</td><td class="mono"><a href="{pack_url}">{esc(f)}</a></td><td class="num">{count_files(fp) if os.path.isdir(fp) else 1}</td><td>{age(fp)}</td></tr>'
+        body = (f'<div class="card"><div class="hd">Evidence · {esc(safe)} <span class="sp"></span>'
+                f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
+                f'<table><thead><tr><th></th><th>PACK</th><th class="num">ITEMS</th><th>UPDATED</th></tr></thead>'
+                f'<tbody>{rows}</tbody></table></div>')
+        return page("report", hero("Evidence", f"Replay packs for {esc(safe)}", back=f"/hunts?name={esc(safe)}"), body).encode()
         return b"404 evidence not found"
 
     if p[0] == "console":
@@ -259,13 +349,23 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
                         fp = os.path.join(root, fn)
                         rp = os.path.relpath(fp, pd)
                         sz = os.path.getsize(fp)
-                        out.append({"name": rp, "rel": rp, "rq": rp.replace("'", "\\'"),
-                                    "size": sz, "hsize": fmt_size(sz), "age": age(fp),
-                                    "bin": not looks_text(fp)})
+                        ext = os.path.splitext(rp)[1].lower()
+                        is_img = ext in IMAGE_EXTS
+                        is_txt = looks_text(fp)
+                        out.append({
+                            "name": rp,
+                            "rel": rp,
+                            "rq": rp.replace("'", "\\'"),
+                            "size": sz,
+                            "hsize": fmt_size(sz),
+                            "age": age(fp),
+                            "img": is_img,
+                            "bin": not (is_img or is_txt),
+                        })
                 out.sort(key=lambda f: f["name"].lower())
                 return json.dumps({"ok": True, "pack": pack, "files": out}).encode()
             return json.dumps({"ok": False, "reason": "evidence pack not found"}).encode()
-        if p[1] == "evfile":
+        if p[1] == "evfile" and len(p) >= 4:
             safe = os.path.basename(os.path.normpath(urllib.parse.unquote(p[2])))
             pack = os.path.basename(os.path.normpath(urllib.parse.unquote(p[3])))
             relparts = [urllib.parse.unquote(x) for x in p[4:]]
@@ -276,20 +376,52 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
             rp = os.path.realpath(os.path.join(pd, *relparts)) if relparts else ""
             if not rp.startswith(pd + os.sep) or not os.path.isfile(rp):
                 return json.dumps({"ok": False, "reason": "file not found"}).encode()
+            ext = os.path.splitext(rp)[1].lower()
+            raw_url = f"/api/evraw/{urllib.parse.quote(safe)}/{urllib.parse.quote(pack)}/{'/'.join(urllib.parse.quote(x) for x in relparts)}"
+            if ext in IMAGE_EXTS:
+                return json.dumps({
+                    "ok": True,
+                    "kind": "image",
+                    "name": os.path.basename(rp),
+                    "url": raw_url,
+                    "hsize": fmt_size(os.path.getsize(rp)),
+                    "ext": ext.lstrip("."),
+                }).encode()
             if not looks_text(rp):
-                return json.dumps({"ok": False, "reason": "binary file — open on the evidence page",
-                                   "url": f"/evidence/{safe}/{urllib.parse.quote(pack)}"}).encode()
+                return json.dumps({"ok": False, "reason": "binary file", "url": raw_url}).encode()
             data = read_file(rp)
             short = ""
             if len(data) > 524288:
                 data = data[:524288]
                 short = "…(truncated at 512 KB)…"
-            ext = os.path.splitext(rp)[1].lower()
             if ext in (".md", ".markdown"):
                 return json.dumps({"ok": True, "kind": "md", "name": os.path.basename(rp),
-                                   "html": render_markdown(data + short)}).encode()
-            return json.dumps({"ok": True, "kind": "text", "name": os.path.basename(rp),
-                               "text": data + short}).encode()
+                                   "html": '<div class="md">' + decorate_curls(render_markdown(data + short)) + '</div>'}).encode()
+            plain = '<pre class="ev-body">' + html.escape(data + short) + "</pre>"
+            decorated = decorate_curls(plain)
+            kind = "cv" if decorated != plain else "text"
+            return json.dumps({"ok": True, "kind": kind, "name": os.path.basename(rp),
+                               "html": decorated if kind == "cv" else None,
+                               "text": data + short if kind == "text" else None}).encode()
+        if p[1] == "evraw" and len(p) >= 4:
+            safe = os.path.basename(os.path.normpath(urllib.parse.unquote(p[2])))
+            pack = os.path.basename(os.path.normpath(urllib.parse.unquote(p[3])))
+            relparts = [urllib.parse.unquote(x) for x in p[4:]]
+            ep = _evidence_root(safe)
+            pd = os.path.realpath(os.path.join(ep, pack)) if ep else ""
+            if not ep or not os.path.isdir(pd):
+                return b"404 evidence pack not found", 404, "text/plain"
+            rp = os.path.realpath(os.path.join(pd, *relparts)) if relparts else ""
+            if not rp.startswith(pd + os.sep) or not os.path.isfile(rp):
+                return b"404 file not found", 404, "text/plain"
+            ext = os.path.splitext(rp)[1].lower()
+            ctype = MIME_TYPES.get(ext, "application/octet-stream")
+            try:
+                with open(rp, "rb") as fh:
+                    raw_data = fh.read()
+                return raw_data, 200, ctype
+            except Exception as e:
+                return f"500 read error: {e}".encode(), 500, "text/plain"
         if p[1] == "findings":
             return json.dumps(get_findings(), default=str).encode()
         if p[1] == "queue":
@@ -369,6 +501,13 @@ def route_post(path, qs, body):
         payload, status = _api_pool_action(body)
         return json.dumps(payload).encode(), status
 
+    if p[:2] == ["api", "curlverify"]:
+        payload, status = _api_curlverify(body)
+        return json.dumps(payload).encode(), status
+    if p[:2] == ["api", "rawverify"]:
+        payload, status = _api_rawverify(body)
+        return json.dumps(payload).encode(), status
+
     return json.dumps({"ok": False, "message": "not found"}).encode(), 404
 
 
@@ -403,6 +542,131 @@ def api_stats():
 def _window_start(range_val, now):
     win = {"24h": 86400, "7d": 7 * 86400, "30d": 30 * 86400}.get(range_val)
     return (now - win) if win else 0
+
+
+def _api_curlverify(body):
+    import tempfile
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "reason": "invalid JSON"}, 400
+    cmd = str(data.get("cmd") or "").strip()
+    if not cmd:
+        return {"ok": False, "reason": "no command"}, 400
+    if len(cmd) > 4000:
+        return {"ok": False, "reason": "command too long"}, 400
+    if not re.match(r"^\s*(?:\$\s*)?curl\b", cmd):
+        return {"ok": False, "reason": "not a curl command"}, 400
+    if re.search(r"[\x00;`$({]|&&|\|\|", cmd):
+        return {"ok": False, "reason": "shell metacharacters not allowed"}, 400
+    normalized = re.sub(r"^\s*(?:\$\s*)?", "", cmd)
+    normalized = re.sub(r"\\\n\s*", " ", normalized)
+    normalized = re.sub(r"\bcurl\b", "curl -sS --max-time 9", normalized, count=1)
+    if "|" not in normalized and not re.search(r"(^|[\s])-[-]?w([\s]|$)", normalized):
+        normalized += ' -w "\n__CV_HTTP__:%{http_code}"'
+    t0 = time.time()
+    td = tempfile.mkdtemp(prefix="cvverify-")
+    try:
+        try:
+            p = subprocess.run(
+                ["bash", "-c", normalized],
+                capture_output=True, timeout=12, cwd=td,
+            )
+            ms = int((time.time() - t0) * 1000)
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "reason": "timed out after 12s"}, 200
+        out = (p.stdout or b"").decode("utf-8", "replace")
+        err = (p.stderr or b"").decode("utf-8", "replace")
+        if err:
+            out = (out + "\n" + err) if out else err
+        code = None
+        m = re.search(r"__CV_HTTP__:(\d+)", out)
+        if m:
+            code = m.group(1)
+            out = out[: m.start()]
+        if len(out) > 8000:
+            out = out[:8000] + "\n…(truncated)"
+        return {"ok": True, "exit": p.returncode, "code": code, "ms": ms, "out": out}, 200
+    finally:
+        shutil.rmtree(td, ignore_errors=True)
+
+
+def _api_rawverify(body):
+    import http.client
+    from urllib.parse import urlparse
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "reason": "invalid JSON"}, 400
+    raw = str(data.get("raw") or "").strip()
+    if not raw:
+        return {"ok": False, "reason": "no request"}, 400
+    if len(raw) > 20000:
+        return {"ok": False, "reason": "request too long"}, 400
+    norm = raw.replace("\r\n", "\n")
+    head, _bsep, body_text = norm.partition("\n\n")
+    lines = head.split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if not lines:
+        return {"ok": False, "reason": "empty request"}, 400
+    m = re.match(r"^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s+(\S+)\s+HTTP/\d(?:\.\d)?$",
+                 lines[0].strip(), re.I)
+    if not m:
+        return {"ok": False, "reason": "not an HTTP request line"}, 400
+    method, target = m.group(1).upper(), m.group(2)
+    headers = {}
+    for ln in lines[1:]:
+        if ":" in ln:
+            k, v = ln.split(":", 1)
+            k, v = k.strip(), v.strip()
+            if k.lower() not in ("content-length", "transfer-encoding", "proxy-connection"):
+                headers.setdefault(k, v)
+    host = None
+    scheme = "https"
+    port = None
+    path = target
+    pu = urlparse(target)
+    if pu.scheme in ("http", "https"):
+        scheme = pu.scheme
+        host = pu.netloc
+        path = (pu.path or "/") + (("?" + pu.query) if pu.query else "")
+    else:
+        for k, v in headers.items():
+            if k.lower() == "host":
+                host = v
+                break
+    if not host:
+        return {"ok": False, "reason": "no Host header or absolute URL"}, 400
+    hostname = host
+    if ":" in host and not host.startswith("["):
+        cand = host.rsplit(":", 1)
+        if cand[1].isdigit():
+            hostname, port = cand[0], int(cand[1])
+    if port is None:
+        port = 80 if scheme == "http" else 443
+    loopback = re.match(r"^(127\.|0\.0\.0\.0|localhost|::1$|\[::1\]$)", hostname)
+    if scheme == "https" and not target.startswith("https://") and (
+            port in (80, 8080, 8081, 3128, 8888) or loopback):
+        scheme = "http" if port != 443 else "https"
+    t0 = time.time()
+    try:
+        cls = http.client.HTTPConnection if scheme == "http" else http.client.HTTPSConnection
+        conn = cls(hostname, port, timeout=9)
+        bb = body_text.encode("utf-8", "replace") if body_text else None
+        conn.request(method, path, body=bb, headers=headers)
+        r = conn.getresponse()
+        data = r.read(20000)
+        ms = int((time.time() - t0) * 1000)
+        resp_headers = "\n".join(f"{k}: {v}" for k, v in r.getheaders()[:16])
+        txt = (data or b"").decode("utf-8", "replace")
+        out = f"{method} {path} → HTTP {r.status} {r.reason}\n{resp_headers}\n\n{txt}"
+        if len(out) > 8000:
+            out = out[:8000] + "\n…(truncated)"
+        return {"ok": True, "exit": 0, "code": str(r.status), "ms": ms, "out": out}, 200
+    except Exception as e:
+        return {"ok": False, "reason": f"{type(e).__name__}: {e}",
+                "ms": int((time.time() - t0) * 1000)}, 200
 
 
 def api_usage(range_val):

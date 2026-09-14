@@ -99,18 +99,18 @@ def v_overview():
     wr = ""
     if workers:
         rows = []
-        for w in workers:
-            rows.append(f'<tr><td style="font-weight:700">{esc(w.get("id",""))}</td>'
-                        f'<td class="mono">{esc(w.get("handle",""))}</td>'
+        for i, w in enumerate(workers, 1):
+            tname, tfull = trunc(w.get("handle", "") or "", 13)
+            rows.append(f'<tr><td style="font-weight:700">{i}</td>'
+                        f'<td class="mono" title="{esc(tfull)}">{esc(tname)}</td>'
                         f'<td>{pill(w.get("status",""))}</td>'
                         f'<td class="num">{w.get("bugs_found",0)}</td>'
                         f'<td>{fmt_time(w.get("started_at"))}</td>'
-                        f'<td class="num">${float(w.get("max_bounty") or 0):,.0f}</td>'
                         f'<td><a class="nw" href="/console?w={esc(w.get("id",""))}">log →</a></td></tr>')
         wr = (f'<div class="card"><div class="hd">Active Workers '
               f'<span class="sp"></span><span class="hint">worker pool · max {MAX_SLOTS} lanes</span></div>'
-              f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS</th>'
-              f'<th>STARTED</th><th class="num">MAX BX</th><th></th></tr></thead>'
+f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS</th>'
+                  f'<th>STARTED</th><th></th></tr></thead>'
               f'<tbody>{"".join(rows)}</tbody></table></div>')
     else:
         wr = (f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("moon", 34)}</div>'

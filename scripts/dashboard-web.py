@@ -595,7 +595,7 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '  </div></div>\n</div>\n'
         '<script>\n'
         'function filterViews(){var q=(document.getElementById(\'globalsearch\')||{}).value||"";q=q.toLowerCase();\n'
-        'document.querySelectorAll(\'[data-filter]\').forEach(function(el){var hay=((el.getAttribute(\'data-search\')||"")+" "+(el.textContent||"")).toLowerCase();el.style.display=hay.indexOf(q)===-1?"none":"";});}\n'
+        'document.querySelectorAll(\'[data-filter]\').forEach(function(el){if(el===sb)return;var hay=((el.getAttribute(\'data-search\')||"")+" "+(el.textContent||"")).toLowerCase();el.style.display=hay.indexOf(q)===-1?"none":"";});}\n'
         'var sb=document.getElementById(\'globalsearch\');\n'
         'if(sb)sb.addEventListener(\'input\',filterViews);\n'
         'function showTab(group,id){document.querySelectorAll(\'[data-tabgroup="\'+group+\'"]\').forEach(function(t){t.style.display=(t.id===id)?"":"none";});document.querySelectorAll(\'[data-tabbtn="\'+group+\'"]\').forEach(function(b){b.classList.toggle(\'active\',b.getAttribute(\'data-target\')===id);});}\n'

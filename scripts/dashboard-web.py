@@ -87,6 +87,148 @@ def read_lines(path, limit=5000):
         return []
 
 
+def read_tail(path, n=300):
+    """Last n lines of a live log (tail semantics for the console view)."""
+    try:
+        with open(path, errors="replace") as fh:
+            lines = fh.read().splitlines()
+        return lines[-n:] if n > 0 else lines
+    except Exception:
+        return []
+
+
+# ── ANSI → HTML ────────────────────────────────────────────────────────────────
+
+_ANSI_C16 = ["#3b4048", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd", "#56b6c2", "#d8dee4",
+             "#5c6370", "#ff6b6b", "#a8e05f", "#ffd866", "#82aaff", "#c792ea", "#73d0ff", "#ffffff"]
+
+
+def _xterm_rgb(n):
+    if n < 16:
+        return _ANSI_C16[n]
+    if n < 232:
+        n -= 16
+        comps = [0, 95, 135, 175, 215, 255]
+        return "#%02x%02x%02x" % (comps[n // 36], comps[(n // 6) % 6], comps[n % 6])
+    v = 8 + (n - 232) * 10
+    return "#%02x%02x%02x" % (v, v, v)
+
+
+def ansi_to_html(s):
+    """Convert ANSI SGR escape sequences to inline-styled HTML; strip other CSI/OSC escapes."""
+    if not s:
+        return ""
+    fg = bg = None
+    bold = italic = underline = False
+    out = []
+    open_span = False
+    pending = ""
+    ptr = 0
+
+    def style_str():
+        st = []
+        if bold:
+            st.append("font-weight:700")
+        if italic:
+            st.append("font-style:italic")
+        if underline:
+            st.append("text-decoration:underline")
+        if fg:
+            st.append("color:" + fg)
+        if bg:
+            st.append("background:" + bg)
+        return ";".join(st)
+
+    def close_span():
+        nonlocal open_span
+        if open_span:
+            out.append("</span>")
+            open_span = False
+
+    def emit_text(text):
+        """Append escaped text under the pending style (lazy span-open)."""
+        nonlocal pending
+        if not text:
+            return
+        if pending:
+            out.append('<span style="%s">' % pending)
+            out.append(html.escape(text))
+            out.append("</span>")
+            pending = ""
+        else:
+            out.append(html.escape(text))
+
+    def apply(params):
+        nonlocal fg, bg, bold, italic, underline
+        if not params:
+            params = [0]
+        i = 0
+        while i < len(params):
+            p = params[i]
+            if p == 0:
+                fg = bg = None
+                bold = italic = underline = False
+            elif p == 1:
+                bold = True
+            elif p == 3:
+                italic = True
+            elif p == 4:
+                underline = True
+            elif p == 22:
+                bold = False
+            elif p == 23:
+                italic = False
+            elif p == 24:
+                underline = False
+            elif 30 <= p <= 37:
+                fg = _ANSI_C16[p - 30]
+            elif 90 <= p <= 97:
+                fg = _ANSI_C16[p - 90 + 8]
+            elif p == 39:
+                fg = None
+            elif 40 <= p <= 47:
+                bg = _ANSI_C16[p - 40]
+            elif 100 <= p <= 107:
+                bg = _ANSI_C16[p - 100 + 8]
+            elif p == 49:
+                bg = None
+            elif p in (38, 48) and i + 1 < len(params) and params[i + 1] == 5 and i + 2 < len(params):
+                col = _xterm_rgb(params[i + 2])
+                i += 2
+                if p == 38:
+                    fg = col
+                else:
+                    bg = col
+            elif p in (38, 48) and i + 1 < len(params) and params[i + 1] == 2 and i + 4 < len(params):
+                col = "#%02x%02x%02x" % (params[i + 2], params[i + 3], params[i + 4])
+                i += 4
+                if p == 38:
+                    fg = col
+                else:
+                    bg = col
+            i += 1
+
+    for m in re.finditer(
+            r"\x1b\[([0-9;]*)m"
+            r"|\x1b\[[0-9;?]*[A-Za-z]"
+            r"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"
+            r"|\x1b[()][A-Za-z0-9]"
+            r"|\x1b.",
+            s):
+        if m.start() > ptr:
+            emit_text(s[ptr:m.start()])
+        ptr = m.end()
+        tok = m.group(0)
+        if tok.startswith("\x1b[") and tok.endswith("m"):
+            apply([int(x) for x in m.group(1).split(";") if x])
+            close_span()
+            pending = style_str() or ""
+    if ptr < len(s):
+        emit_text(s[ptr:])
+    close_span()
+    return "".join(out)
+
+
 def read_file(path):
     try:
         with open(path, errors="replace") as fh:
@@ -254,6 +396,8 @@ ICONS = {
     "bar-chart-2": '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     "sliders": '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
     "terminal": '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+    "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    "play": '<polygon points="6 3 20 12 6 21 6 3"/>',
     "plus": '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
     "arrow-left": '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
     "arrow-right": '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
@@ -429,6 +573,9 @@ th.num{text-align:right}
 .console-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0a0c0f;border-bottom:1px solid #23272d;color:#9aa4b0;font-size:12px}
 .console-bar .title{font-weight:700;color:#e5eaf0;display:flex;align-items:center;gap:8px}
 .console-bar select{background:#16191e;color:#d8dee4;border:1px solid #2c3138;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit}
+.console-bar .btn.ghost{background:#16191e;color:#d8dee4;border-color:#2c3138;box-shadow:none}
+.console-bar .btn.ghost:hover{color:#fff;border-color:#3a414c;background:#1e222a}
+.console-bar .btn.ghost:disabled{opacity:.35;cursor:not-allowed;background:#16191e;color:#555b66}
 
 /* modal + toasts */
 .modal-bg{position:fixed;inset:0;background:rgba(20,12,10,.45);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:9vh}
@@ -1495,7 +1642,8 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
         w = qs.get("w", [""])[0]
         l = qs.get("l", [""])[0]
         d = qs.get("d", [""])[0]
-        return _console_for(l, w, d).encode()
+        lines = int((qs.get("lines", ["300"])[0] or "300") or 300)
+        return _console_for(l, w, d, lines).encode()
 
     if p[0] == "api":
         if p[1] == "findings":
@@ -1509,6 +1657,17 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
             return json.dumps(search_memory(q), default=str).encode()
         if p[1] == "skills":
             return json.dumps(skill_dirs(), default=str).encode()
+        if p[1] == "console":
+            w = qs.get("w", [""])[0]
+            l = qs.get("l", [""])[0]
+            d = qs.get("d", [""])[0]
+            lines = int((qs.get("lines", ["300"])[0] or "300") or 300)
+            sel = _resolve_log(l, w, d)
+            payload = {
+                "mtime": mtime(sel) if sel else 0,
+                "html": ansi_to_html("\n".join(read_tail(sel, lines))) if sel else "(no logs yet)",
+            }
+            return json.dumps(payload).encode()
         return b"{}"
 
     return b"404"
@@ -1551,32 +1710,64 @@ def _resolve_log(lname, wname, desktop):
     return logs[0][1] if logs else None
 
 
-def _console_for(lname, wname, desktop):
-    return v_console_build(_resolve_log(lname, wname, desktop))
+def _console_for(lname, wname, desktop, lines=300):
+    return v_console_build(_resolve_log(lname, wname, desktop), lines)
 
 
-def v_console_build(selected):
+def v_console_build(selected, lines=300):
     logs = _log_index()
     selected = selected or (sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True) or [(None, None)])[0][1]
+    key = ""
+    for k, l in logs:
+        if l == selected:
+            key = k
+            break
     opts = ""
     for k, l in sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True):
         sel = ' selected' if l == selected else ""
         label = k if k.startswith("sessions/") else os.path.basename(l)
         opts += f'<option value="{esc(k)}"{sel}>{esc(label)}</option>'
-    content = esc("\n".join(read_lines(selected, 8000)) if selected else "(no logs yet)")
+    line_opts = ""
+    for n in (100, 300, 1000, 5000):
+        s = ' selected' if n == lines else ""
+        line_opts += f'<option value="{n}"{s}>{n} lines</option>'
+    content = ansi_to_html("\n".join(read_tail(selected, lines))) if selected else "(no logs yet)"
     title = os.path.basename(selected) if selected else "operator console"
-    body = (f'<div class="card"><div class="console-bar"><div class="title">{icon("terminal", 15)} Operator Console Live <span class="hint">'
+    body = (f'<div class="card"><div class="console-bar"><div class="title">{icon("terminal", 15)} Operator Console <span class="hint">'
             f'{esc(PLATFORM)} · worker lanes · max effort</span></div>'
             f'<select onchange="location.href=\'/console?l=\'+encodeURIComponent(this.value)">{opts}</select>'
-            f'<span class="sp" style="flex:1"></span>{pill("ready","READY")}'
+            f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="tail window">{line_opts}</select>'
+            f'<span class="sp" style="flex:1"></span>'
+            f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
+            f'<button class="btn ghost small" id="bpause" onclick="con_pause()">{icon("pause", 13)} Pause</button>'
+            f'<button class="btn ghost small" id="bcont" onclick="con_continue()">{icon("play", 13)} Continue</button>'
             f'<a class="btn ghost small" href="/console">latest</a></div>'
-            f'<pre class="terminal" id="termlog">{content}</pre></div>')
+            f'<pre class="terminal" id="termlog" style="height:72vh;overflow-y:auto">{content}</pre></div>')
+    js = (
+        "<script>"
+        "(function(){"
+        "var pre=document.getElementById('termlog');"
+        "var poll=null,lastM=-1,running=true,pinned=document.getElementById('plock')?false:true;"
+        "function atBottom(){return pre.scrollHeight-pre.scrollTop-pre.clientHeight<48;}"
+        "function pin(){pre.scrollTop=pre.scrollHeight;}"
+        "function paint(){"
+        "fetch('/api/console?l=" + esc(key) + "&lines=" + str(lines) + "').then(function(r){return r.json();}).then(function(d){"
+        "if(d.mtime===lastM)return;lastM=d.mtime;var stay=atBottom();pre.innerHTML=d.html;if(stay)pin();"
+        "}).catch(function(){});}"
+        "function setState(on){running=on;document.getElementById('bpause').disabled=!on;document.getElementById('bcont').disabled=on;"
+        "document.getElementById('pstatus').innerHTML=on?" + json.dumps(pill("ready", "LIVE")) + ":" + json.dumps(pill("amber", "PAUSED")) + ";}"
+        "window.con_pause=function(){if(!running)return;if(poll){clearInterval(poll);poll=null;}setState(false);};"
+        "window.con_continue=function(){if(running)return;setState(true);paint();poll=setInterval(paint,2000);};"
+        "paint();poll=setInterval(paint,2000);"
+        "})();"
+        "</script>"
+    )
     return (f'<!doctype html><html><head><meta charset="utf-8"><title>Console · Hackbot</title>'
-            f'<meta http-equiv="refresh" content="10"><style>{CSS}</style></head><body>'
+            f'<style>{CSS}</style></head><body>'
             f'<div class="topbar" style="background:#0f1216;border-color:#23272d"><div style="color:#e5eaf0;font-weight:800;letter-spacing:.1em">'
             f'CONSOLE</div><span class="sp" style="flex:1"></span>'
             f'<a class="btn ghost small" href="/v/overview">{icon("arrow-left", 13)} Dashboard</a></div>'
-            f'<div style="padding:20px 26px 60px">{body}</div></body></html>')
+            f'<div style="padding:20px 26px 60px">{body}</div>{js}</body></html>')
 
 
 class Handler(BaseHTTPRequestHandler):

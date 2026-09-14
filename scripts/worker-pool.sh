@@ -128,7 +128,18 @@ PROMPT
   # Detect AI tool (prefer opencode, fall back to agy)
   local AI_CMD
   if command -v opencode &>/dev/null; then
-    AI_CMD="opencode --agent hunter --no-input < '${PROMPT_FILE}' 2>&1 | tee '${WORKER_LOG}'"
+    # Run non-interactively via `opencode run`. The prompt is read at runtime
+    # ($(cat ...) output inside double quotes is never re-expanded), the hunt
+    # dir is chdir'd into, and output is teed to the worker log. A runner
+    # script avoids tmux/shell quoting issues with the multi-line prompt.
+    local RUNNER="$POOL_DIR/${WORKER_ID}.sh"
+    cat > "$RUNNER" << EOF
+#!/usr/bin/env bash
+cd '${HUNT_DIR}'
+exec opencode run --agent hunter "\$(cat '${PROMPT_FILE}')" 2>&1 | tee '${WORKER_LOG}'
+EOF
+    chmod +x "$RUNNER"
+    AI_CMD="bash '${RUNNER}'"
   elif command -v agy &>/dev/null; then
     AI_CMD="agy --no-input < '${PROMPT_FILE}' 2>&1 | tee '${WORKER_LOG}'"
   else

@@ -554,8 +554,8 @@ def topbar(active_q=None):
 </div>"""
 
 
-def hero(title, sub=None, back=None, crown=None):
-    t = f'<h1>{esc(title)}</h1>'
+def hero(title, sub=None, back=None, crown=None, raw=False):
+    t = f'<h1>{title if raw else esc(title)}</h1>'
     s = f'<div class="sub">{esc(sub)}</div>' if sub else ""
     bl = (f'<a class="back" href="{back}">{icon("arrow-left", 14)} Back</a>' if back else "")
     cr = crown or ""
@@ -759,8 +759,9 @@ def hunt_detail(name):
     # session dirs live under sessions/<domain>
     if not os.path.exists(hpath) and os.path.isdir(os.path.join(SESSIONS_ROOT, safe)):
         hpath = os.path.join(SESSIONS_ROOT, safe)
-        h = get_reading(hpath)
-        handle = h["name"]
+    h = get_reading(hpath)
+    h["kind"] = "RUN" if os.path.realpath(hpath).startswith(os.path.realpath(HUNTS_ROOT)) else "SESSION"
+    handle = h["name"]
     return h
 
 
@@ -814,6 +815,7 @@ def v_hunt(name):
     if not hpath:
         return None
     h = get_reading(hpath)
+    h["kind"] = "RUN" if os.path.realpath(hpath).startswith(os.path.realpath(HUNTS_ROOT)) else "SESSION"
     handle = h["name"]
     worker = workers_by_handle().get(handle)
     qitem = next((t for t in get_queue() if t.get("handle") == handle), None)
@@ -915,8 +917,8 @@ def v_hunt(name):
     body = f'<div class="breadcrumb">Workspace / Hunts / <b>{esc(target)}</b></div>'
     body += f'<div class="tabs">{tb}</div>{panels}'
     hp = hero(f"<span class='mono'>{esc(target)}</span>",
-              sub=f"{esc(h['kind'])} · {os.path.basename(hpath)} · evidence {len(h['evidence'])} · reports {len(h['reports'])} · threads in operator console",
-              back="/v/hunts")
+              sub=f"{esc(h['kind'])} · {esc(os.path.basename(hpath))} · evidence {len(h['evidence'])} · reports {len(h['reports'])} · threads in operator console",
+              back="/v/hunts", raw=True)
     return page("hunt", hp, body)
 
 
@@ -1013,12 +1015,10 @@ def v_topology():
     nodes = []
     for w in workers:
         mk = "running"
-        nodes.append(('<div class="card narrow filter-item" data-filter="filter-item" data-search="%s worker">'
-                      '<div class="hd">Worker {}</div><div class="bd">'
-                      '<div class="statline">slot %s · %s · $%,.0f max</div>'
-                      '<a class="btn ghost small" style="margin-top:10px" href="/console?w=%s">Console →</a></div></div>'
-                      % (esc(w.get("handle","")), w.get("slot", "?"),
-                         pill(w.get("status", ""), ""), float(w.get("max_bounty") or 0), esc(w.get("id","")))))
+        nodes.append(f'<div class="card narrow filter-item" data-filter="filter-item" data-search="{esc(w.get("handle",""))} worker">'
+                      f'<div class="hd">Worker {w.get("slot","?")}</div><div class="bd">'
+                      f'<div class="statline">{pill(w.get("status",""),"")} · ${float(w.get("max_bounty") or 0):,.0f} max</div>'
+                      f'<a class="btn ghost small" style="margin-top:10px" href="/console?w={esc(w.get("id",""))}">Console →</a></div></div>')
     for r in runs:
         prog = r["handle"]
         w_active = prog in workers_by_handle() and workers_by_handle()[prog].get("status") == "running"
@@ -1514,55 +1514,55 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
     return b"404"
 
 
-def _console_for(lname, wname, desktop):
+def _log_index():
+    """Return list of (unique_rel_key, abspath) for every console log."""
     logs = []
     pool_logdir = os.path.join(MISC, "worker-pool")
     if os.path.isdir(pool_logdir):
         for f in sorted(os.listdir(pool_logdir)):
             if f.endswith(".log"):
-                logs.append(os.path.join(pool_logdir, f))
+                logs.append((os.path.join("worker-pool", f), os.path.join(pool_logdir, f)))
     if os.path.isdir(SESSIONS_ROOT):
         for d in sorted(os.listdir(SESSIONS_ROOT)):
             p = os.path.join(SESSIONS_ROOT, d, "session.log")
             if os.path.isfile(p):
-                logs.append(p)
-    selected = None
+                logs.append((os.path.join("sessions", d, "session.log"), p))
+    return logs
+
+
+def _resolve_log(lname, wname, desktop):
+    logs = _log_index()
+    by_key = dict(logs)
     if lname:
-        for l in logs:
-            if os.path.basename(l) == lname:
-                selected = l
-                break
-    if not selected and wname:
-        p0 = os.path.join(pool_logdir, wname + ".log")
+        if lname in by_key:
+            return by_key[lname]
+        hits = [p for k, p in logs if os.path.basename(k) == lname]
+        if len(hits) == 1:
+            return hits[0]
+    if wname:
+        p0 = os.path.join(MISC, "worker-pool", wname + ".log")
         if os.path.isfile(p0):
-            selected = p0
-    if not selected and desktop:
+            return p0
+    if desktop:
         p0 = os.path.join(SESSIONS_ROOT, desktop, "session.log")
         if os.path.isfile(p0):
-            selected = p0
-    if not selected:
-        logs.sort(key=mtime, reverse=True)
-        selected = logs[0] if logs else None
-    return v_console_build(selected)
+            return p0
+    logs.sort(key=lambda kv: mtime(kv[1]), reverse=True)
+    return logs[0][1] if logs else None
+
+
+def _console_for(lname, wname, desktop):
+    return v_console_build(_resolve_log(lname, wname, desktop))
 
 
 def v_console_build(selected):
-    logs = []
-    pool_logdir = os.path.join(MISC, "worker-pool")
-    if os.path.isdir(pool_logdir):
-        for f in sorted(os.listdir(pool_logdir)):
-            if f.endswith(".log"):
-                logs.append(os.path.join(pool_logdir, f))
-    if os.path.isdir(SESSIONS_ROOT):
-        for d in sorted(os.listdir(SESSIONS_ROOT)):
-            p = os.path.join(SESSIONS_ROOT, d, "session.log")
-            if os.path.isfile(p):
-                logs.append(p)
-    selected = selected or (sorted(logs, key=mtime, reverse=True) or [None])[0]
+    logs = _log_index()
+    selected = selected or (sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True) or [(None, None)])[0][1]
     opts = ""
-    for l in sorted(logs, key=mtime, reverse=True):
-        sel = " selected" if l == selected else ""
-        opts += f'<option value="{esc(os.path.basename(l))}"{sel}>{esc(os.path.basename(l))}</option>'
+    for k, l in sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True):
+        sel = ' selected' if l == selected else ""
+        label = k if k.startswith("sessions/") else os.path.basename(l)
+        opts += f'<option value="{esc(k)}"{sel}>{esc(label)}</option>'
     content = esc("\n".join(read_lines(selected, 8000)) if selected else "(no logs yet)")
     title = os.path.basename(selected) if selected else "operator console"
     body = (f'<div class="card"><div class="console-bar"><div class="title">{icon("terminal", 15)} Operator Console Live <span class="hint">'

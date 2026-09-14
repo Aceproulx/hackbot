@@ -12,8 +12,11 @@ import html
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import unicodedata
+import urllib.parse
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -33,6 +36,24 @@ SKILL_DIRS = [
     os.path.expanduser("~/.agents/skills"),
     os.path.expanduser("~/.gemini/skills"),
 ]
+
+# queue-manager.sh handles all queue writes (locking, history log). The
+# dashboard never edits target-queue.json directly — it shells out to the
+# same CLI the orchestrator uses, so there's one source of truth for the
+# queue's write path.
+_QUEUE_MANAGER_CANDIDATES = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "queue-manager.sh"),
+    os.path.expanduser("~/.local/bin/hackbot-queue"),
+    shutil.which("hackbot-queue") or "",
+]
+QUEUE_MANAGER = next((p for p in _QUEUE_MANAGER_CANDIDATES if p and os.path.isfile(p)), None)
+
+_WORKER_POOL_CANDIDATES = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker-pool.sh"),
+    os.path.expanduser("~/.local/bin/hackbot-workers"),
+    shutil.which("hackbot-workers") or "",
+]
+WORKER_POOL = next((p for p in _WORKER_POOL_CANDIDATES if p and os.path.isfile(p)), None)
 
 
 # ── config ─────────────────────────────────────────────────────────────────────
@@ -653,6 +674,17 @@ def severity_pill(sev):
     return pill(m.get(sev, "grey"), sev.upper() or "—")
 
 
+def self_hosted_badge(t):
+    return f' <span class="pill blue"><span class="dot"></span>SELF-HOSTED</span>' if t.get("self_hosted") else ""
+
+
+def hunt_action_btn(t):
+    h = esc(t.get("handle", ""))
+    if t.get("status") == "active":
+        return f'<button class="btn ghost small" onclick="hunterAction(\'stop\',\'{h}\',this)">{icon("pause", 12)} Stop</button>'
+    return f'<button class="btn small" onclick="hunterAction(\'start\',\'{h}\',this)">{icon("play", 12)} Start Hunt</button>'
+
+
 def need_attention():
     n = 0
     for f in get_findings():
@@ -731,7 +763,16 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '  </main>\n</div>\n'
         '<div class="modal-bg" id="taskmodal" onclick="if(event.target===this)this.style.display=\'none\'">\n'
         '  <div class="modal"><div class="hd">New Task</div><div class="bd">\n'
-        '    <p class="small muted" style="margin-bottom:10px">Tasks are orchestrated from the operator terminal. Useful commands:</p>\n'
+        '    <div style="margin-bottom:16px">\n'
+        '      <div class="hd" style="border:none;padding:0 0 6px;font-size:12.5px">Add a self-hosted target</div>\n'
+        '      <p class="small muted" style="margin-bottom:10px">Not a bug bounty platform program — your own infra, a staging box, anything self-hosted. Full browser scope, no bounty ceiling, no platform out-of-scope list to respect. Adding it here is you vouching that you are authorized to test it.</p>\n'
+        '      <div id="at-err" class="small" style="color:var(--accent);display:none;margin-bottom:8px"></div>\n'
+        '      <input id="at-url" placeholder="https://staging.example.internal" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:8px;font-family:inherit">\n'
+        '      <input id="at-name" placeholder="Display name (optional)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:8px;font-family:inherit">\n'
+        '      <textarea id="at-notes" placeholder="Notes for the hunter (optional)" style="width:100%;min-height:52px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:8px;font-family:inherit"></textarea>\n'
+        '      <button class="btn small" id="at-submit" onclick="addSelfHostedTarget()">' + icon('plus', 13) + ' Add target</button>\n'
+        '    </div>\n'
+        '    <p class="small muted" style="margin-bottom:10px;border-top:1px solid #eee8dd;padding-top:12px">Everything else is orchestrated from the operator terminal:</p>\n'
         '    <ul class="cmdhelp">\n'
         '      <li><span class="cc">hackbot-workers start --slots ' + str(MAX_SLOTS) + '</span> <span class="muted">Launch worker pool</span></li>\n'
         '      <li><span class="cc">hackbot-workers stop &lt;slot&gt;</span> <span class="muted">Stop a worker</span></li>\n'
@@ -746,6 +787,31 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         'var sb=document.getElementById(\'globalsearch\');\n'
         'if(sb)sb.addEventListener(\'input\',filterViews);\n'
         'function showTab(group,id){document.querySelectorAll(\'[data-tabgroup="\'+group+\'"]\').forEach(function(t){t.style.display=(t.id===id)?"":"none";});document.querySelectorAll(\'[data-tabbtn="\'+group+\'"]\').forEach(function(b){b.classList.toggle(\'active\',b.getAttribute(\'data-target\')===id);});}\n'
+        'async function addSelfHostedTarget(){\n'
+        '  var url=document.getElementById(\'at-url\').value.trim();\n'
+        '  var name=document.getElementById(\'at-name\').value.trim();\n'
+        '  var notes=document.getElementById(\'at-notes\').value.trim();\n'
+        '  var err=document.getElementById(\'at-err\'); var btn=document.getElementById(\'at-submit\');\n'
+        '  err.style.display=\'none\';\n'
+        '  if(!url){err.textContent=\'URL is required.\';err.style.display=\'\';return;}\n'
+        '  btn.disabled=true; var orig=btn.textContent; btn.textContent=\'Adding…\';\n'
+        '  try{\n'
+        '    var res=await fetch(\'/api/targets/add\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({url:url,name:name,notes:notes})});\n'
+        '    var data=await res.json();\n'
+        '    if(!res.ok||!data.ok){err.textContent=data.message||\'Failed to add target.\';err.style.display=\'\';btn.disabled=false;btn.textContent=orig;return;}\n'
+        '    location.href=\'/v/assets\';\n'
+        '  }catch(e){err.textContent=\'Request failed: \'+e;err.style.display=\'\';btn.disabled=false;btn.textContent=orig;}\n'
+        '}\n'
+        'async function hunterAction(action,handle,btn){\n'
+        '  if(!confirm((action===\'start\'?\'Start a hunt on \':\'Stop the hunt on \')+handle+\'?\'))return;\n'
+        '  var orig=btn?btn.textContent:\'\'; if(btn){btn.disabled=true;btn.textContent=action===\'start\'?\'Starting…\':\'Stopping…\';}\n'
+        '  try{\n'
+        '    var res=await fetch(\'/api/targets/\'+action,{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({handle:handle})});\n'
+        '    var data=await res.json();\n'
+        '    if(!res.ok||!data.ok){alert(data.message||(\'Failed to \'+action+\' hunt.\'));if(btn){btn.disabled=false;btn.textContent=orig;}return;}\n'
+        '    location.reload();\n'
+        '  }catch(e){alert(\'Request failed: \'+e);if(btn){btn.disabled=false;btn.textContent=orig;}}\n'
+        '}\n'
         + scripts +
         '</script>\n</body></html>'
     )
@@ -811,16 +877,17 @@ def v_overview():
 
     qrows = "".join(
         f'<tr><td><a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}">{esc(t.get("name",""))}</a>'
-        f' <span class="mono small muted">{esc(t.get("handle",""))}</span></td>'
+        f' <span class="mono small muted">{esc(t.get("handle",""))}</span>{self_hosted_badge(t)}</td>'
         f'<td>{pill(t.get("status","pending"))}</td>'
         f'<td class="num">${float(t.get("max_bounty") or 0):,.0f}</td>'
         f'<td class="num">{float(t.get("score") or 0):.0f}</td>'
-        f'<td>{fmt_time(t.get("last_hunted"))}</td></tr>'
+        f'<td>{fmt_time(t.get("last_hunted"))}</td>'
+        f'<td>{hunt_action_btn(t)}</td></tr>'
         for t in top)
     queue_card = (f'<div class="card"><div class="hd">Target Queue <span class="sp"></span>'
                   f'<span class="hint">top by score</span></div>'
                   f'<table><thead><tr><th>PROGRAM</th><th>STATE</th><th class="num">MAX BX</th>'
-                  f'<th class="num">SCORE</th><th>LAST HUNT</th></tr></thead>'
+                  f'<th class="num">SCORE</th><th>LAST HUNT</th><th></th></tr></thead>'
                   f'<tbody>{qrows}</tbody></table></div>')
 
     fr = ""
@@ -1268,19 +1335,22 @@ def v_assets(q=None):
     for w in get_workers():
         handlers[w.get("handle")] = w
     rows = "".join(
-        f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))}">'
-        f'<td><b>{esc(t.get("name",""))}</b></td>'
+        f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(t.get("base_url",""))}">'
+        f'<td><b>{esc(t.get("name",""))}</b>{self_hosted_badge(t)}'
+        + (f'<div class="mono small muted" style="word-break:break-all">{esc(t.get("base_url"))}</div>' if t.get("base_url") else "")
+        + f'</td>'
         f'<td class="mono">{esc(t.get("handle",""))}</td>'
         f'<td>{pill(t.get("status",""))}</td>'
-        f'<td class="num">{esc(t.get("program_id","")[:8])}</td>'
+        f'<td class="num">{esc((t.get("program_id") or "")[:8])}</td>'
         f'<td class="num">${float(t.get("max_bounty") or 0):,.0f}</td>'
         f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
-        f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td></tr>'
+        f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td>'
+        f'<td>{hunt_action_btn(t)}</td></tr>'
         for t in queue)
     body = (f'<div class="card"><div class="hd">In-Scope Targets <span class="sp"></span>'
             f'<span class="hint">{len(queue)} programs · {sum(1 for t in queue if t.get("status")=="active")} active</span></div>'
             f'<table><thead><tr><th>PROGRAM</th><th>HANDLE</th><th>STATE</th><th class="num">ID</th>'
-            f'<th class="num">MAX BX</th><th>TAGS</th><th>WORKER</th></tr></thead><tbody>{rows}</tbody></table></div>')
+            f'<th class="num">MAX BX</th><th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
     return page("assets", hero("Assets", "Every in-scope program with bounty, tags and hunt state"), body)
 
 
@@ -1673,6 +1743,109 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
     return b"404"
 
 
+# ── mutating (POST) routes ──────────────────────────────────────────────────────
+# The dashboard itself never edits target-queue.json — every write goes through
+# queue-manager.sh (via QUEUE_MANAGER) so locking and the history log stay
+# correct no matter whether the write came from the CLI, the orchestrator, or
+# this UI.
+
+_URL_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.\-]*://)?[^\s/?#]+")
+
+
+def _api_add_target(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+
+    url = (data.get("url") or "").strip()
+    name = (data.get("name") or "").strip() or url
+    notes = (data.get("notes") or "").strip()
+
+    if not url:
+        return {"ok": False, "message": "URL is required"}, 400
+    if any(c.isspace() for c in url):
+        return {"ok": False, "message": "URL can't contain whitespace"}, 400
+    if not _URL_RE.match(url):
+        return {"ok": False, "message": "doesn't look like a valid URL or host"}, 400
+    if not QUEUE_MANAGER:
+        return {"ok": False, "message": "queue-manager.sh not found — is hackbot-queue installed? (see setup.sh)"}, 500
+
+    try:
+        proc = subprocess.run(
+            [QUEUE_MANAGER, "add", url, name, notes],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception as e:
+        return {"ok": False, "message": f"failed to run queue-manager: {e}"}, 500
+
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "queue-manager add failed").strip()
+        msg = tail.splitlines()[-1] if tail else "queue-manager add failed"
+        return {"ok": False, "message": msg}, 400
+
+    return {"ok": True, "message": proc.stdout.strip()}, 200
+
+
+_HANDLE_RE = re.compile(r"^[a-z0-9-]{1,64}$")
+
+
+def _run_worker_pool(*args):
+    if not WORKER_POOL:
+        return {"ok": False, "message": "worker-pool.sh not found — is hackbot-workers installed? (see setup.sh)"}, 500
+    try:
+        proc = subprocess.run(
+            [WORKER_POOL, *args],
+            capture_output=True, text=True, timeout=30,
+        )
+    except Exception as e:
+        return {"ok": False, "message": f"failed to run worker-pool: {e}"}, 500
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "worker-pool command failed").strip()
+        msg = tail.splitlines()[-1] if tail else "worker-pool command failed"
+        return {"ok": False, "message": msg}, 400
+    return {"ok": True, "message": proc.stdout.strip()}, 200
+
+
+def _api_start_target(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip()
+    if not handle or not _HANDLE_RE.match(handle):
+        return {"ok": False, "message": "missing or invalid target handle"}, 400
+    return _run_worker_pool("start-target", handle)
+
+
+def _api_stop_target(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip()
+    if not handle or not _HANDLE_RE.match(handle):
+        return {"ok": False, "message": "missing or invalid target handle"}, 400
+    return _run_worker_pool("stop-target", handle)
+
+
+def route_post(path, qs, body):
+    parts = path.split("?")[0].rstrip("/").split("/")
+    p = [x for x in parts if x]
+
+    if p[:3] == ["api", "targets", "add"]:
+        payload, status = _api_add_target(body)
+        return json.dumps(payload).encode(), status
+    if p[:3] == ["api", "targets", "start"]:
+        payload, status = _api_start_target(body)
+        return json.dumps(payload).encode(), status
+    if p[:3] == ["api", "targets", "stop"]:
+        payload, status = _api_stop_target(body)
+        return json.dumps(payload).encode(), status
+
+    return json.dumps({"ok": False, "message": "not found"}).encode(), 404
+
+
 def _log_index():
     """Return list of (unique_rel_key, abspath) for every console log."""
     logs = []
@@ -1786,6 +1959,24 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_POST(self):
+        path, _, qraw = self.path.partition("?")
+        from urllib.parse import parse_qs
+        qs = parse_qs(qraw)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b""
+            body = raw.decode("utf-8", errors="replace")
+            data, status = route_post(path, qs, body)
+        except Exception as e:
+            data = json.dumps({"ok": False, "message": f"{e.__class__.__name__}: {e}"}).encode()
+            status = 500
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

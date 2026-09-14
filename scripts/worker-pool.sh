@@ -9,6 +9,8 @@
 #   hackbot-workers status
 #   hackbot-workers stop
 #   hackbot-workers logs [worker_id]
+#   hackbot-workers start-target <handle>   Spawn a worker for one specific target now
+#   hackbot-workers stop-target <handle>    Kill the running worker for one target
 #
 # Each "worker" is a tmux window running an opencode/agy session
 # pointed at a specific target from the queue.
@@ -334,6 +336,72 @@ cmd_attach() {
   tmux attach -t "$SESSION_NAME"
 }
 
+# ── start one target on demand (dashboard "Start Hunt" button) ────────────────
+
+cmd_start_target() {
+  local HANDLE="${2:-}"
+  [[ -z "$HANDLE" ]] && { echo "Usage: worker-pool.sh start-target <handle>" >&2; exit 1; }
+
+  require_tmux
+  require_queue
+
+  local ITEM
+  ITEM=$(jq -c --arg h "$HANDLE" '.[] | select(.handle == $h)' "$QUEUE")
+  [[ -z "$ITEM" || "$ITEM" == "null" ]] && { echo "ERROR: no target with handle '$HANDLE' in queue" >&2; exit 1; }
+
+  local STATUS
+  STATUS=$(echo "$ITEM" | jq -r '.status')
+  [[ "$STATUS" == "active" ]] && { echo "ERROR: '$HANDLE' already has an active worker" >&2; exit 1; }
+
+  [[ -f "$POOL_STATE" ]] || init_pool
+
+  # find the first slot not currently running a worker; grow the pool by one
+  # slot rather than refuse if every configured slot is busy — an
+  # operator-triggered "start now" should win over the configured concurrency cap
+  local POOL_MAX_SLOTS RUNNING_SLOTS SLOT
+  POOL_MAX_SLOTS=$(jq -r '.max_slots' "$POOL_STATE")
+  RUNNING_SLOTS=$(jq -r '[.workers[] | select(.status=="running") | .slot] | join(",")' "$POOL_STATE")
+  SLOT=1
+  while [[ ",${RUNNING_SLOTS}," == *",${SLOT},"* ]]; do
+    SLOT=$((SLOT + 1))
+  done
+  if [[ $SLOT -gt $POOL_MAX_SLOTS ]]; then
+    jq --argjson s "$SLOT" '.max_slots = $s' "$POOL_STATE" > /tmp/pool-tmp.json && mv /tmp/pool-tmp.json "$POOL_STATE"
+  fi
+
+  local PROGRAM_ID MAX_BOUNTY
+  PROGRAM_ID=$(echo "$ITEM" | jq -r '.program_id')
+  MAX_BOUNTY=$(echo "$ITEM" | jq -r '.max_bounty // 0')
+
+  spawn_worker "$HANDLE" "$PROGRAM_ID" "$MAX_BOUNTY" "$SLOT"
+  echo "Started hunt on '$HANDLE' in slot $SLOT"
+}
+
+# ── stop one target on demand (dashboard "Stop" button) ───────────────────────
+
+cmd_stop_target() {
+  local HANDLE="${2:-}"
+  [[ -z "$HANDLE" ]] && { echo "Usage: worker-pool.sh stop-target <handle>" >&2; exit 1; }
+  [[ -f "$POOL_STATE" ]] || { echo "ERROR: no active pool" >&2; exit 1; }
+
+  local SLOT
+  SLOT=$(jq -r --arg h "$HANDLE" '[.workers[] | select(.handle==$h and .status=="running")][0].slot // empty' "$POOL_STATE")
+  [[ -z "$SLOT" ]] && { echo "ERROR: no running worker for '$HANDLE'" >&2; exit 1; }
+
+  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    tmux kill-window -t "${SESSION_NAME}:${SLOT}" 2>/dev/null || true
+  fi
+
+  jq --arg h "$HANDLE" '.workers |= map(if .handle == $h and .status == "running" then .status = "killed" else . end)' \
+    "$POOL_STATE" > /tmp/pool-tmp.json && mv /tmp/pool-tmp.json "$POOL_STATE"
+
+  jq --arg h "$HANDLE" '
+    map(if .handle == $h then .status = "pending" | .active_worker = null else . end)
+  ' "$QUEUE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE"
+
+  echo "Stopped worker for '$HANDLE' (was slot $SLOT)"
+}
+
 # ── dispatch ───────────────────────────────────────────────────────────────────
 
 CMD="${1:-status}"
@@ -343,5 +411,7 @@ case "$CMD" in
   stop)    cmd_stop ;;
   logs)    cmd_logs "$@" ;;
   attach)  cmd_attach ;;
-  *)       echo "Commands: start [--slots N] [--budget N] | status | stop | logs | attach"; exit 1 ;;
+  start-target)  cmd_start_target "$@" ;;
+  stop-target)   cmd_stop_target "$@" ;;
+  *)       echo "Commands: start [--slots N] [--budget N] | status | stop | logs | attach | start-target <handle> | stop-target <handle>"; exit 1 ;;
 esac

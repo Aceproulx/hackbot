@@ -12,6 +12,7 @@
 #   reset <handle>         Reset a target back to pending
 #   requeue <handle> <days> Re-queue a target to be hunted again in N days
 #   boost <handle> <pts>   Add score boost to a target (e.g. after finding a bug)
+#   add <url> [name] [notes]  Add a self-hosted / non-platform target (full browser scope, no bounty ceiling)
 
 set -euo pipefail
 
@@ -34,6 +35,11 @@ unlock() { flock -u 9; }
 
 require_queue() {
   [[ -f "$QUEUE_FILE" ]] || { echo "ERROR: queue not initialized. Run: queue-manager.sh init" >&2; exit 1; }
+}
+
+# slugify a hostname into a queue handle: lowercase, alnum + hyphens only
+slugify_host() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
 }
 
 # ── init ───────────────────────────────────────────────────────────────────────
@@ -382,6 +388,65 @@ cmd_boost() {
   unlock
 }
 
+# ── add (self-hosted / non-platform target) ───────────────────────────────────
+
+cmd_add() {
+  URL="${2:-}"
+  NAME="${3:-$URL}"
+  NOTES="${4:-}"
+  [[ -z "$URL" ]] && { echo "Usage: queue-manager.sh add <url> [name] [notes]" >&2; exit 1; }
+
+  # normalize — default to https:// if no scheme given
+  [[ "$URL" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*:// ]] || URL="https://$URL"
+
+  HOST=$(echo "$URL" | sed -E 's~^[a-zA-Z][a-zA-Z0-9+.-]*://~~; s~[/?#].*$~~; s~:.*$~~')
+  [[ -z "$HOST" ]] && { echo "ERROR: could not parse a host from '$URL'" >&2; exit 1; }
+  HANDLE=$(slugify_host "$HOST")
+  [[ -z "$HANDLE" ]] && HANDLE="self-$(date -u +%s)"
+
+  lock
+  [[ -f "$QUEUE_FILE" ]] || echo "[]" > "$QUEUE_FILE"
+
+  if jq -e --arg h "$HANDLE" '.[] | select(.handle == $h)' "$QUEUE_FILE" >/dev/null 2>&1; then
+    echo "ERROR: target '$HANDLE' is already in the queue (re-run 'reset $HANDLE' to re-hunt it)" >&2
+    unlock
+    exit 1
+  fi
+
+  NOW=$(ts)
+  jq --arg h "$HANDLE" --arg url "$URL" --arg name "$NAME" --arg notes "$NOTES" --arg ts "$NOW" '
+    . + [{
+      handle: $h,
+      program_id: ("self:" + $h),
+      name: $name,
+      base_url: $url,
+      max_bounty: 0,
+      min_bounty: 0,
+      tags: ["self-hosted"],
+      confidentiality: "private",
+      status: "pending",
+      score: 50,
+      boost: 0,
+      bugs_found: 0,
+      last_hunted: null,
+      last_verdict: null,
+      active_worker: null,
+      started_at: null,
+      queued_at: $ts,
+      rehunt_after: null,
+      self_hosted: true,
+      browser_scope: "full",
+      notes: $notes
+    }]
+  ' "$QUEUE_FILE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE_FILE"
+
+  echo "{\"ts\":\"$NOW\",\"handle\":\"$HANDLE\",\"event\":\"added\",\"url\":\"$URL\",\"self_hosted\":true}" \
+    >> "$HISTORY_FILE"
+
+  echo "Added self-hosted target '$HANDLE' ($URL) — full browser scope, no bounty ceiling, no platform rules apply"
+  unlock
+}
+
 # ── dispatch ───────────────────────────────────────────────────────────────────
 
 CMD="${1:-status}"
@@ -396,5 +461,6 @@ case "$CMD" in
   reset)    cmd_reset "$@" ;;
   requeue)  cmd_requeue "$@" ;;
   boost)    cmd_boost "$@" ;;
-  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost"; exit 1 ;;
+  add)      cmd_add "$@" ;;
+  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add"; exit 1 ;;
 esac

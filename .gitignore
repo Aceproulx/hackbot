@@ -6,6 +6,9 @@
 *.log
 /tmp/
 
+# Playwright MCP runtime state (console dumps, page snapshots)
+.playwright-mcp/
+
 # ...except the shipped seed's LevelDB data files (FoxyProxy rules live in
 # Local Extension Settings as *.log); those ARE meant to be committed.
 !browser-profiles/Profile-Default/Default/Local Extension Settings/*/*.log

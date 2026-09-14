@@ -1,13 +1,14 @@
 #!/bin/sh
 # switch-account.sh <account-name>
 #
-# Switches the active profile used by agent-browser to
+# Switches the active profile used by Playwright MCP / agent-browser to
 # {{HACKBOT_MISC_DIR}}/.agent-browser-profiles/Profile-<account-name>.
 #
 # - Validates the target profile directory exists (fails loudly otherwise).
 # - Updates the "profile" field in ~/.agent-browser/config.json in place using
-#   a proper JSON parser, leaving all other fields (headed/args) untouched.
-# - Kills any agent-browser / Chrome process whose --user-data-dir matches the
+#   a proper JSON parser (legacy agent-browser config — kept for compat),
+#   leaving all other fields (headed/args) untouched.
+# - Kills any Chrome process whose --user-data-dir matches the
 #   OLD profile path (not a blanket kill of all Chrome).
 
 set -eu

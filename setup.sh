@@ -267,7 +267,8 @@ install_browser_profiles() {
   else
     warn "browser-profiles/ not found — skipping browser profiles"
   fi
-  # Default agent-browser config: headed, anti-detection args, seeded profile.
+  # Legacy agent-browser config (kept so switch-account.sh still works).
+  # Playwright MCP ignores this — it gets the profile via --user-data-dir.
   if [[ ! -f "$AGENT_CFG" ]]; then
     local DEFAULT_PROFILE
     DEFAULT_PROFILE="$PROFILES_DIR/Profile-Default"
@@ -333,9 +334,9 @@ summary() {
   echo ""
   echo "  Manual steps remaining:"
   echo "    1. Caido: create an API token (Settings → API Tokens) and wire it into your environment"
-  echo "    2. Browser: start the agent-browser daemon (agent-browser serve). FoxyProxy + rules ship in the"
-  echo "       seeded Profile-Default; the CAPTCHA-solver unpacked extension is NOT in the repo (load it once"
-  echo "       manually via chrome://extensions → Developer mode → Load unpacked)"
+  echo "    2. Browser: install Google Chrome; Playwright MCP (registered by install-mcps.sh) will drive it."
+  echo "       FoxyProxy + rules ship in the seeded Profile-Default; the CAPTCHA-solver unpacked extension"
+  echo "       is NOT in the repo (load it once manually via chrome://extensions → Developer mode → Load unpacked)"
   echo "    3. OOB tunnel: if you left the cloudflared URL empty, set oob_tunnel_url in $CONFIG_LOCATION later"
   echo "    4. Intigriti: confirm your account/MCP login is active so the queue can pull programs"
   echo "    5. Telegram: if token/chat ID are empty, fill $CONFIG_LOCATION and run hackbot-notify test again"

@@ -4,7 +4,7 @@
 # Clones an existing profile directory to a new account profile so the new
 # account starts with the same extensions (FoxyProxy + captcha solver) already
 # installed and configured. It does NOT automate login - after cloning, launch
-# agent-browser once against the new profile and log in manually.
+# Playwright MCP (or Chrome) once against the new profile and log in manually.
 #
 # Usage:
 #   ./clone-profile.sh myaccount
@@ -57,4 +57,4 @@ rm -rf "$DEST_DIR/SingletonLock" \
        "$DEST_DIR/Default/Code Cache" 2>/dev/null || :
 
 echo "Done. Account profile created at: $DEST_DIR"
-echo "Launch agent-browser now with this profile active (switch-account.sh $NEW_NAME) and log in once manually."
+echo "Launch Playwright MCP now with this profile active (use-account.sh $NEW_NAME) and log in once manually."

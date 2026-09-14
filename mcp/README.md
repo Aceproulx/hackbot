@@ -16,6 +16,19 @@ Chrome extension bridge for automated CAPTCHA solving during hunts.
 ### Composio
 Email/Gmail integration for inbox checking during account-based hunts.
 
+### Playwright MCP
+Browser automation via Playwright MCP (`@playwright/mcp`). Used by the
+`web-hacking` skill for rendering XSS/HTML-injection probes, driving login
+state machines, and verifying cache-poisoning/CSRF impact in a real browser.
+
+- Runs via `npx -y @playwright/mcp@latest` (no global install needed).
+- Configured with `--browser chrome`, `--no-sandbox`, vision caps, and an
+  isolated `--user-data-dir` per agent pointing into the browser-profiles dir.
+- Requires **Google Chrome** installed on the system.
+- Concurrent agents each run their **own** Playwright MCP server process
+  pointed at their own profile (`--user-data-dir`), so cookies/tabs/sessions
+  stay isolated. See the `web-hacking` skill "Concurrent agents" section.
+
 ## Setup
 
 MCPs are installed automatically by `./setup.sh`. If you need to install manually:

@@ -15,12 +15,13 @@
 #   eval "$(./claim-account.sh)"
 #
 # Sets three env vars in the calling shell:
-#   AGENT_BROWSER_ACCOUNT   → claimed account name  (e.g. userA)
-#   AGENT_BROWSER_PROFILE   → full path to the Chrome profile dir
-#   AGENT_BROWSER_NAMESPACE → daemon socket namespace (own Chrome window)
+#   AGENT_BROWSER_ACCOUNT        → claimed account name  (e.g. userA)
+#   AGENT_BROWSER_PROFILE        → full path to the Chrome profile dir
+#   PLAYWRIGHT_MCP_USER_DATA_DIR → the profile dir, for Playwright MCP's
+#                                  --user-data-dir flag (per-agent isolation)
 #
-# Run ONCE at the very start of every agent session, before any agent-browser
-# command. Both agents run the same command — they race to claim different slots.
+# Run ONCE at the very start of every agent session, before any Playwright MCP
+# call. Both agents run the same command — they race to claim different slots.
 #
 # ── Release ───────────────────────────────────────────────────────────────────
 #
@@ -101,4 +102,4 @@ printf '[claim-account] claimed: %s  (owner_pid=%s)\n' "$CLAIMED" "$OWNER_PID" >
 # Output export lines for: eval "$(./claim-account.sh)"
 printf 'export AGENT_BROWSER_ACCOUNT="%s"\n'        "$CLAIMED"
 printf 'export AGENT_BROWSER_PROFILE="%s"\n'        "$TARGET_DIR"
-printf 'export AGENT_BROWSER_NAMESPACE="agent-%s"\n' "$CLAIMED"
+printf 'export PLAYWRIGHT_MCP_USER_DATA_DIR="%s"\n' "$TARGET_DIR"

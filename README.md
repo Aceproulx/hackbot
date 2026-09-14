@@ -16,8 +16,7 @@ Hackbot is a complete bug-bounty automation framework. It bundles skills, agents
 ## Prerequisites
 
 - Caido (intercept proxy) — running with API enabled
-- Chrome/Chromium (for agent-browser)
-- agent-browser daemon (for browser automation during hunts)
+- Google Chrome (for Playwright MCP browser automation)
 - Node.js ≥ 18
 - Python 3.10+
 - OpenCode and/or Antigravity CLI (agy) — already installed
@@ -132,7 +131,7 @@ There are two skill packages: **Antigravity** (flat `.md` files) and **OpenCode*
 
 The `hunt-*` skill family covers: XSS, SQLi, SSRF, IDOR, XXE, SSTI, LFI, CSRF, CORS, auth bypass, OAuth, JWT, race conditions, GraphQL, gRPC, SAML, LDAP, clickjacking, HTTP smuggling, DOM clobbering, file upload, OSINT, etc.
 
-Plus supporting skills: `mobile-hacking`, `agent-browser`, `agent-device`, `caido-mode`, `dogfood`, `email-inbox-check`, `bugcrowd-reporting`, `evidence-hygiene`, `report-writing`, `supply-chain-attack-recon`, `redteam-report-template`, `security-arsenal`, `find-skills`.
+Plus supporting skills: `mobile-hacking`, `agent-device`, `caido-mode`, `dogfood`, `email-inbox-check`, `bugcrowd-reporting`, `evidence-hygiene`, `report-writing`, `supply-chain-attack-recon`, `redteam-report-template`, `security-arsenal`, `find-skills`.
 
 ## MCPs
 
@@ -140,6 +139,7 @@ Plus supporting skills: `mobile-hacking`, `agent-browser`, `agent-device`, `caid
 - **Intigriti MCP**: Intigriti API — list programs, fetch scopes, manage submissions
 - **captcha-bridge MCP**: Automated CAPTCHA solving via Chrome extension bridge
 - **Composio MCP**: Email/Gmail integration for inbox-based account verification
+- **Playwright MCP**: Browser automation (Chrome) — XSS rendering, login state machines, impact verification. `npx -y @playwright/mcp@latest` with per-agent `--user-data-dir` profiles.
 
 ## Keeping Current
 

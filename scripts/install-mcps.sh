@@ -88,8 +88,41 @@ register_everywhere() {
   register_mcp "$ANTIGRAVITY_CONFIG"  "$NAME" "$CMD" "$ARGS_JSON" "$ENV_JSON"
 }
 
+# OpenCode uses a different MCP schema than the generic mcpServers format:
+#   "mcp": { "<name>": { "type": "local", "command": [...], "enabled": true, "environment": {...} } }
+register_opencode_native() {
+  local NAME="$1" CMD_ARRAY_JSON="$2" ENV_JSON="$3"
+  mkdir -p "$(dirname "$OPENCODE_CONFIG")"
+
+  local ENTRY TMP
+  if [[ "$ENV_JSON" == '{}' ]]; then
+    ENTRY="$(jq -n --argjson c "$CMD_ARRAY_JSON" \
+      '{type:"local", command:$c, enabled:true}')"
+  else
+    ENTRY="$(jq -n --argjson c "$CMD_ARRAY_JSON" --argjson e "$ENV_JSON" \
+      '{type:"local", command:$c, enabled:true, environment:$e}')"
+  fi
+
+  if [[ -f "$OPENCODE_CONFIG" ]]; then
+    if jq -e . "$OPENCODE_CONFIG" >/dev/null 2>&1; then
+      TMP="$OPENCODE_CONFIG.tmp"
+      jq --arg n "$NAME" --argjson v "$ENTRY" \
+        '.mcp[$n] = $v' "$OPENCODE_CONFIG" > "$TMP" \
+        && mv "$TMP" "$OPENCODE_CONFIG"
+      ok "registered '$NAME' in $OPENCODE_CONFIG (opencode native format)"
+    else
+      warn "'$NAME' NOT registered in $OPENCODE_CONFIG (file is not parseable JSON — likely JSONC comments)."
+      info "    Add manually:"
+      jq -n --arg n "$NAME" --argjson v "$ENTRY" '{mcp:{($n):$v}}' | sed 's/^/    /'
+    fi
+  else
+    jq -n --arg n "$NAME" --argjson v "$ENTRY" '{mcp: {($n): $v}}' > "$OPENCODE_CONFIG"
+    ok "created $OPENCODE_CONFIG with '$NAME'"
+  fi
+}
+
 install_caido() {
-  info "[1/4] Caido MCP"
+  info "[1/5] Caido MCP"
   if npm_install "@caido/mcp-server"; then
     ok "@caido/mcp-server installed/updated"
   else
@@ -114,7 +147,7 @@ install_caido() {
 }
 
 install_intigriti() {
-  info "[2/4] Intigriti MCP"
+  info "[2/5] Intigriti MCP"
   if npm_install "@intigriti/mcp"; then
     ok "@intigriti/mcp installed/updated"
   else
@@ -138,7 +171,7 @@ Enter it: ")"
 }
 
 install_captcha_bridge() {
-  info "[3/4] CAPTCHA bridge MCP"
+  info "[3/5] CAPTCHA bridge MCP"
   local SRC="$REPO_ROOT/mcp/captcha-bridge"
   if [[ ! -d "$SRC" ]]; then
     info "    captcha-bridge not present in repo ($SRC) — skipping"
@@ -162,7 +195,7 @@ install_captcha_bridge() {
 }
 
 install_composio() {
-  info "[4/4] Composio MCP"
+  info "[4/5] Composio MCP"
   if npm_install "composio-mcp"; then
     ok "composio-mcp installed/updated"
   else
@@ -183,6 +216,38 @@ install_composio() {
   register_everywhere "composio" "npx" '["-y","composio-mcp"]' "$ENV_JSON"
 }
 
+install_playwright() {
+  info "[5/5] Playwright MCP (browser automation)"
+  # Uses npx lazily (@playwright/mcp fetched on first launch) — no global install.
+  # Requires Google Chrome installed on the system (the skill configures
+  # --browser chrome with isolated --user-data-dir profiles).
+  if ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1; then
+    warn "Google Chrome not found on PATH — Playwright MCP is configured with --browser chrome."
+    info "    Install Chrome: https://www.google.com/chrome/  (or set the flag to 'chromium')."
+  fi
+
+  local MISC PORT
+  MISC="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
+  MISC="${MISC/#\~/$HOME}"
+  PORT="$(jq -r '.caido_proxy_port // 8080' "$CONFIG" 2>/dev/null || echo 8080)"
+
+  local CMD_JSON ENV_JSON
+  # Match the live opencode config command array exactly.
+  CMD_JSON="$(jq -n --arg misc "$MISC" --arg port "$PORT" \
+    '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",($misc+"/.agent-browser-profiles/Profile-userA")]')"
+  ENV_JSON="{}"
+
+  # OpenCode uses the native "mcp" schema; Antigravity uses the generic mcpServers schema.
+  register_opencode_native "playwright" "$CMD_JSON" "$ENV_JSON"
+  register_mcp "$ANTIGRAVITY_CONFIG" "playwright" "npx" \
+    "$(jq -n --argjson c "$CMD_JSON" '$c[1:]')" "$ENV_JSON"
+  ok "registered 'playwright' in both configs"
+
+  info "    Browser profiles: $MISC/.agent-browser-profiles/ (claim-account.sh / use-account.sh)"
+  info "    Create profiles with: $REPO_ROOT/browser-profiles/clone-profile.sh <name>"
+  info "    NOTE: each concurrent agent needs its OWN Playwright MCP server process pointed at its own --user-data-dir profile."
+}
+
 echo ""
 install_caido
 echo ""
@@ -191,6 +256,8 @@ echo ""
 install_captcha_bridge
 echo ""
 install_composio
+echo ""
+install_playwright
 
 echo ""
 if [[ "$UPDATE" -eq 1 ]]; then

@@ -16,8 +16,8 @@
 
 set -euo pipefail
 
-QUEUE_FILE={{HACKBOT_MISC_DIR}}/target-queue.json
-HISTORY_FILE={{HACKBOT_MISC_DIR}}/queue-history.jsonl
+QUEUE_FILE=/home/aceos/Projects/hackbot-misc/target-queue.json
+HISTORY_FILE=/home/aceos/Projects/hackbot-misc/queue-history.jsonl
 LOCK_FILE=/tmp/hackbot-queue.lock
 MIN_REHUNT_DAYS="${MIN_REHUNT_DAYS:-7}"     # don't re-hunt a target within this window
 NOTIFY="hackbot-notify"

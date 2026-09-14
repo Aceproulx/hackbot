@@ -234,18 +234,13 @@ cmd_serve() {
   local BIN="$0"
   [[ -L "$BIN" ]] && BIN="$(readlink "$BIN")"
   local DIR="$(cd "$(dirname "$BIN")" && pwd)"
-  local WEB="$DIR/dashboard-web.py"
-  if [[ ! -f "$WEB" ]]; then
-    echo "ERROR: $WEB not found (re-run setup.sh or sync the repo)" >&2
-    exit 1
-  fi
   if ! command -v python3 >/dev/null 2>&1; then
     echo "ERROR: python3 is required for the web dashboard" >&2
     exit 1
   fi
   echo "  Web dashboard: http://127.0.0.1:${PORT}/"
   echo "  Stop: Ctrl+C"
-  exec python3 "$WEB" --port "$PORT"
+  cd "$DIR" && exec python3 -m dashboard --port "$PORT"
 }
 
 # ── export to markdown ─────────────────────────────────────────────────────────

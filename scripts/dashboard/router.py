@@ -45,6 +45,9 @@ from .state import get_queue
 from .state import get_run_dirs
 from .state import get_session_dirs
 from .state import get_workers
+from .state import hunt_stats
+from .helpers import render_markdown
+from .state import mark_report_read
 from .layout import hero
 from .icons import icon
 # UNRESOLVED: json (same-module or missing)
@@ -58,6 +61,7 @@ from .views import search_memory
 from .util import skill_dirs
 from .views import v_assets
 from .views import v_desktops
+from .views import v_findings
 from .views import v_history
 from .views import v_hunt
 from .views import v_hunts
@@ -90,6 +94,7 @@ def route(path, qs):
             "topology": v_topology,
             "knowledge": lambda: v_knowledge(q) if q else v_knowledge(""),
             "memory": v_memory,
+            "findings": v_findings,
             "assets": lambda: v_assets(target) if target else v_assets(""),
             "skills": lambda: v_skills(qs.get("view", ["library"])[0], sel),
             "workspaces": v_workspaces,
@@ -123,10 +128,11 @@ def route(path, qs):
             rroot = os.path.join(SESSIONS_ROOT, safe)
         rp = os.path.join(rroot, "reports", fname)
         if os.path.isfile(rp):
+            mark_report_read(safe, fname)
             body = f'<div class="breadcrumb">Hunt / Reports / <b>{esc(fname)}</b></div>'
             body += (f'<div class="card"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
 f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
-                     f'<div class="bd"><pre class="pread">{esc(read_file(rp))}</pre></div></div>')
+                     f'<div class="bd md">{render_markdown(read_file(rp))}</div></div>')
             return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}"), body).encode()
         return b"404 report not found"
 
@@ -241,25 +247,26 @@ def api_stats():
     queue = get_queue()
     workers = get_workers()
     findings = get_findings()
-    runs = get_run_dirs()
-    sess = get_session_dirs()
-    confirmed = sum(1 for f in findings if str(f.get("status", "")).lower() == "confirmed")
-    est = sum(float(f.get("bounty_est") or 0) for f in findings)
+    hs = hunt_stats()
+    confirmed = sum(1 for f in findings if str(f.get("status", "")).lower() in ("confirmed", "paid"))
     paid = sum(float(f.get("bounty_paid") or 0) for f in findings if f.get("bounty_paid"))
+    potential = sum(float(t.get("max_bounty") or 0) for t in queue
+                    if str(t.get("status", "")).lower() == "pending")
     active_w = [w for w in workers if str(w.get("status", "")).lower() == "running"]
     pending = [t for t in queue if str(t.get("status", "")).lower() in ("pending", "sleeping")]
     return {
         "ok": True,
-        "findings": len(findings),
+        "findings": hs["reports"],
         "confirmed": confirmed,
-        "est_bounty": est,
+        "est_bounty": potential,
         "paid_bounty": paid,
         "workers_running": len(active_w),
         "workers_total": max(len(workers), 1),
         "queue_pending": len(pending),
         "queue_total": max(len(queue), 1),
-        "hunts_run": len(runs),
-        "sessions": len(sess),
+        "hunts_run": hs["hunts"],
+        "runs": hs["runs"],
+        "sessions": hs["sessions"],
         "attention": need_attention(),
     }
 

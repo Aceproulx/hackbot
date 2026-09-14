@@ -40,12 +40,18 @@ from .util import count_files
 from .util import esc
 from .util import fmt_size
 from .util import fmt_time
+from .util import fmt_ts
 from .state import get_findings
 from .state import get_queue
 # UNRESOLVED: get_reading (same-module or missing)
 from .state import get_run_dirs
 from .state import get_session_dirs
 from .state import get_workers
+from .state import hunt_stats
+from .state import all_reports
+from .state import all_evidence
+from .state import recent_reports
+from .helpers import render_markdown
 from .layout import hero
 from .layout import hunt_action_btn
 from .icons import icon
@@ -74,20 +80,21 @@ def v_overview():
     queue = get_queue()
     runs = get_run_dirs()
     sess = get_session_dirs()
-    confirmed = [f for f in findings if str(f.get("status", "")).lower() in ("confirmed", "paid")]
-    est = sum(float(f.get("bounty_est") or 0) for f in confirmed)
-    paid = sum(float(f.get("bounty_paid") or 0) for f in findings)
+    hs = hunt_stats()
+    paid = sum(float(f.get("bounty_paid") or 0) for f in findings if f.get("bounty_paid"))
     active_w = [w for w in workers if w.get("status") == "running"]
     pending = [t for t in queue if t.get("status") == "pending"]
+    potential = sum(float(t.get("max_bounty") or 0)
+                    for t in queue if str(t.get("status", "")).lower() == "pending")
     top = sorted(queue, key=lambda t: float(t.get("score") or 0), reverse=True)[:6]
 
     stats = ""
     st = [
-        ("Findings", len(findings), f"{len(confirmed)} confirmed", "clipboard-list", "k-findings"),
-        ("Est. Bounty", f"${est:,.0f}", f"${paid:,.0f} paid", "trending-up", "k-est"),
+        ("Reports", hs["reports"], f'{hs["evidence"]} evidence packs', "clipboard-list", "k-findings"),
+        ("Est. Bounty", f"${potential:,.0f}", f"${paid:,.0f} paid", "trending-up", "k-est"),
         ("Workers", f"{len(active_w)}/{max(len(workers),1)}", "active lanes", "cpu", "k-workers"),
-        ("Queue", f"{len(pending)}", "programs pending", "target", "k-queue"),
-        ("Hunts", len(runs), f"{len(sess)} sessions", "sitemap", "k-hunts"),
+        ("Queue", f"{len(pending)}", f"{len(queue)} programs queued", "target", "k-queue"),
+        ("Hunts", hs["hunts"], f'{hs["runs"]} runs · {hs["sessions"]} sessions', "sitemap", "k-hunts"),
     ]
     for lab, val, sub, ic, kid in st:
         stats += (f'<div class="stat"><div class="lab">{icon(ic, 13)} {lab}</div>'
@@ -132,20 +139,16 @@ f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS
                   f'<th>LAST HUNT</th><th></th></tr></thead>'
                   f'<tbody>{qrows}</tbody></table></div>')
 
-    fr = ""
-    if findings:
+    rr = recent_reports(6)
+    if rr:
         rows = "".join(
-            f'<tr><td>{severity_pill(f.get("severity"))}</td>'
-            f'<td style="font-weight:600">{esc(f.get("title",""))}</td>'
-            f'<td class="mono">{esc(f.get("program",""))}</td>'
-            f'<td>{pill(f.get("status",""))}</td>'
-            f'<td class="num">${float(f.get("bounty_est") or 0):,.0f}</td>'
-            f'<td>{fmt_time(f.get("ts") or f.get("reported_at"))}</td></tr>'
-            for f in reversed(findings[-6:]))
-        fr = (f'<div class="card"><div class="hd">Recent Findings <span class="sp"></span>'
-              f'<span class="hint">last {min(6,len(findings))}</span></div>'
-              f'<table><thead><tr><th>SEV</th><th>TITLE</th><th>PROGRAM</th><th>STATUS</th>'
-              f'<th class="num">EST</th><th>LOGGED</th></tr></thead><tbody>{rows}</tbody></table></div>')
+            f'<tr><td class="mono">{esc(r["handle"])}</td>'
+            f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
+            f'<td>{fmt_ts(r["mtime"])}</td></tr>' for r in rr)
+        fr = (f'<div class="card"><div class="hd">Recent Reports <span class="sp"></span>'
+              f'<span class="hint">last {len(rr)}</span></div>'
+              f'<table><thead><tr><th>PROGRAM</th><th>REPORT</th><th>DRAFTED</th></tr></thead>'
+              f'<tbody>{rows}</tbody></table></div>')
     else:
         fr = (f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("clipboard-list", 34)}</div>'
               f'<div class="t">No findings logged yet</div><p>Workers are hunting; logs land in findings.jsonl.</p></div></div></div>')
@@ -281,7 +284,7 @@ def v_hunt(name):
     fl = [f for f in get_findings() if str(f.get("program", "")) == handle or (f.get("program") or "").find(handle) >= 0]
 
     files = {k: v[0] for k, v in h["files"].items()}
-    lead = esc(h["interesting"]) if h["interesting"] else f'<div class="empty"><div class="ic">{icon("file-text", 34)}</div><div class="t">No leads captured</div></div>'
+    lead = render_markdown(h["interesting"]) if h["interesting"] else f'<div class="empty"><div class="ic">{icon("file-text", 34)}</div><div class="t">No leads captured</div></div>'
     logview = (f'<pre class="terminal">{esc(h["log"]) or "(no session.log yet)"}</pre>'
                if h["log"] else f'<div class="empty"><div class="ic">{icon("monitor", 34)}</div><div class="t">No console output yet</div></div>')
 
@@ -353,7 +356,7 @@ def v_hunt(name):
                 f'<tr><td class="muted">Credentials</td><td>{", ".join(esc(c) for c in h["creds"]) or "none"}</td></tr>'
                 f'</tbody></table></div></div>'
                 f'<div class="card"><div class="hd">Feature Map</div>'
-                f'<div class="bd"><pre class="pread">{esc(h["session_state"] or "(no feature map captured)")}</pre></div></div>')
+                f'<div class="bd">{render_markdown(h["session_state"] or "(no feature map captured)")}</div></div>')
 
     tabs = [
         ("overview", "Overview", overview, True),
@@ -646,6 +649,47 @@ def v_memory():
     body = (f'<div class="hgrid">{cards}</div>' if cards
             else f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("database", 34)}</div><div class="t">Memory is empty</div></div></div></div>')
     return page("memory", hero("Memory", "Hunt notes, recon and session state"), body)
+
+def v_findings():
+    hs = hunt_stats()
+    reps = sorted(all_reports(), key=lambda r: r["mtime"], reverse=True)
+    evi = sorted(all_evidence(), key=lambda e: e["mtime"], reverse=True)
+    unread = sum(1 for r in reps if not r["read"])
+
+    stats = (f'<div class="stats">'
+             f'<div class="stat"><div class="lab">{icon("file-text", 13)} Reports</div>'
+             f'<div class="val">{hs["reports"]}</div><div class="sub">{unread} unread · {len({r["handle"] for r in reps})} programs</div></div>'
+             f'<div class="stat"><div class="lab">{icon("paperclip", 13)} Evidence</div>'
+             f'<div class="val">{hs["evidence"]}</div><div class="sub">{len({e["handle"] for e in evi})} programs with evidence</div></div>'
+             f'<div class="stat"><div class="lab">{icon("target", 13)} Coverage</div>'
+             f'<div class="val">{hs["hunts"]}</div><div class="sub">{hs["runs"]} runs · {hs["sessions"]} sessions</div></div>'
+             f'</div>')
+
+    rrows = "".join(
+        f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}">'
+        f'<td>{f"<span class=dot-u></span>" if not r["read"] else ""}</td>'
+        f'<td class="mono">{esc(r["handle"])}</td>'
+        f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
+        f'<td class="num">{fmt_size(os.path.getsize(r["path"]))}</td>'
+        f'<td>{fmt_ts(r["mtime"])}</td>'
+        f'<td>{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td></tr>' for r in reps)
+    reports_card = (f'<div class="card"><div class="hd">Reports <span class="sp"></span>'
+                    f'<span class="hint">{len(reps)} files · {unread} unread</span></div>'
+                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th class="num">SIZE</th><th>DRAFTED</th><th>STATE</th></tr></thead>'
+                    f'<tbody>{rrows or f"<tr><td colspan=6><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table></div>')
+
+    erows = "".join(
+        f'<tr><td class="mono">{esc(e["handle"])}</td>'
+        f'<td class="mono">{esc(e["name"])}</td>'
+        f'<td>{fmt_size(os.path.getsize(e["path"]))}</td>'
+        f'<td>{fmt_ts(e["mtime"])}</td></tr>' for e in evi)
+    evidence_card = (f'<div class="card"><div class="hd">Evidence <span class="sp"></span>'
+                     f'<span class="hint">{len(evi)} files</span></div>'
+                     f'<table><thead><tr><th>PROGRAM</th><th>FILE</th><th class="num">SIZE</th><th>ADDED</th></tr></thead>'
+                     f'<tbody>{erows or f"<tr><td colspan=4><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')
+
+    body = stats + reports_card + evidence_card
+    return page("findings", hero("Findings", "Reports and evidence across every hunt"), body)
 
 def v_assets(q=None):
     queue = sorted(get_queue(), key=lambda t: -(float(t.get("max_bounty") or 0)))

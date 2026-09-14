@@ -13,6 +13,7 @@ CONFIG_PATH = os.path.expanduser("~/.hackbot/config.json")
 QUEUE_FILE     = os.path.join(MISC, "target-queue.json")
 POOL_FILE      = os.path.join(MISC, "worker-pool", "pool.json")
 FINDINGS_FILE  = os.path.join(MISC, "findings.jsonl")
+README_FILE    = os.path.join(MISC, "read-reports.json")
 REPORTS_DIR    = os.path.join(MISC, "reports")
 SKILL_DIRS = [
     os.path.expanduser("~/.config/opencode/skill"),

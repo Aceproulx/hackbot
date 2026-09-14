@@ -2,10 +2,11 @@
 import json
 import os
 import re
+from time import time
 
 from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
-    SESSIONS_ROOT, SKILL_DIRS,
+    SESSIONS_ROOT, SKILL_DIRS, README_FILE,
 )
 from .helpers import mtime, read_json, read_lines, read_file, count_files
 
@@ -50,6 +51,24 @@ def need_attention() -> int:
     return sum(1 for f in get_findings() if str(f.get("status", "")).lower() not in skip)
 
 
+# ── report read-state ─────────────────────────────────────────────────────────
+
+def get_read_state() -> dict:
+    data = read_json(README_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+
+def mark_report_read(handle: str, name: str) -> None:
+    state = get_read_state()
+    kid = f"{handle}|{name}"
+    state[kid] = int(time())
+    try:
+        with open(README_FILE, "w") as fh:
+            json.dump(state, fh)
+    except Exception:
+        pass
+
+
 # ── hunt dirs ─────────────────────────────────────────────────────────────────
 
 def get_run_dirs() -> list:
@@ -68,6 +87,63 @@ def get_run_dirs() -> list:
                 "mtime": mtime(p),
             })
     return out
+
+
+def hunt_stats() -> dict:
+    """Real filesystem-derived stats across every run and session dir."""
+    runs = get_run_dirs()
+    sess = get_session_dirs()
+    reports = 0
+    evidence = 0
+    for h in runs + sess:
+        rp = os.path.join(h["path"], "reports")
+        if os.path.isdir(rp):
+            reports += sum(1 for f in os.listdir(rp)
+                           if f.endswith(".md") and os.path.isfile(os.path.join(rp, f)))
+        ep = os.path.join(h["path"], "evidence")
+        if os.path.isdir(ep):
+            evidence += len([x for x in os.listdir(ep)])
+    return {"hunts": len(runs) + len(sess), "runs": len(runs), "sessions": len(sess),
+            "reports": reports, "evidence": evidence}
+
+
+def recent_reports(limit: int = 8) -> list:
+    """Most recently drafted report .md files across all runs and sessions."""
+    items = all_reports()
+    items.sort(key=lambda x: x["mtime"], reverse=True)
+    return items[:limit]
+
+
+def unread_reports() -> int:
+    return sum(1 for r in all_reports() if not r["read"])
+
+
+def all_reports() -> list:
+    """Every report .md file across all runs and sessions, with read state."""
+    read = get_read_state()
+    items = []
+    for h in get_run_dirs() + get_session_dirs():
+        rp = os.path.join(h["path"], "reports")
+        if os.path.isdir(rp):
+            for f in os.listdir(rp):
+                fp = os.path.join(rp, f)
+                if f.endswith(".md") and os.path.isfile(fp):
+                    items.append({"name": f, "handle": h["handle"], "path": fp,
+                                  "mtime": mtime(fp), "read": f"{h['handle']}|{f}" in read})
+    return items
+
+
+def all_evidence() -> list:
+    """Every evidence file across all runs and sessions."""
+    items = []
+    for h in get_run_dirs() + get_session_dirs():
+        ep = os.path.join(h["path"], "evidence")
+        if os.path.isdir(ep):
+            for f in sorted(os.listdir(ep)):
+                fp = os.path.join(ep, f)
+                if os.path.isfile(fp):
+                    items.append({"name": f, "handle": h["handle"], "path": fp, "mtime": mtime(fp)})
+    return items
 
 
 def get_session_dirs() -> list:

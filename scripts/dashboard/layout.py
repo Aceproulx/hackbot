@@ -23,6 +23,9 @@ from .config import MAX_SLOTS
 from .config import PLATFORM
 from .util import esc
 from .state import get_findings
+from .state import get_queue
+from .state import hunt_stats
+from .state import unread_reports
 from .icons import icon
 # UNRESOLVED: need_attention (same-module or missing)
 # UNRESOLVED: pill (same-module or missing)
@@ -33,6 +36,7 @@ NAV = [
     ("WORKSPACE", [
         ("overview", "Overview", "dashboard"),
         ("hunts", "Hunts", "target"),
+        ("findings", "Findings", "file-text"),
         ("history", "History", "clock"),
         ("monitors", "Monitors", "activity"),
         ("topology", "Topology", "git-branch"),
@@ -89,14 +93,18 @@ def need_attention():
     return n
 
 def sidebar(active):
+    hs = hunt_stats()
+    queue = get_queue()
+    badges = {"findings": unread_reports(), "assets": len(queue)}
     rows = []
     for sec, items in NAV:
         rows.append(f'<div class="sec">{esc(sec)}</div>')
         for key, label, ic in items:
             cls = " active" if key == active else ""
+            badge = f'<span class="badge">{badges.get(key, 0)}</span>' if badges.get(key) else ""
             rows.append(
                 f'<a class="{cls.strip()}" href="/v/{key}">'
-                f'<span class="ic">{icon(ic)}</span><span>{esc(label)}</span></a>')
+                f'<span class="ic">{icon(ic)}</span><span>{esc(label)}</span>{badge}</a>')
     return "".join(rows)
 
 def masthead(left=None, right=None):
@@ -140,11 +148,14 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>Hackbot · ' + NAV_TITLES.get(active, "Operator") + '</title>' + r + '\n'
         '<style>' + CSS + extra_css + '</style></head>\n<body>\n'
-        '<div class="layout">\n'
+        '<div class="layout" id="layout">\n'
         '  <aside class="sidebar">\n'
         '    <div class="logo"><div class="mark">' + icon('compass', 18) + '</div>\n'
         '      <div><div class="brand">HACKBOT</div><div class="sub">' + esc(PLATFORM) + ' operator</div></div></div>\n'
         '    <nav class="nav">' + sidebar(active) + '</nav>\n'
+        '    <button class="collapse-btn" id="side-collapse" title="Collapse sidebar">'
+        '<span class="ci ci-open">' + icon('chevron-left', 14) + '</span>'
+        '<span class="ci ci-close">' + icon('chevron-right', 14) + '</span></button>\n'
         '  </aside>\n'
         '  <div class="console-tab" onclick="location.href=\'/console\'">CONSOLE</div>\n'
         '  <main class="main">\n'
@@ -378,6 +389,17 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '  }catch(e){showMsg(\'Request failed: \'+e);if(btn){btn.disabled=false;btn.textContent=orig;}}\n'
         '}\n'
         + scripts +
+
+        '(function(){\n'
+        '  var l=document.getElementById(\'layout\');\n'
+        '  var b=document.getElementById(\'side-collapse\');\n'
+        '  l.classList.toggle(\'collapsed\', localStorage.getItem(\'hb.side\') === \'off\');\n'
+        '  b.addEventListener(\'click\', function(){\n'
+        '    var c = !l.classList.contains(\'collapsed\');\n'
+        '    l.classList.toggle(\'collapsed\', c);\n'
+        '    localStorage.setItem(\'hb.side\', c ? \'off\' : \'on\');\n'
+        '  });\n'
+        '})();\n'
         '</script>\n</body></html>'
     )
 

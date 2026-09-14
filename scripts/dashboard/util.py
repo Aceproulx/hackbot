@@ -75,6 +75,15 @@ def fmt_time(ts):
     except Exception:
         return str(ts)
 
+def fmt_ts(ts):
+    """Format an epoch-seconds float/int as a human date string."""
+    if not ts:
+        return "—"
+    try:
+        return datetime.fromtimestamp(float(ts)).strftime("%b %d, %Y %I:%M %p")
+    except Exception:
+        return str(ts)
+
 def mtime(path):
     try:
         return os.path.getmtime(path)

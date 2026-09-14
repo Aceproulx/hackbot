@@ -33,8 +33,28 @@ a:hover{text-decoration:underline}
 
 /* layout */
 .layout{display:flex;min-height:100vh}
-.main{flex:1;margin-left:244px;min-width:0}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:244px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50}
+.main{flex:1;margin-left:244px;min-width:0;transition:margin-left .18s ease}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:244px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50;transition:width .18s ease}
+
+/* collapsed sidebar */
+.layout.collapsed .sidebar{width:56px}
+.layout.collapsed .main{margin-left:56px}
+.layout.collapsed .logo{justify-content:center;padding:18px 6px 14px}
+.layout.collapsed .logo>div:last-child{display:none}
+.layout.collapsed .nav{padding:12px 6px 40px}
+.layout.collapsed .nav .sec{height:0;margin:0;overflow:hidden;opacity:0}
+.layout.collapsed .nav a{justify-content:center;gap:0;padding:8px 0}
+.layout.collapsed .nav a .ic{display:block;margin:0}
+.layout.collapsed .nav a>span:not(.ic):not(.badge){display:none}
+.layout.collapsed .nav a .badge{position:absolute;right:5px;top:0;margin:0;min-width:14px;height:14px;padding:0 3px;border-radius:7px;font-size:9px}
+.layout.collapsed .nav a.active::before{left:-4px;width:2px}
+.layout.collapsed .console-tab{left:32px}
+.collapse-btn{display:flex;align-items:center;justify-content:center;width:32px;height:28px;margin:10px 10px 14px;padding:0;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer;align-self:flex-start}
+.collapse-btn:hover{color:var(--accent);border-color:var(--accent)}
+.layout.collapsed .collapse-btn{align-self:center;margin:12px auto 14px}
+.collapse-btn .ci{display:inline-flex}
+.layout.collapsed .ci-open{display:none}
+.layout:not(.collapsed) .ci-close{display:none}
 
 /* logo */
 .logo{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--border)}
@@ -209,9 +229,35 @@ th.num{text-align:right}
 /* misc */
 .mt{margin-top:14px}.right{text-align:right}
 .muted{color:var(--muted)}.small{font-size:12px}
+.dot-u{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);vertical-align:middle}
+.unread-tag{color:var(--accent);font-weight:700;font-size:11px;letter-spacing:.07em}
+tbody tr.unread td{background:rgba(143,22,24,.03)}
 code.inline{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
 .pread{white-space:pre-wrap;word-break:break-word;font-size:12.5px;line-height:1.5}
 .statline{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 .breadcrumb{font-size:12px;color:var(--muted);margin-bottom:10px}
 .node-link{color:#3d352b;font-weight:600}
+
+/* rendered markdown (.md blocks — reports, features, session-state) */
+.md{font-size:13.5px;line-height:1.6;color:var(--ink)}
+.md h1,.md h2,.md h3,.md h4{margin:18px 0 8px;font-weight:700;line-height:1.3}
+.md h1{font-size:19px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.md h2{font-size:16px} .md h3{font-size:14.5px} .md h4{font-size:13.5px}
+.md h1:first-child{margin-top:0}
+.md p{margin:8px 0}
+.md ul,.md ol{margin:8px 0;padding-left:22px}
+.md li{margin:3px 0}
+.md li.task-list-item{list-style:none;margin-left:-20px}
+.md a{color:#155e8f;text-decoration:none;border-bottom:1px solid rgba(21,94,143,.3)}
+.md a:hover{border-bottom-color:#155e8f}
+.md strong{font-weight:700}
+.md blockquote{margin:10px 0;padding:2px 14px;border-left:3px solid var(--border);color:var(--muted);background:#faf7f0}
+.md code{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
+.md pre{background:#0d0f12;color:#d8dee4;padding:12px 14px;border-radius:10px;overflow-x:auto;margin:10px 0}
+.md pre code{background:none;color:inherit;padding:0;font-size:12.5px;line-height:1.5}
+.md table{border-collapse:collapse;margin:12px 0;width:100%}
+.md th,.md td{border:1px solid var(--border);padding:7px 10px;text-align:left;font-size:12.5px}
+.md th{background:#faf7f0;font-weight:700}
+.md hr{border:none;border-top:1px solid var(--border);margin:16px 0}
+.md img{max-width:100%;border-radius:8px}
 """

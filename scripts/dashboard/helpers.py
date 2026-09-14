@@ -89,6 +89,16 @@ def word_count(path: str) -> int:
         return 0
 
 
+def render_markdown(text) -> str:
+    """Render markdown to safe HTML. Falls back to a plain pre block on error."""
+    try:
+        import mistune
+        md = mistune.create_markdown(escape=False, plugins=["strikethrough", "url", "task_lists", "table"])
+        return md(esc(text) or "")
+    except Exception:
+        return f'<pre class="pread">{esc(text)}</pre>'
+
+
 def redact(s: str) -> str:
     s = str(s)
     if not s:

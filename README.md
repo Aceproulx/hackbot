@@ -57,6 +57,7 @@ All settings live in `~/.hackbot/config.json` (created by `setup.sh`).
 | `payloads_dir` | Path to XSS/curl payloads directory | `~/Projects/payloads/coffinxp-payloads` |
 | `sessions_dir` | Where hunt session data is stored | `~/Projects/hunts/sessions` |
 | `hackbot_misc_dir` | Where hackbot runtime data lives | `~/Projects/hackbot-misc` |
+| `playwright_profile` | Default Chrome profile dir for Playwright MCP `--user-data-dir` | `~/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA` |
 | `max_worker_slots` | Max parallel workers | `2` |
 | `default_budget_usd` | Default cost budget in USD | `15` |
 

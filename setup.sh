@@ -121,6 +121,7 @@ write_config() {
     --arg payloads_dir "${CONFIG_PAYLOADS_DIR:-$HOME/Projects/payloads/coffinxp-payloads}" \
     --arg sessions_dir "${CONFIG_SESSIONS_DIR:-$HOME/Projects/hunts/sessions}" \
     --arg hackbot_misc_dir "$HOME/Projects/hackbot-misc" \
+    --arg playwright_profile "$HOME/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA" \
     --argjson max_worker_slots "${CONFIG_MAX_WORKER_SLOTS:-2}" \
     --argjson default_budget_usd "${CONFIG_DEFAULT_BUDGET_USD:-15}" \
     --arg installed_at "$installed_at" \
@@ -138,6 +139,7 @@ write_config() {
       payloads_dir:$payloads_dir,
       sessions_dir:$sessions_dir,
       hackbot_misc_dir:$hackbot_misc_dir,
+      playwright_profile:$playwright_profile,
       max_worker_slots:$max_worker_slots,
       default_budget_usd:$default_budget_usd,
       installed_at:$installed_at,

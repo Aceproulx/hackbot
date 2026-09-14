@@ -226,15 +226,20 @@ install_playwright() {
     info "    Install Chrome: https://www.google.com/chrome/  (or set the flag to 'chromium')."
   fi
 
-  local MISC PORT
+  local MISC PORT PROFILE
   MISC="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
   MISC="${MISC/#\~/$HOME}"
   PORT="$(jq -r '.caido_proxy_port // 8080' "$CONFIG" 2>/dev/null || echo 8080)"
+  PROFILE="$(jq -r '.playwright_profile // ""' "$CONFIG" 2>/dev/null || echo "")"
+  if [[ -z "$PROFILE" ]]; then
+    PROFILE="$MISC/.agent-browser-profiles/Profile-userA"
+  fi
+  PROFILE="${PROFILE/#\~/$HOME}"
 
   local CMD_JSON ENV_JSON
   # Match the live opencode config command array exactly.
-  CMD_JSON="$(jq -n --arg misc "$MISC" --arg port "$PORT" \
-    '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",($misc+"/.agent-browser-profiles/Profile-userA")]')"
+  CMD_JSON="$(jq -n --arg profile "$PROFILE" --arg port "$PORT" \
+    '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",$profile]')"
   ENV_JSON="{}"
 
   # OpenCode uses the native "mcp" schema; Antigravity uses the generic mcpServers schema.
@@ -244,6 +249,7 @@ install_playwright() {
   ok "registered 'playwright' in both configs"
 
   info "    Browser profiles: $MISC/.agent-browser-profiles/ (claim-account.sh / use-account.sh)"
+  info "    Default Chrome profile: $PROFILE (config key: playwright_profile)"
   info "    Create profiles with: $REPO_ROOT/browser-profiles/clone-profile.sh <name>"
   info "    NOTE: each concurrent agent needs its OWN Playwright MCP server process pointed at its own --user-data-dir profile."
 }

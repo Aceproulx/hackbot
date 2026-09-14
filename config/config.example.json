@@ -13,6 +13,7 @@
   "payloads_dir": "~/Projects/payloads/coffinxp-payloads",
   "sessions_dir": "~/Projects/hunts/sessions",
   "hackbot_misc_dir": "~/Projects/hackbot-misc",
+  "playwright_profile": "~/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA",
   "max_worker_slots": 2,
   "default_budget_usd": 15,
   "installed_at": "",

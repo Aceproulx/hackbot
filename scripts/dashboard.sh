@@ -227,6 +227,27 @@ cmd_add() {
     $NOTIFY bug "$PROGRAM" "$TITLE" "$SEVERITY" "$BOUNTY" 2>/dev/null || true
 }
 
+# ── serve web dashboard ────────────────────────────────────────────────────────
+
+cmd_serve() {
+  local PORT="${1:-7878}"
+  local BIN="$0"
+  [[ -L "$BIN" ]] && BIN="$(readlink "$BIN")"
+  local DIR="$(cd "$(dirname "$BIN")" && pwd)"
+  local WEB="$DIR/dashboard-web.py"
+  if [[ ! -f "$WEB" ]]; then
+    echo "ERROR: $WEB not found (re-run setup.sh or sync the repo)" >&2
+    exit 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "ERROR: python3 is required for the web dashboard" >&2
+    exit 1
+  fi
+  echo "  Web dashboard: http://127.0.0.1:${PORT}/"
+  echo "  Stop: Ctrl+C"
+  exec python3 "$WEB" --port "$PORT"
+}
+
 # ── export to markdown ─────────────────────────────────────────────────────────
 
 cmd_export() {
@@ -326,5 +347,9 @@ case "$CMD" in
   severity)       cmd_findings "severity" "${2:-}" ;;
   log|add)        cmd_add "$@" ;;
   export)         cmd_export ;;
-  *)              echo "Commands: show stats findings program severity add log export"; exit 1 ;;
+  serve)          cmd_serve "${2:-7878}" ;;
+  *)
+    echo "Commands: show stats findings program severity add log export serve [port]"
+    exit 1
+    ;;
 esac

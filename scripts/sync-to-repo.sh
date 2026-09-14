@@ -152,6 +152,13 @@ sync_scripts() {
     chmod +x "$DST"
     ok "synced scripts/$(basename "$SRC")"
   done
+  for SRC in "$SRC_DIR"/*.py; do
+    [[ -f "$SRC" ]] || continue
+    DST="$DST_DIR/$(basename "$SRC")"
+    cp "$SRC" "$DST"
+    desubstitute "$DST"
+    ok "synced scripts/$(basename "$SRC")"
+  done
 }
 
 sync_browser_profiles_scripts() {

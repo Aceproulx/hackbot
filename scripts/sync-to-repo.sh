@@ -30,6 +30,18 @@ PAYLOADS_DIR="$(jq -r '.payloads_dir' "$CONFIG")"
 SESSIONS_DIR="$(jq -r '.sessions_dir' "$CONFIG")"
 HACKBOT_MISC_DIR="$(jq -r '.hackbot_misc_dir' "$CONFIG")"
 
+# Dir values may appear in live files as absolute ($HOME/...) or tilde (~/...)
+# forms depending on which setup version wrote them. Derive both so scrub-back
+# always converts to a single {{PLACEHOLDER}}. Empty/unset → empty tilde.
+tilde_form() {
+  local v="$1"
+  if [[ -z "$v" ]]; then printf ''; return; fi
+  printf '~/%s' "${v#"$HOME"/}"
+}
+PAYLOADS_DIR_TILDE="$(tilde_form "$PAYLOADS_DIR")"
+SESSIONS_DIR_TILDE="$(tilde_form "$SESSIONS_DIR")"
+HACKBOT_MISC_DIR_TILDE="$(tilde_form "$HACKBOT_MISC_DIR")"
+
 desubstitute() {
   local FILE="$1"
   local TMP="$FILE.tmp"
@@ -58,8 +70,11 @@ desubstitute() {
   [[ -n "$INTIGRITI_USERNAME" ]] && CMD+=(-e "s|${INTIGRITI_USERNAME}|{{INTIGRITI_USERNAME}}|g")
   [[ -n "$OOB_TUNNEL_URL" ]]   && CMD+=(-e "s|${OOB_TUNNEL_URL}|{{OOB_TUNNEL_URL}}|g")
   [[ -n "$PAYLOADS_DIR" ]]     && CMD+=(-e "s|${PAYLOADS_DIR}|{{PAYLOADS_DIR}}|g")
+  [[ -n "$PAYLOADS_DIR_TILDE" ]] && CMD+=(-e "s|${PAYLOADS_DIR_TILDE}|{{PAYLOADS_DIR}}|g")
   [[ -n "$SESSIONS_DIR" ]]     && CMD+=(-e "s|${SESSIONS_DIR}|{{SESSIONS_DIR}}|g")
+  [[ -n "$SESSIONS_DIR_TILDE" ]] && CMD+=(-e "s|${SESSIONS_DIR_TILDE}|{{SESSIONS_DIR}}|g")
   [[ -n "$HACKBOT_MISC_DIR" ]] && CMD+=(-e "s|${HACKBOT_MISC_DIR}|{{HACKBOT_MISC_DIR}}|g")
+  [[ -n "$HACKBOT_MISC_DIR_TILDE" ]] && CMD+=(-e "s|${HACKBOT_MISC_DIR_TILDE}|{{HACKBOT_MISC_DIR}}|g")
 
   if [[ ${#CMD[@]} -gt 0 ]]; then
     sed "${CMD[@]}" "$TMP" > "$FILE.new" && mv "$FILE.new" "$FILE"

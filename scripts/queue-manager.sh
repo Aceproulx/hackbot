@@ -74,28 +74,32 @@ EOF
 
   # Build new queue with jq — merge existing entries, add new ones
   NEW_QUEUE=$(echo "$PROGRAMS_JSON" "$EXISTING" | jq -s '
-    # normalize both inputs
+    # normalize both inputs (REST returns objects: {value:..}/{"id","value"})
     def existing_map: .[1] | map({(.handle): .}) | add // {};
     def programs: .[0] | if type == "array" then . else (.records // []) end;
+    def st:  if (.status|type) == "object" then ((.status.value // "")|ascii_downcase) else (.status // "") end;
+    def maxv: if (.maxBounty|type) == "object" then (.maxBounty.value // 0) else (.maxBounty // 0) end;
+    def minv: if (.minBounty|type) == "object" then (.minBounty.value // 0) else (.minBounty // 0) end;
+    def conf: if (.confidentialityLevel|type) == "object" then (.confidentialityLevel.value // "Public") else (.confidentialityLevel // "Public") end;
 
     programs as $progs |
     existing_map as $ex |
     $progs
-    | map(select(.status == "open" and (.maxBounty // 0) > 0))
+    | map(select(st == "open" and (maxv // 0) > 0))
     | map({
         handle:               .handle,
         program_id:           .id,
         name:                 .name,
-        max_bounty:           (.maxBounty // 0),
-        min_bounty:           (.minBounty // 0),
+        max_bounty:           maxv,
+        min_bounty:           minv,
         tags:                 (.tags // []),
-        confidentiality:      (.confidentialityLevel // "Public"),
+        confidentiality:      conf,
         status:               ($ex[.handle].status // "pending"),
         score:                ($ex[.handle].score // (
           # base score from bounty
-          if (.maxBounty // 0) >= 10000 then 30
-          elif (.maxBounty // 0) >= 5000 then 20
-          elif (.maxBounty // 0) >= 1000 then 10
+          if maxv >= 10000 then 30
+          elif maxv >= 5000 then 20
+          elif maxv >= 1000 then 10
           else 5 end
         )),
         boost:                ($ex[.handle].boost // 0),

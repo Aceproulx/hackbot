@@ -39,6 +39,7 @@ from .util import age
 from .ansi import ansi_to_html
 from .util import count_files
 from .util import esc
+from .util import fmt_size
 from .state import get_findings
 from .state import get_pool
 from .state import get_queue
@@ -76,6 +77,34 @@ from .views import v_topology
 from .views import v_usage
 from .views import v_workspaces
 from .layout import need_attention
+
+TEXT_EXTS = {".md", ".markdown", ".txt", ".log", ".json", ".req", ".http", ".py", ".sh", ".yaml", ".yml",
+             ".toml", ".csv", ".ts", ".js", ".html", ".htm", ".xml", ".graphql", ".gql", ".conf",
+             ".ini", ".env", ".j2", ".crt", ".pem", ".sql", ".css", ".scss"}
+
+
+def looks_text(path):
+    "Whitelist extension or sniff first 4KB for NUL bytes."
+    if os.path.splitext(path)[1].lower() in TEXT_EXTS:
+        return True
+    try:
+        with open(path, "rb") as fh:
+            return b"\x00" not in fh.read(4096)
+    except Exception:
+        return False
+
+
+def _evidence_root(safe):
+    ep = os.path.join(SESSIONS_ROOT, safe, "evidence")
+    if not os.path.isdir(ep):
+        ep = os.path.join(HUNTS_ROOT, safe, "evidence")
+    return ep if os.path.isdir(ep) else ""
+
+
+def jsq(s):
+    "Escape a string for embedding inside a single-quoted JS string literal."
+    return str(s).replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ")
+
 
 def route(path, qs):
     parts = path.split("?")[0].rstrip("/").split("/")
@@ -129,11 +158,68 @@ def route(path, qs):
         rp = os.path.join(rroot, "reports", fname)
         if os.path.isfile(rp):
             mark_report_read(safe, fname)
+            packs = []
+            evd = os.path.join(rroot, "evidence")
+            if os.path.isdir(evd):
+                for d in sorted(os.listdir(evd)):
+                    dp = os.path.join(evd, d)
+                    if os.path.isdir(dp):
+                        packs.append({"name": d, "count": count_files(dp), "age": age(dp),
+                                      "url": f"/evidence/{safe}/{urllib.parse.quote(d)}",
+                                      "nq": jsq(d)})
+            packs_json = json.dumps(packs)
+            evn = f'<span class="evn">{len(packs)}</span>' if packs else "<span class=\"evn\">0</span>"
+            ev_btn = (f'<button class="ev-hero-btn" onclick="openEvidence()">{icon("archive", 15)} Evidence {evn}</button>')
+
+            def _pack_html(grid):
+                return "".join(
+                    '<div class="ev-pack">'
+                    '<button class="ev-open" onclick="%s">'
+                    '<span class="pkg">%s</span>'
+                    '<span class="meta">%d %s · %s</span></button>'
+                    '<a class="ev-pg" href="%s" title="Open full page">↗</a></div>' % (
+                        esc("evShowPack('%s',EV_SAFE,'%s')" % (grid, p["nq"])),
+                        esc(p["name"]), p["count"],
+                        "item" if p["count"] == 1 else "items", esc(p["age"]),
+                        esc(p["url"]))
+                    for p in packs) or ('<div class="empty" style="padding:24px 0"><div class="t">No evidence packs</div></div>')
+
+            ev_ui = (f'<div class="ev-backdrop" id="evbackdrop" onclick="if(event.target===this)closeEvidence()">'
+                     f'<div class="ev-modal"><div class="hd">{icon("archive", 15)} Evidence · {esc(safe)} <span class="sp"></span>'
+                     f'<button class="btn ghost small" onclick="toPanel()">{icon("columns", 13)} Open as side panel</button>'
+                     f'<button class="ev-x" onclick="closeEvidence()">×</button></div>'
+                     f'<div class="ev-scroll" id="evgrid">{_pack_html("evgrid")}</div></div></div>'
+                     f'<div class="ev-panel" id="evpanel"><div class="hd">{icon("archive", 15)} Evidence · {esc(safe)} <span class="sp"></span>'
+                     f'<button class="btn ghost small" onclick="toPopup()">{icon("maximize-2", 13)} Open as popup</button>'
+                     f'<button class="ev-x" onclick="closePanel()">×</button></div>'
+                     f'<div class="ev-scroll" id="evpgrid">{_pack_html("evpgrid")}</div></div>')
+
+            ev_js_tpl = """var EV_SAFE=__SAFE__;
+var EV_PACKS=__PACKS__;
+var EV_BACK='__ARROW__';
+function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function getEvidenceMode(){var m=document.cookie.match(/(?:^|; )evidence_mode=([^;]+)/);return m?m[1]:'popup';}
+function setEvidenceMode(v){document.cookie='evidence_mode='+v+';max-age=31536000;path=/';}
+function openEvidence(){var b=document.getElementById('evbackdrop'),p=document.getElementById('evpanel');if(getEvidenceMode()==='panel'){p.classList.add('open');document.getElementById('layout').classList.add('ev-side');}else{b.classList.add('open');}}
+function closeEvidence(){closePanel();var b=document.getElementById('evbackdrop');if(b)b.classList.remove('open');}
+function closePanel(){var p=document.getElementById('evpanel');if(p)p.classList.remove('open');var l=document.getElementById('layout');if(l)l.classList.remove('ev-side');}
+function toPanel(){setEvidenceMode('panel');closeEvidence();openEvidence();}
+function toPopup(){setEvidenceMode('popup');closePanel();openEvidence();}
+function evShowPacks(id){var el=document.getElementById(id);var h=EV_PACKS.map(function(p){return '<div class="ev-pack"><button class="ev-open" onclick="evShowPack(\\''+id+'\\',EV_SAFE,\\''+p.nq+'\\')"><span class="pkg">'+escapeHtml(p.name)+'</span><span class="meta">'+p.count+' '+(p.count===1?'item':'items')+' · '+escapeHtml(p.age)+'</span></button><a class="ev-pg" href="'+p.url+'" title="Open full page">↗</a></div>';}).join('');el.innerHTML='<div class="ev-subhead"><b>Evidence packs</b><span class="sp"></span><span class="muted small">'+EV_PACKS.length+'</span></div>'+h;}
+function evShowPack(id,safe,pack){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evpack/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+'</div>';return;}var rows=d.files.map(function(f){if(f.bin){return '<div class="ev-file"><span class="nm">'+escapeHtml(f.name)+'</span><span class="sz tag">binary · '+f.hsize+'</span></div>';}return '<button class="ev-file" onclick="evShowFile(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\',\\''+f.rq+'\\')"><span class="nm">'+escapeHtml(f.name)+'</span><span class="sz">'+f.hsize+' · '+escapeHtml(f.age)+'</span></button>';}).join('');el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPacks(\\''+id+'\\')">'+EV_BACK+' All packs</button><b>'+escapeHtml(pack)+'</b></div>'+rows;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
+function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=pack.replace(/'/g,"\\\\'");el.innerHTML='<div class="ev-load">Loading…</div>';fetch('/api/evfile/'+encodeURIComponent(safe)+'/'+encodeURIComponent(pack)+'/'+rel.split('/').map(encodeURIComponent).join('/')).then(function(r){return r.json();}).then(function(d){if(!d.ok){el.innerHTML='<div class="ev-load">'+escapeHtml(d.reason)+(d.url?' <a href="'+d.url+'">open full page ↗</a>':'')+'</div>';return;}var c=d.kind==='md'?d.html:'<pre class="ev-body">'+escapeHtml(d.text)+'</pre>';el.innerHTML='<div class="ev-subhead"><button class="btn ghost small" onclick="evShowPack(\\''+id+'\\',\\''+safe+'\\',\\''+pq+'\\')">'+EV_BACK+' '+escapeHtml(pack)+'</button><b>'+escapeHtml(d.name)+'</b></div>'+c;}).catch(function(){el.innerHTML='<div class="ev-load">Failed to load</div>';});}
+"""
+            ev_js = (ev_js_tpl
+                     .replace("__SAFE__", json.dumps(safe))
+                     .replace("__PACKS__", packs_json)
+                     .replace("__ARROW__", icon("arrow-left", 13)))
             body = f'<div class="breadcrumb">Hunt / Reports / <b>{esc(fname)}</b></div>'
             body += (f'<div class="card"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
 f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
                      f'<div class="bd md">{render_markdown(read_file(rp))}</div></div>')
-            return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}"), body).encode()
+            body += ev_ui
+            return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn),
+                        body, scripts=ev_js).encode()
         return b"404 report not found"
 
     if p[0] == "evidence":
@@ -161,6 +247,49 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
         return _console_for(l, w, d, lines).encode()
 
     if p[0] == "api":
+        if p[1] == "evpack" and len(p) >= 4:
+            safe = os.path.basename(os.path.normpath(urllib.parse.unquote(p[2])))
+            pack = os.path.basename(os.path.normpath(urllib.parse.unquote(p[3])))
+            ep = _evidence_root(safe)
+            pd = os.path.join(ep, pack) if ep else ""
+            if ep and os.path.isdir(pd):
+                out = []
+                for root, _dirs, fns in os.walk(pd):
+                    for fn in sorted(fns):
+                        fp = os.path.join(root, fn)
+                        rp = os.path.relpath(fp, pd)
+                        sz = os.path.getsize(fp)
+                        out.append({"name": rp, "rel": rp, "rq": rp.replace("'", "\\'"),
+                                    "size": sz, "hsize": fmt_size(sz), "age": age(fp),
+                                    "bin": not looks_text(fp)})
+                out.sort(key=lambda f: f["name"].lower())
+                return json.dumps({"ok": True, "pack": pack, "files": out}).encode()
+            return json.dumps({"ok": False, "reason": "evidence pack not found"}).encode()
+        if p[1] == "evfile":
+            safe = os.path.basename(os.path.normpath(urllib.parse.unquote(p[2])))
+            pack = os.path.basename(os.path.normpath(urllib.parse.unquote(p[3])))
+            relparts = [urllib.parse.unquote(x) for x in p[4:]]
+            ep = _evidence_root(safe)
+            pd = os.path.realpath(os.path.join(ep, pack)) if ep else ""
+            if not ep or not os.path.isdir(pd):
+                return json.dumps({"ok": False, "reason": "evidence pack not found"}).encode()
+            rp = os.path.realpath(os.path.join(pd, *relparts)) if relparts else ""
+            if not rp.startswith(pd + os.sep) or not os.path.isfile(rp):
+                return json.dumps({"ok": False, "reason": "file not found"}).encode()
+            if not looks_text(rp):
+                return json.dumps({"ok": False, "reason": "binary file — open on the evidence page",
+                                   "url": f"/evidence/{safe}/{urllib.parse.quote(pack)}"}).encode()
+            data = read_file(rp)
+            short = ""
+            if len(data) > 524288:
+                data = data[:524288]
+                short = "…(truncated at 512 KB)…"
+            ext = os.path.splitext(rp)[1].lower()
+            if ext in (".md", ".markdown"):
+                return json.dumps({"ok": True, "kind": "md", "name": os.path.basename(rp),
+                                   "html": render_markdown(data + short)}).encode()
+            return json.dumps({"ok": True, "kind": "text", "name": os.path.basename(rp),
+                               "text": data + short}).encode()
         if p[1] == "findings":
             return json.dumps(get_findings(), default=str).encode()
         if p[1] == "queue":

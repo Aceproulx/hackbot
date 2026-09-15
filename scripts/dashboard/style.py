@@ -275,9 +275,11 @@ code.inline{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
 .md a:hover{border-bottom-color:#155e8f}
 .md strong{font-weight:700}
 .md blockquote{margin:10px 0;padding:2px 14px;border-left:3px solid var(--border);color:var(--muted);background:#faf7f0}
-.md code{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
+.md code{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px;word-break:break-word}
 .md pre{background:#0d0f12;color:#d8dee4;padding:12px 14px;border-radius:10px;overflow-x:auto;margin:10px 0}
-.md pre code{background:none;color:inherit;padding:0;font-size:12.5px;line-height:1.5}
+.md pre code{background:none;color:inherit;padding:0;font-size:12.5px;line-height:1.5;word-break:normal}
+.md li>ul,.md li>ol{margin:4px 0}
+.md li>ul>li,.md li>ol>li{margin:2px 0}
 .md table{border-collapse:collapse;margin:12px 0;width:100%}
 .md th,.md td{border:1px solid var(--border);padding:7px 10px;text-align:left;font-size:12.5px}
 .md th{background:#faf7f0;font-weight:700}

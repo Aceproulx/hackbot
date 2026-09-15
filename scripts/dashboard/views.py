@@ -285,7 +285,8 @@ def v_hunt(name):
     fl = [f for f in get_findings() if str(f.get("program", "")) == handle or (f.get("program") or "").find(handle) >= 0]
 
     files = {k: v[0] for k, v in h["files"].items()}
-    lead = render_markdown(h["interesting"]) if h["interesting"] else f'<div class="empty"><div class="ic">{icon("file-text", 34)}</div><div class="t">No leads captured</div></div>'
+    lead = (f'<div class="md">{render_markdown(h["interesting"])}</div>' if h["interesting"]
+            else f'<div class="empty"><div class="ic">{icon("file-text", 34)}</div><div class="t">No leads captured</div></div>')
     logview = (f'<pre class="terminal">{esc(h["log"]) or "(no session.log yet)"}</pre>'
                if h["log"] else f'<div class="empty"><div class="ic">{icon("monitor", 34)}</div><div class="t">No console output yet</div></div>')
 
@@ -357,7 +358,7 @@ def v_hunt(name):
                 f'<tr><td class="muted">Credentials</td><td>{", ".join(esc(c) for c in h["creds"]) or "none"}</td></tr>'
                 f'</tbody></table></div></div>'
                 f'<div class="card"><div class="hd">Feature Map</div>'
-                f'<div class="bd">{render_markdown(h["session_state"] or "(no feature map captured)")}</div></div>')
+                f'<div class="bd md">{render_markdown(h["session_state"] or "(no feature map captured)")}</div></div>')
 
     tabs = [
         ("overview", "Overview", overview, True),

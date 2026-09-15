@@ -114,7 +114,7 @@ EOF
         last_verdict:         ($ex[.handle].last_verdict // null),
         active_worker:        null,
         started_at:           null,
-        queued_at:            ($ex[.handle].queued_at // now | todate),
+        queued_at:            (($ex[.handle].queued_at // now) | if type == "string" then (try fromdateiso8601 catch now) else . end | todate),
         rehunt_after:         ($ex[.handle].rehunt_after // null)
       })
     # Re-open targets whose rehunt_after has passed

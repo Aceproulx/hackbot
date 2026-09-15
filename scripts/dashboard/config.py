@@ -22,19 +22,40 @@ SKILL_DIRS = [
     os.path.expanduser("~/.gemini/skills"),
 ]
 
+def _is_rendered(path: str) -> bool:
+    """Skip source templates that still contain unrendered {{...}} placeholders.
+
+    The repo copies of worker-pool.sh / queue-manager.sh are install templates
+    ({{HACKBOT_MISC_DIR}}, {{EMAIL_BASE}}, ...). Running them unrendered points
+    at literal paths like '{{HACKBOT_MISC_DIR}}/target-queue.json' and breaks
+    every Start/Stop action. Prefer the installed, rendered copies.
+    """
+    try:
+        with open(path) as fh:
+            return "{{" not in fh.read()
+    except Exception:
+        return False
+
+
 _QUEUE_MANAGER_CANDIDATES = [
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "queue-manager.sh"),
     os.path.expanduser("~/.local/bin/hackbot-queue"),
     shutil.which("hackbot-queue") or "",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "queue-manager.sh"),
 ]
-QUEUE_MANAGER = next((p for p in _QUEUE_MANAGER_CANDIDATES if p and os.path.isfile(p)), None)
+QUEUE_MANAGER = next(
+    (p for p in _QUEUE_MANAGER_CANDIDATES if p and os.path.isfile(p) and _is_rendered(p)),
+    None,
+)
 
 _WORKER_POOL_CANDIDATES = [
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worker-pool.sh"),
     os.path.expanduser("~/.local/bin/hackbot-workers"),
     shutil.which("hackbot-workers") or "",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worker-pool.sh"),
 ]
-WORKER_POOL = next((p for p in _WORKER_POOL_CANDIDATES if p and os.path.isfile(p)), None)
+WORKER_POOL = next(
+    (p for p in _WORKER_POOL_CANDIDATES if p and os.path.isfile(p) and _is_rendered(p)),
+    None,
+)
 
 
 def load_config() -> dict:

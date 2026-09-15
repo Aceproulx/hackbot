@@ -209,11 +209,11 @@ def route(path, qs):
                     for p in packs) or ('<div class="empty" style="padding:24px 0"><div class="t">No evidence packs</div></div>')
 
             ev_ui = (f'<div class="ev-backdrop" id="evbackdrop" onclick="if(event.target===this)closeEvidence()">'
-                     f'<div class="ev-modal"><div class="hd">{icon("archive", 15)} Evidence · {esc(safe)} <span class="sp"></span>'
+                     f'<div class="ev-modal"><div class="hd"><span class="ev-title">{icon("archive", 15)} Evidence · {esc(safe)}</span>'
                      f'<button class="btn ghost small" onclick="toPanel()">{icon("columns", 13)} Open as side panel</button>'
                      f'<button class="ev-x" onclick="closeEvidence()">×</button></div>'
                      f'<div class="ev-scroll" id="evgrid">{_pack_html("evgrid")}</div></div></div>'
-                     f'<div class="ev-panel" id="evpanel"><div class="hd">{icon("archive", 15)} Evidence · {esc(safe)} <span class="sp"></span>'
+                     f'<div class="ev-panel" id="evpanel"><div class="hd"><span class="ev-title">{icon("archive", 15)} Evidence · {esc(safe)}</span>'
                      f'<button class="btn ghost small" onclick="toPopup()">{icon("maximize-2", 13)} Open as popup</button>'
                      f'<button class="ev-x" onclick="closePanel()">×</button></div>'
                      f'<div class="ev-scroll" id="evpgrid">{_pack_html("evpgrid")}</div></div>')

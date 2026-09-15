@@ -316,6 +316,9 @@ body.cv-on .cv-out pre{border-color:var(--green)}
 .ev-backdrop{position:fixed;inset:0;background:rgba(30,22,15,.48);z-index:80;display:none;align-items:center;justify-content:center}
 .ev-backdrop.open{display:flex}
 .ev-modal{background:#fff;border-radius:14px;width:800px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.ev-modal .hd,.ev-panel .hd{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #eee8dd;font-weight:700;font-size:13px;letter-spacing:.02em}
+.ev-modal .hd .ev-title,.ev-panel .hd .ev-title{display:inline-flex;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev-modal .hd .ev-x,.ev-panel .hd .ev-x{margin-left:auto}
 .ev-x{background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
 .ev-x:hover{color:var(--accent)}
 .ev-scroll{overflow-y:auto;padding:6px 20px 22px}

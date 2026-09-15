@@ -32,6 +32,8 @@ from .config import NOTIFY
 from .config import load_config
 from .config import HUNTS_ROOT
 from .config import SESSIONS_ROOT
+from .helpers import resolve_hunt_root
+from .helpers import read_jsonl
 from .state import VALID_MARKS
 from .state import set_report_mark
 from .util import _URL_RE
@@ -217,32 +219,22 @@ def _api_findings_update(body):
         if key in data:
             patch[key] = data[key]
 
-    lines = []
-    found = False
     if not os.path.isfile(FINDINGS_FILE):
         return {"ok": False, "message": "findings ledger not found"}, 404
-    with open(FINDINGS_FILE) as fh:
-        for ln in fh:
-            stripped = ln.strip()
-            if not stripped:
-                continue
-            try:
-                rec = json.loads(stripped)
-            except Exception:
-                lines.append(ln)
-                continue
-            if rec.get("id") == fid:
-                found = True
-                rec.update(patch)
-                if rec.get("status") == "paid" and not rec.get("resolved_at"):
-                    rec["resolved_at"] = time.time()
-                stripped = json.dumps(rec, default=str)
-            lines.append(stripped + "\n")
+    recs = read_jsonl(FINDINGS_FILE)
+    found = False
+    for rec in recs:
+        if rec.get("id") == fid:
+            found = True
+            rec.update(patch)
+            if rec.get("status") == "paid" and not rec.get("resolved_at"):
+                rec["resolved_at"] = time.time()
     if not found:
         return {"ok": False, "message": "finding not found"}, 404
     try:
         with open(FINDINGS_FILE, "w") as fh:
-            fh.writelines(lines)
+            for rec in recs:
+                fh.write(json.dumps(rec, default=str) + "\n")
     except Exception as e:
         return {"ok": False, "message": f"failed to update ledger: {e}"}, 500
     return {"ok": True, "message": "updated"}, 200
@@ -432,10 +424,10 @@ def _resolve_report(handle: str, name: str):
     """Locate a report md file under runs or sessions — normalized, no traversal."""
     safe_h = os.path.basename(os.path.normpath(handle))
     safe_n = os.path.basename(os.path.normpath(name))
-    for root in (HUNTS_ROOT, SESSIONS_ROOT):
-        rp = os.path.join(root, safe_h, "reports", safe_n)
-        if os.path.isfile(rp):
-            return rp
+    root = resolve_hunt_root(safe_h)
+    rp = os.path.join(root, "reports", safe_n)
+    if os.path.isfile(rp):
+        return rp
     return None
 
 

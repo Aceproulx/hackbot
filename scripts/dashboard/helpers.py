@@ -59,6 +59,41 @@ def read_json(path: str, default=None):
         return default
 
 
+def read_jsonl(path: str) -> list:
+    """Read a JSONL file that may contain multi-line (pretty-printed) objects.
+
+    Entries are normally one compact JSON object per line, but a manually
+    edited or externally written entry can span several lines.  A naive
+    line-by-line ``json.loads`` silently drops those.  This uses
+    ``raw_decode`` to walk the whole file, extracting each top-level JSON
+    value regardless of how it is formatted.
+    """
+    try:
+        with open(path, errors="replace") as fh:
+            text = fh.read()
+    except Exception:
+        return []
+    out = []
+    dec = json.JSONDecoder()
+    i = 0
+    n = len(text)
+    while i < n:
+        while i < n and text[i] in " \t\r\n":
+            i += 1
+        if i >= n:
+            break
+        try:
+            obj, i = dec.raw_decode(text, i)
+        except Exception:
+            # skip to next line on garbage so one bad entry can't kill the file
+            nl = text.find("\n", i)
+            i = n if nl < 0 else nl + 1
+            continue
+        if isinstance(obj, dict):
+            out.append(obj)
+    return out
+
+
 def read_lines(path: str, limit: int = 5000) -> list:
     try:
         with open(path, errors="replace") as fh:

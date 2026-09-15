@@ -8,7 +8,7 @@ from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
     SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE,
 )
-from .helpers import mtime, read_json, read_lines, read_file, count_files
+from .helpers import mtime, read_json, read_jsonl, read_lines, read_file, count_files
 
 
 # ── queue / workers ────────────────────────────────────────────────────────────
@@ -33,17 +33,7 @@ def workers_by_handle() -> dict:
 # ── findings ──────────────────────────────────────────────────────────────────
 
 def get_findings() -> list:
-    lines = read_lines(FINDINGS_FILE, 100_000)
-    out = []
-    for ln in lines:
-        ln = ln.strip()
-        if not ln:
-            continue
-        try:
-            out.append(json.loads(ln))
-        except Exception:
-            pass
-    return out
+    return read_jsonl(FINDINGS_FILE)
 
 
 def need_attention() -> int:

@@ -1,10 +1,50 @@
 """helpers.py — small utility functions used across the dashboard."""
 import base64
+import glob
 import html
 import json
 import os
 import re
 from datetime import datetime
+
+from .config import HUNTS_ROOT
+from .config import SESSIONS_ROOT
+
+
+def resolve_hunt_root(name: str) -> str:
+    """Resolve a target handle to its actual hunt directory.
+
+    Hunt dirs are created as ``<handle>-<date>`` by the worker pool, but
+    queue entries and report URLs only carry the bare ``<handle>``.  Try
+    exact match in HUNTS_ROOT first, then date-suffixed glob, then
+    SESSIONS_ROOT (for legacy session-recording dirs that lack reports/).
+    """
+    # 1. exact match in HUNTS_ROOT  (preferred — has reports/evidence)
+    exact = os.path.join(HUNTS_ROOT, name)
+    if os.path.isdir(exact):
+        return exact
+    # 2. date-suffixed fallback in HUNTS_ROOT  (challenge-0326-intigriti-io-20260915)
+    matches = sorted(
+        glob.glob(os.path.join(HUNTS_ROOT, name + "-*")),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    if matches:
+        # Prefer a date-suffixed dir that actually contains reports. A
+        # shell dir with an empty reports/ (created by a worker that then
+        # wrote to SESSIONS_ROOT instead) would otherwise shadow the real
+        # report and 404 every /report/<handle>/<file> URL.
+        for m in matches:
+            rp = os.path.join(m, "reports")
+            if os.path.isdir(rp) and os.listdir(rp):
+                return m
+    # 3. SESSIONS_ROOT  (legacy session-recording dirs)
+    sess = os.path.join(SESSIONS_ROOT, name)
+    if os.path.isdir(sess):
+        return sess
+    if matches:
+        return matches[0]
+    return exact  # fall through for 404 logic
 
 
 def esc(x: object) -> str:

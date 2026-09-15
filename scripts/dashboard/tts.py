@@ -96,7 +96,9 @@ def tts_settings_panel() -> str:
         '</table>'
         '<div class="tts-voices" id="tts-voice-grid"></div>'
         '<p class="small" style="margin-top:10px;color:var(--muted)">Voices are supplied by your browser/OS. '
-        'The five highest-scoring English voices are offered; on a report page Ctrl+I restarts reading.</p>'
+        'The five highest-scoring English voices are offered; on a report page Ctrl+I restarts reading. '
+        'If your browser has no speech voices (e.g. Chrome on Linux), report pages fall back to '
+        'server-side speech (espeak-ng).</p>'
         '</div></div>'
     )
 
@@ -311,6 +313,80 @@ function snapToWord(text, from) {
   return Math.min(from, text.length);
 }
 
+/* ── server-side TTS fallback (no browser voices: Chrome-on-Linux) ── */
+var serverAudio = null;
+var serverTTS = false;
+
+function serverChunkText(text, base) {
+  var sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9])/);
+  var chunks = [], cur = '', curStart = base;
+  for (var i = 0; i < sentences.length; i++) {
+    var s = sentences[i];
+    if (i > 0) s = ' ' + s;
+    if (cur && (cur + s).length > 1000) {
+      chunks.push({ text: cur, start: curStart });
+      curStart += cur.length;
+      cur = s;
+    } else {
+      cur += s;
+    }
+  }
+  if (cur) chunks.push({ text: cur, start: curStart });
+  return chunks;
+}
+
+function serverSpeak(text, offset) {
+  var s = session;
+  s.mode = 'server';
+  s.chunks = serverChunkText(text, offset);
+  s.idx = 0;
+  s.lastBoundary = 0;
+  serverPlayNext();
+}
+
+function serverPlayNext() {
+  var s = session;
+  if (!s || s.paused) return;
+  if (s.idx >= s.chunks.length) {
+    var s2 = session; session = null;
+    if (s2.onEnd) s2.onEnd();
+    return;
+  }
+  var c = s.chunks[s.idx++];
+  var a = serverAudio || (serverAudio = (function(){
+    var el = document.createElement('audio');
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    return el;
+  })());
+  a.onended = function(){
+    if (!session || session.paused) return;
+    session.lastBoundary = c.start + c.text.length;
+    if (session.onBoundary) session.onBoundary(session.lastBoundary);
+    serverPlayNext();
+  };
+  a.ontimeupdate = function(){
+    if (!session || session.paused || !a.duration) return;
+    var frac = a.currentTime / a.duration;
+    var off = c.start + Math.floor(frac * c.text.length);
+    if (off !== session.lastBoundary) {
+      session.lastBoundary = off;
+      if (session.onBoundary) session.onBoundary(off);
+    }
+  };
+  a.onerror = function(){
+    if (!session || session.paused) return;
+    var s2 = session; session = null;
+    if (s2.onError) s2.onError({ error: 'server-tts' });
+  };
+  a.src = '/api/tts?text=' + encodeURIComponent(c.text);
+  a.play().catch(function(e){
+    if (!session || session.paused) return;
+    var s2 = session; session = null;
+    if (s2.onError) s2.onError(e);
+  });
+}
+
 var Vox = {
   getVoices: function(){ return selectedVoices.slice(); },
   onVoicesReady: function(cb){
@@ -319,10 +395,7 @@ var Vox = {
   },
   onVoicesChanged: function(cb){ changeCbs.push(cb); },
   speak: function(text, opts){
-    if (UNSUPPORTED || !selectedVoices.length) return false;
     opts = opts || {};
-    SYNTH.cancel();
-    SYNTH.resume(); /* Chrome: clear any stuck-paused state before speaking */
     var token = (session ? session.token : 0) + 1;
     var offset = opts.baseOffset || 0;
     session = {
@@ -336,21 +409,36 @@ var Vox = {
       volume: (opts.volume != null) ? opts.volume : 1,
       baseOffset: offset
     };
-    speakWhole(text, offset);
+    if (UNSUPPORTED || !selectedVoices.length) {
+      /* no browser voices → server-side fallback (espeak-ng via /api/tts) */
+      serverSpeak(text, offset);
+    } else {
+      SYNTH.cancel();
+      SYNTH.resume(); /* Chrome: clear any stuck-paused state before speaking */
+      speakWhole(text, offset);
+    }
     return true;
   },
   pause: function(){
-    if (UNSUPPORTED || !session || session.paused) return;
+    if (!session || session.paused) return;
     session.paused = true;
     /* Use the better of boundary tracking or time-based estimate */
     session.pausePos = Math.max(session.lastBoundary || 0, estimatePos(session));
     clearProbe();
-    SYNTH.cancel();
+    if (session.mode === 'server') {
+      if (serverAudio) serverAudio.pause();
+    } else {
+      SYNTH.cancel();
+    }
   },
   resume: function(){
-    if (UNSUPPORTED || !session || !session.paused) return;
+    if (!session || !session.paused) return;
     var s = session;
     s.paused = false;
+    if (s.mode === 'server') {
+      if (serverAudio) serverAudio.play().catch(function(){});
+      return;
+    }
     var from = s.pausePos - s.baseOffset;
     if (from < 0) from = 0;
     from = snapToWord(s.wholeText, from);
@@ -367,12 +455,17 @@ var Vox = {
     speakWhole(remaining, s.baseOffset + from);
   },
   cancel: function(){
+    if (session && session.mode === 'server') {
+      if (serverAudio) { serverAudio.pause(); serverAudio.removeAttribute('src'); serverAudio.load(); }
+      session = null;
+      return;
+    }
     if (UNSUPPORTED) return;
     SYNTH.cancel();
     clearProbe();
     session = null;
   },
-  isSpeaking: function(){ return !!(SYNTH && SYNTH.speaking); },
+  isSpeaking: function(){ return !!(SYNTH && SYNTH.speaking) || !!(session && session.mode === 'server' && serverAudio && !serverAudio.paused); },
   isPaused: function(){ return !!(session && session.paused); }
 };
 
@@ -458,11 +551,11 @@ function createReader(rootEl) {
     btnPause.style.display = (state === 'playing') ? '' : 'none';
     btnResume.style.display = (state === 'paused') ? '' : 'none';
     btnStop.style.display = (state === 'idle') ? 'none' : '';
-    btnPlay.disabled = !(voicesReady && fullText);
+    btnPlay.disabled = !((voicesReady || serverTTS) && fullText);
     /* floating toolbar while reading */
     bar.classList.toggle('tts-float', state !== 'idle');
-    if (UNSUPPORTED) setCaption('speech synthesis not supported in this browser');
-    else if (!voicesReady) setCaption('loading voices…');
+    if (UNSUPPORTED) setCaption(serverTTS ? 'server-side voice' : 'speech synthesis not supported in this browser');
+    else if (!voicesReady) setCaption(serverTTS ? 'loading voices… (server voice ready)' : 'loading voices…');
     else if (!fullText) setCaption('');
   }
 
@@ -668,7 +761,7 @@ function createReader(rootEl) {
   }
 
   function play() {
-    if (!voicesReady || !fullText) return;
+    if (!(voicesReady || serverTTS) || !fullText) return;
     if (state === 'paused') { resume(); return; }
     if (state === 'playing') return;
     stopOthers(self);
@@ -919,12 +1012,12 @@ var TtsSettings = (function(){
 
   function testVoice() {
     var vs = Vox.getVoices();
-    if (!vs.length) { if (testStatus) testStatus.textContent = 'no voices available'; return; }
+    if (!vs.length && !serverTTS) { if (testStatus) testStatus.textContent = 'no voices available'; return; }
     var voice = null;
     for (var i = 0; i < vs.length; i++) {
       if (vs[i].name === voiceSel.value) { voice = vs[i]; break; }
     }
-    if (!voice) voice = vs[0];
+    if (!voice && vs.length) voice = vs[0];
     var sample = 'Hey! This is a quick test of the selected voice. How does it sound?';
     Vox.speak(sample, {
       voice: voice,
@@ -979,6 +1072,14 @@ Vox.onVoicesReady(function(){ TtsSettings.refreshVoices(); });
 Vox.onVoicesChanged(function(){ TtsSettings.refreshVoices(); });
 loadVoices();
 if (SYNTH && 'onvoiceschanged' in SYNTH) SYNTH.onvoiceschanged = loadVoices;
+
+/* Probe server-side TTS fallback (espeak-ng via /api/tts). When the browser
+   has no speechSynthesis voices (Chrome-on-Linux), the Read button falls back
+   to server-synthesized audio. */
+fetch('/api/tts?probe=1').then(function(r){ return r.json(); }).then(function(d){
+  serverTTS = !!(d && d.ok);
+  syncAllReaders();
+}).catch(function(){ serverTTS = false; syncAllReaders(); });
 })();
 """
 

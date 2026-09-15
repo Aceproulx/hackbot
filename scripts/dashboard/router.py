@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import glob
+import hashlib
 import unicodedata
 import urllib.parse
 import argparse
@@ -468,6 +469,45 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                 with open(rp, "rb") as fh:
                     raw_data = fh.read()
                 return raw_data, 200, ctype
+            except Exception as e:
+                return f"500 read error: {e}".encode(), 500, "text/plain"
+        if p[1] == "tts":
+            # Server-side TTS fallback: synthesize text to WAV via espeak-ng.
+            # Used when the browser has no speechSynthesis voices (e.g. Chrome
+            # on Linux without speech-dispatcher reachable). Cached by hash.
+            if qs.get("probe", [""])[0]:
+                # availability probe → {ok: bool}
+                try:
+                    r = subprocess.run(["espeak-ng", "--version"],
+                                       capture_output=True, timeout=5)
+                    ok = r.returncode == 0
+                except Exception:
+                    ok = False
+                return json.dumps({"ok": ok}).encode()
+            text = qs.get("text", [""])[0]
+            if not text or len(text) > 4000:
+                return b"400 bad request", 400, "text/plain"
+            cache_dir = "/tmp/hackbot-tts"
+            os.makedirs(cache_dir, exist_ok=True)
+            h = hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+            wav = os.path.join(cache_dir, h + ".wav")
+            if not os.path.isfile(wav):
+                txt = os.path.join(cache_dir, h + ".txt")
+                with open(txt, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+                try:
+                    r = subprocess.run(
+                        ["espeak-ng", "-w", wav, "-f", txt],
+                        capture_output=True, timeout=30,
+                    )
+                except Exception as e:
+                    return f"500 tts error: {e}".encode(), 500, "text/plain"
+                if r.returncode != 0 or not os.path.isfile(wav):
+                    return b"500 tts synthesis failed", 500, "text/plain"
+            try:
+                with open(wav, "rb") as fh:
+                    data = fh.read()
+                return data, 200, "audio/wav"
             except Exception as e:
                 return f"500 read error: {e}".encode(), 500, "text/plain"
         if p[1] == "findings":

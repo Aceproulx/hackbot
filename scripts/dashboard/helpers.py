@@ -222,6 +222,114 @@ def render_markdown(text) -> str:
         return f'<pre class="pread">{esc(text)}</pre>'
 
 
+_CHEVRON_SVG = ('<svg class="chev ic-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
+                'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                '<polyline points="9 18 15 12 9 6"/></svg>')
+
+
+_ANSI_STRIP = re.compile(
+    r"\x1b\[[0-9;]*m|\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]|\x1b."
+)
+
+
+def _is_prompt(line: str) -> bool:
+    """True if a log line is a shell prompt (``$ command``)."""
+    return bool(re.match(r"^\s*\$\s", _ANSI_STRIP.sub("", line)))
+
+
+def render_log_html(text: str, *, max_shown: int = 5) -> str:
+    """Render log text with per-command collapsible blocks.
+
+    Each shell command (a line starting with ``$ ``) becomes a
+    ``<details class="clp-cmd">`` block, open by default: the command is
+    the summary, the output is the body. The body is CSS-clamped to the
+    first *max_shown* lines; a clickable ``+N more lines`` note appears
+    when output is longer. Clicking the shown text or the note toggles
+    the ``expanded`` class (full output). Text before the first command
+    is rendered verbatim.
+    """
+    from .ansi import ansi_to_html
+
+    lines = text.splitlines()
+    blocks: list = []  # ("text", content) | ("cmd", cmd, output)
+    cur_kind = "text"
+    cur_text: list = []
+    cur_cmd: str | None = None
+    cur_out: list = []
+
+    def flush():
+        nonlocal cur_kind, cur_text, cur_cmd, cur_out
+        if cur_kind == "text" and cur_text:
+            blocks.append(("text", "\n".join(cur_text)))
+        elif cur_kind == "cmd" and cur_cmd is not None:
+            blocks.append(("cmd", cur_cmd, "\n".join(cur_out)))
+        cur_text = []
+        cur_cmd = None
+        cur_out = []
+
+    for line in lines:
+        if _is_prompt(line):
+            flush()
+            cur_kind = "cmd"
+            cur_cmd = line
+        elif cur_kind == "cmd":
+            if line.rstrip().endswith("\\"):
+                cur_cmd += "\n" + line
+            else:
+                cur_out.append(line)
+        else:
+            cur_text.append(line)
+    flush()
+
+    out = []
+    for b in blocks:
+        if b[0] == "text":
+            out.append(ansi_to_html(b[1]))
+            continue
+        _kind, cmd, output = b
+        out_lines = output.splitlines() if output else []
+        n = len(out_lines)
+        cmd_text = _ANSI_STRIP.sub("", cmd).strip()
+        h = sha(cmd)[:12]
+        hint = f"{n} lines" if n else ""
+        out_html = ansi_to_html(output) if output else ""
+        more = (f'<button class="clp-more" type="button">… +{n - max_shown} more lines</button>'
+                if n > max_shown else "")
+        body = f'<div class="clp-out">{out_html}</div>{more}'
+        out.append(
+            f'<details class="clp-cmd" data-cmd="{h}" open>'
+            f'<summary>{_CHEVRON_SVG}<span class="cmd">{esc(cmd_text)}</span>'
+            f'<span class="hint">{hint}</span></summary>{body}</details>'
+        )
+    return "\n".join(out)
+
+
+def clp_toggle_js() -> str:
+    """Inline JS that makes command-block output expand/collapse on click.
+
+    Clicking the shown output text or the ``+N more lines`` note toggles
+    the ``expanded`` class on the parent ``details.clp-cmd`` (full output
+    vs 5-line clamp). A drag guard keeps text selection working. Uses
+    document-level delegation so it works wherever the blocks live.
+    Returns raw JS (no <script> wrapper) for use with page(scripts=...).
+    """
+    return (
+        "(function(){"
+        "var downX=0,downY=0;"
+        "document.addEventListener('mousedown',function(e){downX=e.clientX;downY=e.clientY;});"
+        "document.addEventListener('click',function(e){"
+        "var t=e.target;"
+        "if(Math.abs(e.clientX-downX)>5||Math.abs(e.clientY-downY)>5)return;"
+        "var d=t.closest?t.closest('details.clp-cmd'):null;"
+        "if(!d)return;"
+        "if(t.classList&&(t.classList.contains('clp-more')||t.classList.contains('clp-out'))){"
+        "d.classList.toggle('expanded');"
+        "}"
+        "});"
+        "})();"
+    )
+
+
 def redact(s: str) -> str:
     s = str(s)
     if not s:

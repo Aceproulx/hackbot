@@ -48,7 +48,7 @@ class TestOverview:
     def test_stat_cards(self, browser):
         nav(browser, "/")
         stats = browser.query_selector_all(".stat")
-        assert len(stats) == 5, f"Expected 5 stat cards, got {len(stats)}"
+        assert len(stats) == 4, f"Expected 4 stat cards, got {len(stats)}"
 
     def test_worker_table(self, browser):
         nav(browser, "/")
@@ -296,7 +296,7 @@ class TestUsage:
     def test_stats_render(self, browser):
         nav(browser, "/v/usage")
         stats = browser.query_selector_all(".stat")
-        assert len(stats) >= 4
+        assert len(stats) >= 3
         no_overflow(browser)
 
 # ── SETTINGS ────────────────────────────────────────────────────────────────
@@ -345,14 +345,6 @@ class TestMonitors:
         no_overflow(browser)
         cards = browser.query_selector_all(".card")
         assert len(cards) >= 1
-
-# ── DESKTOPS ────────────────────────────────────────────────────────────────
-
-class TestDesktops:
-    def test_empty_state(self, browser):
-        nav(browser, "/v/desktops")
-        empty = browser.query_selector(".empty")
-        assert empty, "Desktops should show honest empty state"
 
 # ── CONSOLE TAB (from other pages) ──────────────────────────────────────────
 

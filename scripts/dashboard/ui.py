@@ -23,7 +23,6 @@ NAV = [
     ]),
     ("MANAGE", [
         ("workspaces", "Workspaces",    "folder"),
-        ("desktops",   "Desktops",      "monitor"),
         ("registrations", "Registrations", "mail"),
         ("usage",      "Usage",         "bar-chart-2"),
         ("settings",   "Settings",      "sliders"),

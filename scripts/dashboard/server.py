@@ -39,17 +39,22 @@ class Handler(BaseHTTPRequestHandler):
                     f'<pre>{esc(e.__class__.__name__)}: {esc(e)}</pre></body></html>').encode()
         status = 200
         ctype = "application/json" if path.startswith("/api/") else "text/html; charset=utf-8"
+        extra_headers = {}
         if isinstance(res, tuple):
             data = res[0]
             if len(res) > 1 and res[1] is not None:
                 status = res[1]
             if len(res) > 2 and res[2] is not None:
                 ctype = res[2]
+            if len(res) > 3 and res[3] is not None:
+                extra_headers = res[3] if isinstance(res[3], dict) else {"Content-Disposition": res[3]}
         else:
             data = res
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        for hk, hv in extra_headers.items():
+            self.send_header(hk, hv)
         self.end_headers()
         self.wfile.write(data)
 

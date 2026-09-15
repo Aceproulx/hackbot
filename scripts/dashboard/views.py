@@ -53,6 +53,8 @@ from .state import all_reports
 from .state import all_evidence
 from .state import recent_reports
 from .helpers import render_markdown
+from .helpers import render_log_html
+from .helpers import clp_toggle_js
 from .layout import hero
 from .layout import hunt_action_btn
 from .icons import icon
@@ -82,17 +84,13 @@ def v_overview():
     runs = get_run_dirs()
     sess = get_session_dirs()
     hs = hunt_stats()
-    paid = sum(float(f.get("bounty_paid") or 0) for f in findings if f.get("bounty_paid"))
     active_w = [w for w in workers if w.get("status") == "running"]
     pending = [t for t in queue if t.get("status") == "pending"]
-    potential = sum(float(t.get("max_bounty") or 0)
-                    for t in queue if str(t.get("status", "")).lower() == "pending")
     top = sorted(queue, key=lambda t: float(t.get("score") or 0), reverse=True)[:6]
 
     stats = ""
     st = [
         ("Reports", hs["reports"], f'{hs["evidence"]} evidence packs', "clipboard-list", "k-findings"),
-        ("Est. Bounty", f"${potential:,.0f}", f"${paid:,.0f} paid", "trending-up", "k-est"),
         ("Workers", f"{len(active_w)}/{max(len(workers),1)}", "active lanes", "cpu", "k-workers"),
         ("Queue", f"{len(pending)}", f"{len(queue)} programs queued", "target", "k-queue"),
         ("Hunts", hs["hunts"], f'{hs["runs"]} runs · {hs["sessions"]} sessions', "sitemap", "k-hunts"),
@@ -169,7 +167,6 @@ f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS
     scripts = ('setInterval(function(){fetch(\'/api/stats\').then(function(r){return r.json();}).then(function(d){'
                'if(!d||!d.ok){return;}'
                'var kf=document.getElementById(\'k-findings\');if(kf){kf.textContent=d.findings;}'
-               'var ke=document.getElementById(\'k-est\');if(ke){ke.textContent=\'$\'+Number(d.est_bounty).toLocaleString();}'
                'var kw=document.getElementById(\'k-workers\');if(kw){kw.textContent=d.workers_running+\'/\'+d.workers_total;}'
                'var kq=document.getElementById(\'k-queue\');if(kq){kq.textContent=d.queue_pending;}'
                'var kh=document.getElementById(\'k-hunts\');if(kh){kh.textContent=d.hunts_run;}}).catch(function(){})},15000);')
@@ -287,7 +284,7 @@ def v_hunt(name):
     files = {k: v[0] for k, v in h["files"].items()}
     lead = (f'<div class="md">{render_markdown(h["interesting"])}</div>' if h["interesting"]
             else f'<div class="empty"><div class="ic">{icon("file-text", 34)}</div><div class="t">No leads captured</div></div>')
-    logview = (f'<pre class="terminal">{esc(h["log"]) or "(no session.log yet)"}</pre>'
+    logview = (f'<div class="terminal">{render_log_html(h["log"])}</div>'
                if h["log"] else f'<div class="empty"><div class="ic">{icon("monitor", 34)}</div><div class="t">No console output yet</div></div>')
 
     cred_txt = ""
@@ -319,10 +316,9 @@ def v_hunt(name):
         findings_rows += (f'<tr><td>{severity_pill(f.get("severity"))}</td>'
                           f'<td style="font-weight:600">{esc(f.get("title",""))}</td>'
                           f'<td>{pill(f.get("status",""))}</td>'
-                          f'<td class="num">${float(f.get("bounty_est") or 0):,.0f}</td>'
                           f'<td>{fmt_time(f.get("ts") or f.get("reported_at"))}</td></tr>')
     findings_html = (f'<table><thead><tr><th>SEV</th><th>TITLE</th><th>STATUS</th>'
-                     f'<th class="num">EST</th><th>LOGGED</th></tr></thead><tbody>{findings_rows}</tbody></table>'
+                     f'<th>LOGGED</th></tr></thead><tbody>{findings_rows}</tbody></table>'
                      ) if fl else f'<div class="empty"><div class="ic">{icon("search", 34)}</div><div class="t">No findings for this hunt</div></div>'
 
     orch = ""
@@ -331,7 +327,6 @@ def v_hunt(name):
                 f'<div class="bd"><table><thead><tr><th>FIELD</th><th>VALUE</th></tr></thead><tbody>'
                 f'<tr><td>Program</td><td>{esc(qitem.get("name",""))}</td></tr>'
                 f'<tr><td>State</td><td>{pill(qitem.get("status",""))}</td></tr>'
-                f'<tr><td>Max bounty</td><td>${float(qitem.get("max_bounty") or 0):,.0f}</td></tr>'
                 f'<tr><td>Tags</td><td>{" ".join(pill(t) for t in (qitem.get("tags") or []))}</td></tr>'
                 f'<tr><td>Confidentiality</td><td>{pill(qitem.get("confidentiality",""), (qitem.get("confidentiality") or "").upper())}</td></tr>'
                 f'<tr><td>Score</td><td>{qitem.get("score", 0)}</td></tr>'
@@ -382,7 +377,7 @@ def v_hunt(name):
     hp = hero(f"<span class='mono'>{esc(target)}</span>",
               sub=f"{esc(h['kind'])} · {esc(os.path.basename(hpath))} · evidence {len(h['evidence'])} · reports {len(h['reports'])} · threads in operator console",
               back="/v/hunts", raw=True)
-    return page("hunt", hp, body)
+    return page("hunt", hp, body, scripts=clp_toggle_js())
 
 def v_history():
     queue = sorted(get_queue(), key=lambda t: (str(t.get("status") or ""), -(float(t.get("score") or 0))))
@@ -394,7 +389,6 @@ def v_history():
         f'<td><b>{esc(t.get("name",""))}</b> <span class="mono small muted">{esc(t.get("handle",""))}</span></td>'
         f'<td>{pill(t.get("status",""))}</td>'
         f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:2])}</td>'
-        f'<td class="num">${float(t.get("max_bounty") or 0):,.0f}</td>'
         f'<td class="num">{t.get("bugs_found",0)}</td>'
         f'<td>{fmt_time(t.get("last_hunted"))}</td>'
         f'<td>{esc(t.get("last_verdict") or "—")}</td></tr>' for t in queue)
@@ -408,7 +402,7 @@ def v_history():
     table = (f'<div class="card"><div class="hd">Target Ledger <span class="sp"></span>'
              f'<span class="hint">{len(queue)} programs</span></div>'
              f'<div class="bd" style="padding-bottom:6px">{bulk_bar}</div>'
-             f'<table><thead><tr><th></th><th>PROGRAM</th><th>STATE</th><th>TAGS</th><th class="num">MAX BX</th>'
+             f'<table><thead><tr><th></th><th>PROGRAM</th><th>STATE</th><th>TAGS</th>'
              f'<th class="num">BUGS</th><th>LAST HUNT</th><th>VERDICT</th></tr></thead><tbody>{trows}</tbody></table></div>')
 
     frows = "".join(
@@ -417,12 +411,11 @@ def v_history():
         f'<td style="font-weight:600">{esc(f.get("title",""))}</td>'
         f'<td class="mono">{esc(f.get("program",""))}</td>'
         f'<td>{pill(f.get("status",""))}</td>'
-        f'<td class="num">${float(f.get("bounty_est") or 0):,.0f}</td>'
         f'<td>{fmt_time(f.get("ts") or f.get("reported_at"))}</td></tr>' for f in reversed(findings))
     ftable = (f'<div class="card"><div class="hd">Findings Timeline <span class="sp"></span>'
               f'<span class="hint">{len(findings)} logged</span></div>'
               f'<table><thead><tr><th>SEV</th><th>TITLE</th><th>PROGRAM</th><th>STATUS</th>'
-              f'<th class="num">EST</th><th>LOGGED</th></tr></thead><tbody>{frows or ""}</tbody></table></div>')
+              f'<th>LOGGED</th></tr></thead><tbody>{frows or ""}</tbody></table></div>')
 
     body = table + ftable
     return page("history", hero("History", "Campaign ledger and findings timeline"), body)
@@ -445,7 +438,6 @@ def v_monitors():
                 f'<span class="sp"></span>{pill(st, st.upper())} <span class="hint">console #{sha(w.get("id",""))[:8]}</span></div>'
                 f'<div class="bd"><table><tr><td class="muted">Worker</td><td class="mono">{esc(w.get("id",""))}</td></tr>'
                 f'<tr><td class="muted">Started</td><td>{fmt_time(w.get("started_at"))}</td></tr>'
-                f'<tr><td class="muted">Max bounty</td><td>${float(w.get("max_bounty") or 0):,.0f}</td></tr>'
                 f'<tr><td class="muted">Bugs found</td><td>{w.get("bugs_found",0)}</td></tr></table>'
                 f'<details style="margin-top:10px"><summary class="small"><b>View prompt/log</b></summary>'
                 f'<pre class="terminal" style="margin-top:8px">{(prompt_src or "(log not readable)")[-4000:]}</pre></details>'
@@ -559,7 +551,7 @@ def v_topology():
         mk = "running"
         nodes.append(f'<div class="card narrow filter-item" data-filter="filter-item" data-search="{esc(w.get("handle",""))} worker">'
                       f'<div class="hd">Worker {w.get("slot","?")}</div><div class="bd">'
-                      f'<div class="statline">{pill(w.get("status",""),"")} · ${float(w.get("max_bounty") or 0):,.0f} max</div>'
+                      f'<div class="statline">{pill(w.get("status",""),"")} · slot {w.get("slot","?")}</div>'
                       f'<a class="btn ghost small" style="margin-top:10px" href="/console?w={esc(w.get("id",""))}">Console →</a></div></div>')
     for r in runs:
         prog = r["handle"]
@@ -733,7 +725,7 @@ apply();
     return page("findings", hero("Findings", "Reports and evidence across every hunt"), body, scripts=find_js)
 
 def v_assets(q=None):
-    queue = sorted(get_queue(), key=lambda t: -(float(t.get("max_bounty") or 0)))
+    queue = sorted(get_queue(), key=lambda t: -(float(t.get("score") or 0)))
     handlers = {}
     for w in get_workers():
         handlers[w.get("handle")] = w
@@ -750,15 +742,14 @@ def v_assets(q=None):
                  f'<td class="mono"{hint}>{esc(disp)}</td>'
                  f'<td>{pill(t.get("status",""))}</td>'
                  f'<td class="num">{esc((t.get("program_id") or "")[:8])}</td>'
-                 f'<td class="num">${float(t.get("max_bounty") or 0):,.0f}</td>'
                  f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
                  f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td>'
                  f'<td>{hunt_action_btn(t)}</td></tr>')
     body = (f'<div class="card"><div class="hd">In-Scope Targets <span class="sp"></span>'
             f'<span class="hint">{len(queue)} programs · {sum(1 for t in queue if t.get("status")=="active")} active</span></div>'
             f'<table><thead><tr><th>PROGRAM</th><th>HANDLE</th><th>STATE</th><th class="num">ID</th>'
-            f'<th class="num">MAX BX</th><th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
-    return page("assets", hero("Assets", "Every in-scope program with bounty, tags and hunt state"), body)
+            f'<th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
+    return page("assets", hero("Assets", "Every in-scope program with tags and hunt state"), body)
 
 def skill_info(path):
     raw = read_file(path)
@@ -881,26 +872,6 @@ def v_workspaces():
     body = f'<div class="hgrid">{cards}</div>'
     return page("workspaces", hero("Workspaces", "Operator workspace mounts — read/write accessible, read-only from the terminal"), body)
 
-def v_desktops():
-    runs = get_run_dirs()
-    sess = get_session_dirs()
-    cards = ""
-    for h in runs + sess:
-        st = pill("running", "Running") if h["handle"] in workers_by_handle() else pill("idle", "Idle")
-        cards += (f'<div class="hcard filter-item" data-filter="filter-item" data-search="{esc(h["name"])}">'
-                  f'<div class="t" style="font-size:12.5px"><span class="mono">{esc(h["name"])}</span></div>'
-                  f'<div class="m">lease {age(h["path"])} · {count_files(h["path"])} items</div>'
-                  f'<div class="foot">{st}<span class="sp" style="flex:1"></span>'
-                  f'<a class="btn ghost small" href="/console?d={esc(h["name"])}">Console →</a></div></div>')
-    body = (f'<div class="card"><div class="hd">Headless runtimes / profiles</div><div class="bd">'
-            f'<div class="mounts">'
-            f'<div class="row"><div class="col"><div class="hgrid">{cards}</div></div></div>'
-            f'</div></div></div>'
-            f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("monitor", 34)}</div>'
-            f'<div class="t">No GPU-backed desktops configured</div>'
-            f'<p>Hackbot runs headless workers; browser/GPU lanes arrive with the agent-browser profile host.</p></div></div></div>')
-    return page("desktops", hero("Desktops", "Agent runtimes, profiles and leases"), body)
-
 def v_registrations():
     rows = ""
     total = 0
@@ -957,22 +928,18 @@ def v_usage():
               f'<div class="sub">logged to ledger</div></div>')
     stats += (f'<div class="stat"><div class="lab">QUEUE</div><div class="val" id="u-queue">{total}</div>'
               f'<div class="sub">{sum(1 for t in queue if t.get("status")=="active")} active</div></div>')
-    payload_sum = sum(float(f.get("bounty_est") or 0) for f in findings)
-    stats += (f'<div class="stat"><div class="lab">EST BOUNTY</div><div class="val" id="u-est">${payload_sum:,.0f}</div>'
-              f'<div class="sub">confirmed pipeline</div></div>')
     stats += "</div>"
 
     ledger = "".join(
         f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))}">'
         f'<td><b>{esc(t.get("handle",""))}</b></td>'
         f'<td>{pill(t.get("status","pending"))}</td>'
-        f'<td class="num">${float(t.get("max_bounty") or 0):,.0f}</td>'
         f'<td class="num">{t.get("score",0)}</td>'
         f'<td>{fmt_time(t.get("last_hunted"))}</td>'
         f'<td>{esc(t.get("last_verdict") or "—")}</td></tr>' for t in sorted(queue, key=lambda x: -(float(x.get("score") or 0))))
     ledger_table = (f'<div class="card"><div class="hd">Target Ledger <span class="sp"></span>'
                     f'<span class="hint">ranked · {len(queue)}</span></div>'
-                    f'<table><thead><tr><th>TARGET</th><th>STATE</th><th class="num">MAX BX</th>'
+                    f'<table><thead><tr><th>TARGET</th><th>STATE</th>'
                     f'<th class="num">SCORE</th><th>LAST HUNT</th><th>VERDICT</th></tr></thead>'
                     f'<tbody>{ledger}</tbody></table></div>')
 
@@ -990,7 +957,7 @@ def v_usage():
                   f'operator-console provider (opencode/DeepSeek); when reported, a per-model ledger renders here.</div></div>')
 
     body = stats + f'<div class="row"><div class="col">{share_card}</div><div class="col">{ledger_table}</div></div>'
-    return page("usage", hero("Usage", "Operator activity — hunts, findings, coverage and bounties"), body)
+    return page("usage", hero("Usage", "Operator activity — hunts, findings and coverage"), body)
 
 def v_settings():
     cfg = CONFIG

@@ -110,6 +110,37 @@ def _api_stop_target(body):
         return {"ok": False, "message": "missing or invalid target handle"}, 400
     return _run_worker_pool("stop-target", handle)
 
+def _api_console_tell(body):
+    """Write an instruction for a worker agent to pick up.
+
+    The worker prompt instructs agents to check for a pending-message file
+    before each major action. This endpoint writes that file.
+    """
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    worker_id = (data.get("worker_id") or "").strip()
+    message = (data.get("message") or "").strip()
+    if not worker_id:
+        return {"ok": False, "message": "worker_id is required"}, 400
+    if not message:
+        return {"ok": False, "message": "message is required"}, 400
+    if len(message) > 2000:
+        return {"ok": False, "message": "message too long (max 2000 chars)"}, 400
+
+    # Write to worker-pool/<worker_id>-instructions.txt
+    from .config import MISC
+    pool_dir = os.path.join(MISC, "worker-pool")
+    try:
+        os.makedirs(pool_dir, exist_ok=True)
+        msg_path = os.path.join(pool_dir, f"{worker_id}-instructions.txt")
+        with open(msg_path, "w") as fh:
+            fh.write(message + "\n")
+        return {"ok": True, "message": f"instruction queued for {worker_id}"}, 200
+    except Exception as e:
+        return {"ok": False, "message": f"failed to write instruction: {e}"}, 500
+
 def _run_queue_manager(*args):
     if not QUEUE_MANAGER:
         return {"ok": False, "message": "queue-manager.sh not found — is hackbot-queue installed?"}, 500

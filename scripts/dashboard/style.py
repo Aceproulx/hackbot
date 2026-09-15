@@ -354,4 +354,19 @@ body.cv-on .cv-out pre{border-color:var(--green)}
 @keyframes evfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .ev-backdrop.open .ev-modal{animation:evfade .16s ease}
 @media (max-width:900px){.ev-panel{width:92vw}.layout.ev-side .main{margin-right:0}}
+
+/* per-command collapsible blocks in terminal output */
+details.clp-cmd{margin:1px 0}
+details.clp-cmd>summary{display:flex;align-items:flex-start;gap:7px;padding:2px 6px;cursor:pointer;list-style:none;user-select:none;font-size:12px;line-height:1.5;border-radius:5px;color:#9ba6b4;font-family:ui-monospace,monospace}
+details.clp-cmd>summary::-webkit-details-marker{display:none}
+details.clp-cmd>summary:hover{background:rgba(255,255,255,.07);color:#d8dee4}
+details.clp-cmd>summary .chev{transition:transform .15s ease;flex-shrink:0;color:#5c6370;margin-top:3px}
+details.clp-cmd[open]>summary .chev{transform:rotate(90deg)}
+details.clp-cmd>summary .cmd{flex:1;min-width:0;word-break:break-word;white-space:pre-wrap}
+details.clp-cmd>summary .hint{font-size:10.5px;opacity:.5;flex-shrink:0;margin-left:8px}
+details.clp-cmd .clp-out{padding:4px 8px 8px 26px;border-left:1px solid rgba(255,255,255,.09);margin-left:9px;white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+details.clp-cmd.expanded .clp-out{-webkit-line-clamp:unset;display:block;overflow:visible}
+details.clp-cmd .clp-more{display:block;margin:2px 0 6px 26px;padding:2px 8px;border:none;background:none;color:#5c6370;font:italic 11px/1.4 ui-monospace,monospace;cursor:pointer;border-radius:4px}
+details.clp-cmd .clp-more:hover{color:#9ba6b4;background:rgba(255,255,255,.06)}
+details.clp-cmd.expanded .clp-more{display:none}
 """

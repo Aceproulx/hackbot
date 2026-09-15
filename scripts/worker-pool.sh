@@ -308,6 +308,11 @@ _$(ts)_" 2>/dev/null || true
     jq '.workers |= map(if .status == "running" then .status = "killed" else . end)' \
     "$POOL_STATE" > /tmp/pool-tmp.json && mv /tmp/pool-tmp.json "$POOL_STATE"
 
+  # Reset queue: all active items → pending (no workers to be active with)
+  [[ -f "$QUEUE" ]] && \
+    jq 'map(if .status == "active" then .status = "pending" | .active_worker = null else . end)' \
+    "$QUEUE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE"
+
   hackbot-dashboard stats 2>/dev/null || true
 }
 
@@ -351,7 +356,16 @@ cmd_start_target() {
 
   local STATUS
   STATUS=$(echo "$ITEM" | jq -r '.status')
-  [[ "$STATUS" == "active" ]] && { echo "ERROR: '$HANDLE' already has an active worker" >&2; exit 1; }
+  # Trust actual worker state over the queue status field (which can go stale
+  # when a pool is stopped/crashes without resetting the queue).
+  local ALREADY_RUNNING
+  ALREADY_RUNNING=$(jq -r --arg h "$HANDLE" '[.workers[] | select(.handle==$h and .status=="running")] | length' "$POOL_STATE" 2>/dev/null || echo 0)
+  if [[ "$ALREADY_RUNNING" -gt 0 ]]; then
+    echo "ERROR: '$HANDLE' already has a running worker" >&2; exit 1
+  fi
+  [[ "$STATUS" == "active" ]] && \
+    jq --arg h "$HANDLE" 'map(if .handle == $h then .status = "pending" | .active_worker = null else . end)' \
+    "$QUEUE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE"
 
   [[ -f "$POOL_STATE" ]] || init_pool
 

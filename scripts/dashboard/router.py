@@ -34,8 +34,13 @@ from .actions import _api_report_mark
 from .actions import _api_skills_import
 from .actions import _api_skills_new
 from .actions import _api_telegram_test
+from .actions import _api_console_tell
 from .console import _console_for
 from .console import _resolve_log
+from .console import _detect_activity
+from .console import _ensure_caido
+from .console import _worker_id_from_log
+from .console import _strip_emoji
 from .util import age
 from .ansi import ansi_to_html
 from .util import count_files
@@ -51,6 +56,7 @@ from .state import hunt_stats
 from .state import MARK_LABELS
 from .helpers import decorate_curls
 from .helpers import render_markdown
+from .helpers import render_log_html
 from .state import mark_report_read
 from .state import report_mark
 from .layout import hero
@@ -65,7 +71,6 @@ from .util import read_tail
 from .views import search_memory
 from .util import skill_dirs
 from .views import v_assets
-from .views import v_desktops
 from .views import v_findings
 from .views import v_history
 from .views import v_hunt
@@ -151,7 +156,6 @@ def route(path, qs):
             "assets": lambda: v_assets(target) if target else v_assets(""),
             "skills": lambda: v_skills(qs.get("view", ["library"])[0], sel),
             "workspaces": v_workspaces,
-            "desktops": v_desktops,
             "registrations": v_registrations,
             "usage": v_usage,
             "settings": v_settings,
@@ -451,6 +455,20 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
             return json.dumps(search_memory(q), default=str).encode()
         if p[1] == "skills":
             return json.dumps(skill_dirs(), default=str).encode()
+        if p[1] == "console" and len(p) >= 3 and p[2] == "save":
+            l = qs.get("l", [""])[0]
+            w = qs.get("w", [""])[0]
+            d = qs.get("d", [""])[0]
+            sel = _resolve_log(l, w, d)
+            if not sel or not os.path.isfile(sel):
+                return b"404 no log", 404, "text/plain"
+            try:
+                with open(sel, "rb") as fh:
+                    data = fh.read()
+                fname = os.path.basename(sel)
+                return data, 200, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{fname}"'}
+            except Exception as e:
+                return f"500 read error: {e}".encode(), 500, "text/plain"
         if p[1] == "console":
             w = qs.get("w", [""])[0]
             l = qs.get("l", [""])[0]
@@ -459,8 +477,24 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
             sel = _resolve_log(l, w, d)
             payload = {
                 "mtime": mtime(sel) if sel else 0,
-                "html": ansi_to_html("\n".join(read_tail(sel, lines))) if sel else "(no logs yet)",
+                "html": _strip_emoji(render_log_html("\n".join(read_tail(sel, lines)))) if sel else "(no logs yet)",
             }
+            # Activity detection
+            akind, alabel = _detect_activity(sel)
+            if akind:
+                color_map = {
+                    "thinking": "var(--accent)",
+                    "working": "#22c55e",
+                    "writing": "#f59e0b",
+                    "reading": "#8b5cf6",
+                    "searching": "#06b6d4",
+                    "requesting": "#f97316",
+                    "error": "#ef4444",
+                }
+                payload["activity"] = akind
+                payload["activity_label"] = alabel
+                payload["activity_color"] = color_map.get(akind, "var(--muted)")
+                payload["activity_html"] = f'{icon("radio", 10)} {esc(alabel)}'
             return json.dumps(payload).encode()
 
         if p[1] == "stats":
@@ -483,6 +517,10 @@ def route_post(path, qs, body):
         return json.dumps(payload).encode(), status
     if p[:3] == ["api", "targets", "stop"]:
         payload, status = _api_stop_target(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "console", "tell"]:
+        payload, status = _api_console_tell(body)
         return json.dumps(payload).encode(), status
 
     if p[:3] == ["api", "findings", "add"]:
@@ -539,17 +577,12 @@ def api_stats():
     findings = get_findings()
     hs = hunt_stats()
     confirmed = sum(1 for f in findings if str(f.get("status", "")).lower() in ("confirmed", "paid"))
-    paid = sum(float(f.get("bounty_paid") or 0) for f in findings if f.get("bounty_paid"))
-    potential = sum(float(t.get("max_bounty") or 0) for t in queue
-                    if str(t.get("status", "")).lower() == "pending")
     active_w = [w for w in workers if str(w.get("status", "")).lower() == "running"]
     pending = [t for t in queue if str(t.get("status", "")).lower() in ("pending", "sleeping")]
     return {
         "ok": True,
         "findings": hs["reports"],
         "confirmed": confirmed,
-        "est_bounty": potential,
-        "paid_bounty": paid,
         "workers_running": len(active_w),
         "workers_total": max(len(workers), 1),
         "queue_pending": len(pending),
@@ -701,8 +734,6 @@ def api_usage(range_val):
     runs = [r for r in get_run_dirs() if not ws or float(r.get("mtime") or 0) >= ws]
     hunted = sum(1 for t in queue if t.get("bugs_found", 0) > 0 or t.get("status") == "active")
     total = max(len(queue), 1)
-    est = sum(float(f.get("bounty_est") or 0) for f in findings)
-    paid = sum(float(f.get("bounty_paid") or 0) for f in findings if f.get("bounty_paid"))
     return {
         "ok": True,
         "range": range_val,
@@ -711,8 +742,6 @@ def api_usage(range_val):
         "findings": len(findings),
         "queue_total": total,
         "queue_active": sum(1 for t in queue if t.get("status") == "active"),
-        "est_bounty": est,
-        "paid_bounty": paid,
         "hunted": hunted,
         "pending": total - hunted,
         "percent": int(hunted / total * 100),

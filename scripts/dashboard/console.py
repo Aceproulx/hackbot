@@ -1,7 +1,14 @@
 """Hackbot dashboard — console module.
 
-Split from the original single-file scripts/dashboard-web.py.
-Function bodies are extracted verbatim.
+Full-featured operator console with:
+- Toggle pause/play (single button)
+- Save log to file (download)
+- Tell agent (send instruction to worker)
+- Agent activity status (thinking/working/writing)
+- Smart auto-scroll (preserves position)
+- Active console indicator in dropdown
+- Collapsible large output sections
+- Auto-start Caido proxy
 """
 import os
 import re
@@ -22,18 +29,44 @@ from .style import CSS
 from .config import MISC
 from .config import PLATFORM
 from .config import SESSIONS_ROOT
-# UNRESOLVED: _log_index (same-module or missing)
-# UNRESOLVED: _resolve_log (same-module or missing)
 from .ansi import ansi_to_html
 from .util import esc
 from .icons import icon
-# UNRESOLVED: json (same-module or missing)
-# UNRESOLVED: kv (same-module or missing)
 from .util import mtime
-# UNRESOLVED: os (same-module or missing)
 from .layout import pill
 from .util import read_tail
-# UNRESOLVED: v_console_build (same-module or missing)
+from .helpers import render_log_html
+
+# Activity patterns to detect in logs
+ACTIVITY_PATTERNS = [
+    (r"(?:Thinking|Analyzing|Planning)\.\.\.", "thinking", "Thinking"),
+    (r"(?:Running|Executing|Calling)\s", "working", "Running"),
+    (r"(?:Write|Editing|Creating)\s", "writing", "Writing"),
+    (r"(?:Reading|Loading|Fetching)\s", "reading", "Reading"),
+    (r"(?:Searching|Grep|Finding)\s", "searching", "Searching"),
+    (r"(?:HTTP|curl|request)\s", "requesting", "Requesting"),
+    (r"(?:Error|Failed|FAIL)", "error", "Error"),
+]
+
+CAIDO_STARTED_FILE = "/tmp/hackbot-caido-started"
+
+# Strip emoji from rendered log content (raw log files keep them).
+# The dashboard enforces a no-emoji UI policy; agent output may contain emoji.
+_EMOJI_RE = re.compile(r"[\U0001F000-\U0001FAFF\u2764\uFE0F\u200D]")
+
+
+def _strip_emoji(text):
+    return _EMOJI_RE.sub("", text) if text else text
+
+
+def _jsq(s):
+    """Escape a string for safe embedding inside a JS single-quoted literal."""
+    return (str(s or "")
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r"))
+
 
 def _log_index():
     """Return list of (unique_rel_key, abspath) for every console log."""
@@ -49,6 +82,7 @@ def _log_index():
             if os.path.isfile(p):
                 logs.append((os.path.join("sessions", d, "session.log"), p))
     return logs
+
 
 def _resolve_log(lname, wname, desktop):
     logs = _log_index()
@@ -70,10 +104,69 @@ def _resolve_log(lname, wname, desktop):
     logs.sort(key=lambda kv: mtime(kv[1]), reverse=True)
     return logs[0][1] if logs else None
 
+
 def _console_for(lname, wname, desktop, lines=300):
     return v_console_build(_resolve_log(lname, wname, desktop), lines)
 
+
+def _detect_activity(log_path):
+    """Detect agent activity from last lines of log."""
+    if not log_path or not os.path.isfile(log_path):
+        return None, None
+    try:
+        with open(log_path, "r", errors="replace") as fh:
+            lines = fh.readlines()[-30:]
+        for line in reversed(lines):
+            for pattern, kind, label in ACTIVITY_PATTERNS:
+                if re.search(pattern, line, re.I):
+                    return kind, label
+    except Exception:
+        pass
+    return None, None
+
+
+def _ensure_caido():
+    """Start Caido proxy if not already running."""
+    if os.path.exists(CAIDO_STARTED_FILE):
+        # Check if still running
+        try:
+            with open(CAIDO_STARTED_FILE) as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            return  # still running
+        except (OSError, ValueError):
+            os.remove(CAIDO_STARTED_FILE)
+
+    # Check if caido-cli is available
+    caido_path = shutil.which("caido-cli") or shutil.which("caido")
+    if not caido_path:
+        return
+
+    try:
+        proc = subprocess.Popen(
+            [caido_path, "--listen", "127.0.0.1:8080"],
+            stdout=open("/tmp/caido.log", "w"),
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        with open(CAIDO_STARTED_FILE, "w") as f:
+            f.write(str(proc.pid))
+    except Exception:
+        pass
+
+
+def _worker_id_from_log(key):
+    """Extract worker ID from a log key like worker-pool/worker-1-challenge-0426-intigriti-io.log"""
+    if not key:
+        return ""
+    base = os.path.basename(key)
+    if base.endswith(".log"):
+        base = base[:-4]
+    return base
+
+
 def v_console_build(selected, lines=300):
+    _ensure_caido()
     logs = _log_index()
     selected = selected or (sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True) or [(None, None)])[0][1]
     key = ""
@@ -81,49 +174,157 @@ def v_console_build(selected, lines=300):
         if l == selected:
             key = k
             break
+
+    # Build log options with active indicator
     opts = ""
+    now = time.time()
     for k, l in sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True):
         sel = ' selected' if l == selected else ""
         label = k if k.startswith("sessions/") else os.path.basename(l)
-        opts += f'<option value="{esc(k)}"{sel}>{esc(label)}</option>'
+        # Show active indicator if log was written in last 30 seconds
+        is_active = (now - mtime(l)) < 30 if os.path.isfile(l) else False
+        active_dot = f' {icon("circle", 8)}' if is_active else ""
+        opts += f'<option value="{esc(k)}"{sel}>{esc(label)}{active_dot}</option>'
+
     line_opts = ""
     for n in (100, 300, 1000, 5000):
         s = ' selected' if n == lines else ""
         line_opts += f'<option value="{n}"{s}>{n} lines</option>'
-    content = ansi_to_html("\n".join(read_tail(selected, lines))) if selected else "(no logs yet)"
+
+    content = _strip_emoji(render_log_html("\n".join(read_tail(selected, lines)))) if selected else "(no logs yet)"
     title = os.path.basename(selected) if selected else "operator console"
-    body = (f'<div class="card"><div class="console-bar"><div class="title">{icon("terminal", 15)} Operator Console <span class="hint">'
-            f'{esc(PLATFORM)} · worker lanes · max effort</span></div>'
+
+    # Detect current activity
+    activity_kind, activity_label = _detect_activity(selected)
+    activity_html = ""
+    if activity_kind:
+        color_map = {
+            "thinking": "var(--accent)",
+            "working": "#22c55e",
+            "writing": "#f59e0b",
+            "reading": "#8b5cf6",
+            "searching": "#06b6d4",
+            "requesting": "#f97316",
+            "error": "#ef4444",
+        }
+        color = color_map.get(activity_kind, "var(--muted)")
+        activity_html = (f'<span class="activity-indicator" style="color:{color};margin-right:8px">'
+                         f'{icon("radio", 10)} {esc(activity_label)}</span>')
+
+    # Worker ID for tell-agent
+    worker_id = _worker_id_from_log(key)
+
+    body = (f'<div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0"><div class="console-bar">'
+            f'<div class="title">{icon("terminal", 15)} Operator Console '
+            f'<span class="hint">{esc(PLATFORM)} · worker lanes</span></div>'
+            # Log selector
             f'<select onchange="location.href=\'/console?l=\'+encodeURIComponent(this.value)">{opts}</select>'
             f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="tail window">{line_opts}</select>'
             f'<span class="sp" style="flex:1"></span>'
-            f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
-            f'<button class="btn ghost small" id="bpause" onclick="con_pause()">{icon("pause", 13)} Pause</button>'
-            f'<button class="btn ghost small" id="bcont" onclick="con_continue()">{icon("play", 13)} Continue</button>'
-            f'<a class="btn ghost small" href="/console">latest</a></div>'
-            f'<pre class="terminal" id="termlog" style="height:72vh;overflow-y:auto">{content}</pre></div>')
+            # Activity indicator
+            f'{activity_html}'
+            # Status + toggle button
+f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
+            f'<button class="btn ghost small" id="btoggle" onclick="con_toggle()">{icon("pause", 13)} Pause</button>'
+            # Save log button
+            f'<a class="btn ghost small" href="/api/console/save?l={esc(key)}" title="Save full log to file">{icon("download", 13)} Save</a>'
+            # Latest link
+            f'<a class="btn ghost small" href="/console">latest</a>'
+            f'</div>'
+            # Terminal output
+            f'<pre class="terminal" id="termlog" style="height:72vh;overflow-y:auto">{content}</pre>'
+            # Tell agent input
+            f'<div class="console-bar" style="border-top:1px solid var(--border);padding:10px 16px">'
+            f'{icon("message-square", 13)} '
+            f'<input type="text" id="agent-msg" placeholder="Tell the agent something..." '
+            f'style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--fg);'
+            f'padding:6px 10px;border-radius:6px;font-size:13px;font-family:inherit" '
+            f'onkeydown="if(event.key===\'Enter\')sendMsg()">'
+            f'<button class="btn ghost small" onclick="sendMsg()">{icon("send", 13)} Send</button>'
+            f'<span id="msg-status" style="margin-left:8px;font-size:12px;color:var(--muted)"></span>'
+            f'</div></div>')
+
     js = (
         "<script>"
         "(function(){"
+        # --- State ---
         "var pre=document.getElementById('termlog');"
-        "var poll=null,lastM=-1,running=true,pinned=document.getElementById('plock')?false:true;"
+        "pre.scrollTop=pre.scrollHeight;"  # open at the latest output
+        "var poll=null,lastM=-1,running=true,first=true;"
+        "var openCmds={};"  # data-cmd hash -> open state, survives polls
+        # --- Smart auto-scroll ---
         "function atBottom(){return pre.scrollHeight-pre.scrollTop-pre.clientHeight<48;}"
         "function pin(){pre.scrollTop=pre.scrollHeight;}"
+        "var wasAtBottom=true;"  # track state across paints
+        # --- Track collapse state on user toggle ---
+        "pre.addEventListener('toggle',function(e){var d=e.target;if(d&&d.tagName==='DETAILS'&&d.classList.contains('clp-cmd')){if(d.open){openCmds[d.getAttribute('data-cmd')]=1;}else{delete openCmds[d.getAttribute('data-cmd')];}}},true);"
+        # --- Expand/collapse output on click (drag guard keeps text selection) ---
+        "var downX=0,downY=0;"
+        "pre.addEventListener('mousedown',function(e){downX=e.clientX;downY=e.clientY;});"
+        "pre.addEventListener('click',function(e){"
+        "var t=e.target;"
+        "if(Math.abs(e.clientX-downX)>5||Math.abs(e.clientY-downY)>5)return;"
+        "var d=t.closest?t.closest('details.clp-cmd'):null;"
+        "if(!d)return;"
+        "if(t.classList&&(t.classList.contains('clp-more')||t.classList.contains('clp-out'))){"
+        "d.classList.toggle('expanded');"
+        "}"
+        "});"
+        # --- Paint (poll) ---
         "function paint(){"
         "fetch('/api/console?l=" + esc(key) + "&lines=" + str(lines) + "').then(function(r){return r.json();}).then(function(d){"
-        "if(d.mtime===lastM)return;lastM=d.mtime;var stay=atBottom();pre.innerHTML=d.html;if(stay)pin();"
+        "if(d.mtime===lastM)return;lastM=d.mtime;"
+        "if(first){wasAtBottom=true;first=false;}else{wasAtBottom=atBottom();}"
+        # Preserve scroll position across innerHTML replacement
+        "var oldScrollTop=pre.scrollTop;var oldScrollHeight=pre.scrollHeight;"
+        # Save which command blocks are open / expanded, then re-apply after replace
+        "var saved={};var savedExp={};"
+        "pre.querySelectorAll('details.clp-cmd').forEach(function(d){"
+        "if(d.open)saved[d.getAttribute('data-cmd')]=1;"
+        "if(d.classList.contains('expanded'))savedExp[d.getAttribute('data-cmd')]=1;"
+        "});"
+        "pre.innerHTML=d.html;"
+        "pre.querySelectorAll('details.clp-cmd').forEach(function(d){"
+        "var c=d.getAttribute('data-cmd');"
+        "if(saved[c])d.open=true;"
+        "if(savedExp[c])d.classList.add('expanded');"
+        "});"
+        # Restore or pin
+        "if(wasAtBottom){pre.scrollTop=pre.scrollHeight;}"
+        "else{var ratio=oldScrollTop/oldScrollHeight;pre.scrollTop=ratio*pre.scrollHeight;}"
+        # Update activity indicator
+        "if(d.activity){var ai=document.querySelector('.activity-indicator');if(ai){ai.innerHTML=d.activity_html;ai.style.color=d.activity_color;}}"
         "}).catch(function(){});}"
-        "function setState(on){running=on;document.getElementById('bpause').disabled=!on;document.getElementById('bcont').disabled=on;"
-        "document.getElementById('pstatus').innerHTML=on?" + json.dumps(pill("ready", "LIVE")) + ":" + json.dumps(pill("amber", "PAUSED")) + ";}"
-        "window.con_pause=function(){if(!running)return;if(poll){clearInterval(poll);poll=null;}setState(false);};"
-        "window.con_continue=function(){if(running)return;setState(true);paint();poll=setInterval(paint,2000);};"
+        # --- Toggle ---
+        "window.con_toggle=function(){"
+        "if(running){if(poll){clearInterval(poll);poll=null;}running=false;"
+        "document.getElementById('btoggle').innerHTML='" + json.dumps(icon("play", 13)) + " Play';"
+        "document.getElementById('pstatus').innerHTML=" + json.dumps(pill("amber", "PAUSED")) + ";"
+        "}else{running=true;paint();poll=setInterval(paint,2000);"
+        "document.getElementById('btoggle').innerHTML='" + json.dumps(icon("pause", 13)) + " Pause';"
+"document.getElementById('pstatus').innerHTML=" + json.dumps(pill("ready", "LIVE")) + ";}"
+        "};"
+        # --- Tell agent ---
+        "window.sendMsg=function(){"
+        "var inp=document.getElementById('agent-msg');var msg=inp.value.trim();if(!msg)return;"
+        "var st=document.getElementById('msg-status');st.textContent='Sending...';st.style.color='var(--muted)';"
+        "fetch('/api/console/tell',{method:'POST',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({worker_id:'" + _jsq(worker_id) + "',message:msg})})"
+        ".then(function(r){return r.json();}).then(function(d){"
+        "if(d.ok){st.textContent='Sent';st.style.color='#22c55e';inp.value='';setTimeout(function(){st.textContent='';},3000);}"
+        "else{st.textContent=d.message||'Failed';st.style.color='#ef4444';}"
+        "}).catch(function(){st.textContent='Network error';st.style.color='#ef4444';});"
+        "};"
+        # --- Start ---
         "paint();poll=setInterval(paint,2000);"
         "})();"
         "</script>"
     )
+
     return (f'<!doctype html><html><head><meta charset="utf-8"><title>Console · Hackbot</title>'
-            f'<style>{CSS}</style></head><body>'
+            f'<style>{CSS}</style></head>'
+            f'<body style="height:100vh;overflow:hidden;display:flex;flex-direction:column">'
             f'<div class="topbar" style="background:#0f1216;border-color:#23272d"><div style="color:#e5eaf0;font-weight:800;letter-spacing:.1em">'
             f'CONSOLE</div><span class="sp" style="flex:1"></span>'
             f'<a class="btn ghost small" href="/v/overview">{icon("arrow-left", 13)} Dashboard</a></div>'
-            f'<div style="padding:20px 26px 60px">{body}</div>{js}</body></html>')
+            f'<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:20px 26px 60px;overflow:hidden">{body}</div>{js}</body></html>')

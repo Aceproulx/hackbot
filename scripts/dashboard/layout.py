@@ -24,6 +24,7 @@ from .config import PLATFORM
 from .util import esc
 from .state import get_findings
 from .state import get_queue
+from .state import get_workers
 from .state import hunt_stats
 from .state import unread_reports
 from .icons import icon
@@ -49,7 +50,6 @@ NAV = [
     ]),
     ("MANAGE", [
         ("workspaces", "Workspaces", "folder"),
-        ("desktops", "Desktops", "monitor"),
         ("registrations", "Registrations", "mail"),
         ("usage", "Usage", "bar-chart-2"),
         ("settings", "Settings", "sliders"),
@@ -80,7 +80,13 @@ def self_hosted_badge(t):
 
 def hunt_action_btn(t):
     h = esc(t.get("handle", ""))
-    if t.get("status") == "active":
+    # Trust actual worker state, not the queue's status field (which can go
+    # stale when a pool is stopped/crashes without resetting the queue).
+    running = any(
+        w.get("handle") == t.get("handle") and w.get("status") == "running"
+        for w in get_workers()
+    )
+    if running:
         return f'<button class="btn ghost small" onclick="hunterAction(\'stop\',\'{h}\',this)">{icon("pause", 12)} Stop</button>'
     return f'<button class="btn small" onclick="hunterAction(\'start\',\'{h}\',this)">{icon("play", 12)} Start Hunt</button>'
 
@@ -193,7 +199,6 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '        <select id="f-severity" class="fld"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Informational</option></select>\n'
         '        <div class="lbl">Status</div>\n'
         '        <select id="f-status" class="fld"><option value="confirmed">Confirmed</option><option value="in-progress">In progress</option><option value="reported">Reported</option><option value="paid">Paid</option><option value="dismissed">Dismissed</option><option value="informational">Informational</option></select>\n'
-        '        <div class="lbl">Bounty est. ($)</div><input id="f-bounty" class="fld" type="number" min="0" placeholder="0">\n'
         '      </div>\n'
         '      <div class="col">\n'
         '        <div class="lbl">Title</div><input id="f-title" class="fld" placeholder="e.g. Reflected XSS in search">\n'
@@ -255,7 +260,6 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '    title:document.getElementById(\'f-title\').value.trim(),\n'
         '    severity:document.getElementById(\'f-severity\').value,\n'
         '    status:document.getElementById(\'f-status\').value,\n'
-        '    bounty_est:parseFloat(document.getElementById(\'f-bounty\').value)||0,\n'
         '    url:document.getElementById(\'f-url\').value.trim(),\n'
         '    evidence:document.getElementById(\'f-evidence\').value.trim(),\n'
         '    notes:document.getElementById(\'f-notes\').value.trim()};\n'
@@ -288,7 +292,6 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '    document.getElementById(\'u-hunts\').textContent=d.hunts_run;\n'
         '    document.getElementById(\'u-findings\').textContent=d.findings;\n'
         '    document.getElementById(\'u-queue\').textContent=d.queue_total;\n'
-        '    document.getElementById(\'u-est\').textContent=\'$\'+Number(d.est_bounty).toLocaleString();\n'
         '    document.getElementById(\'u-pct\').textContent=d.percent+\'%\';\n'
         '    document.getElementById(\'u-hunted\').textContent=d.hunted;\n'
         '    document.getElementById(\'u-pending\').textContent=d.pending;\n'

@@ -6,7 +6,7 @@ from time import time
 
 from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
-    SESSIONS_ROOT, SKILL_DIRS, README_FILE,
+    SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE,
 )
 from .helpers import mtime, read_json, read_lines, read_file, count_files
 
@@ -69,6 +69,73 @@ def mark_report_read(handle: str, name: str) -> None:
         pass
 
 
+# ── report marks ─────────────────────────────────────────────────────────────
+
+MARK_LABELS = {
+    "valid": "Valid",
+    "duplicate": "Duplicate",
+    "unreportable": "Not reportable",
+    "underreview": "Under review",
+}
+
+VALID_MARKS = set(MARK_LABELS)
+
+MARK_BANNERS = {
+    "valid": "# [THIS REPORT IS VALID]",
+    "duplicate": "# [THIS IS A DUPLICATE REPORT]",
+    "unreportable": "# [THIS HAS BEEN MARKED AS NOT REPORTABLE]",
+    "underreview": "# [THIS REPORT IS UNDER REVIEW]",
+}
+
+
+def get_report_marks() -> dict:
+    data = read_json(MARKS_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+
+def report_mark(handle: str, name: str) -> str:
+    """Current mark key for a report, or '' when unmarked."""
+    return get_report_marks().get(f"{handle}|{name}", "")
+
+
+def set_report_mark(handle: str, name: str, mark: str = "", path: str = "") -> None:
+    """Persist a report mark to the sidecar and stamp/clear its md banner."""
+    kid = f"{handle}|{name}"
+    marks = get_report_marks()
+    if mark in VALID_MARKS:
+        marks[kid] = mark
+    else:
+        marks.pop(kid, None)
+    try:
+        with open(MARKS_FILE, "w") as fh:
+            json.dump(marks, fh)
+    except Exception:
+        pass
+    if path:
+        _stamp_report(path, marks.get(kid, ""))
+
+
+def _stamp_report(path: str, mark: str) -> None:
+    """Banner header is a side effect — the marks sidecar stays authoritative."""
+    banner = MARK_BANNERS.get(mark, "")
+    try:
+        with open(path, errors="replace") as fh:
+            lines = fh.read().split("\n")
+    except Exception:
+        return
+    keep = [ln for ln in lines if ln.strip() not in set(MARK_BANNERS.values())]
+    while keep and not keep[0].strip():
+        keep.pop(0)
+    if banner:
+        keep.insert(0, banner)
+        keep.insert(1, "")
+    try:
+        with open(path, "w") as fh:
+            fh.write("\n".join(keep))
+    except Exception:
+        pass
+
+
 # ── hunt dirs ─────────────────────────────────────────────────────────────────
 
 def get_run_dirs() -> list:
@@ -121,6 +188,7 @@ def unread_reports() -> int:
 def all_reports() -> list:
     """Every report .md file across all runs and sessions, with read state."""
     read = get_read_state()
+    mks = get_report_marks()
     items = []
     for h in get_run_dirs() + get_session_dirs():
         rp = os.path.join(h["path"], "reports")
@@ -129,7 +197,8 @@ def all_reports() -> list:
                 fp = os.path.join(rp, f)
                 if f.endswith(".md") and os.path.isfile(fp):
                     items.append({"name": f, "handle": h["handle"], "path": fp,
-                                  "mtime": mtime(fp), "read": f"{h['handle']}|{f}" in read})
+                                  "mtime": mtime(fp), "read": f"{h['handle']}|{f}" in read,
+                                  "mark": mks.get(f"{h['handle']}|{f}", "")})
     return items
 
 

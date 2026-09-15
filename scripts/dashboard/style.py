@@ -235,7 +235,30 @@ tbody tr.unread td{background:rgba(143,22,24,.03)}
 code.inline{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
 .pread{white-space:pre-wrap;word-break:break-word;font-size:12.5px;line-height:1.5}
 .statline{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
-.breadcrumb{font-size:12px;color:var(--muted);margin-bottom:10px}
+.breadcrumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:10px}
+.breadcrumb a{color:var(--muted)}
+.breadcrumb .sp{flex:1}
+.breadcrumb .bcsep{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;color:#9a9186;display:inline-flex;align-items:center;gap:4px}
+.bc-btn{display:inline-flex;align-items:center;padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:#fff;font:600 11.5px -apple-system,sans-serif;color:#555;cursor:pointer;white-space:nowrap}
+.bc-btn:hover{border-color:#c9bfae;color:var(--accent)}
+.bc-btn:disabled{opacity:.4;cursor:not-allowed}
+.bc-btn.active{font-weight:700}
+.bc-btn.mk-valid.active{background:#ECFDF5;border-color:#10B981;color:#047857}
+.bc-btn.mk-duplicate.active{background:#EEF2FF;border-color:#6366F1;color:#4338CA}
+.bc-btn.mk-unreportable.active{background:#F1F5F9;border-color:#94a3b8;color:#475569}
+.bc-btn.mk-underreview.active{background:#FFFBEB;border-color:#F59E0B;color:#B45309}
+.mk{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.mk-valid{background:#ECFDF5;color:#047857}
+.mk-duplicate{background:#EEF2FF;color:#4338CA}
+.mk-unreportable{background:#F1F5F9;color:#475569}
+.mk-underreview{background:#FFFBEB;color:#B45309}
+.card.mk-bg-valid{background:#ECFDF5;border-color:#a7f3d0}
+.card.mk-bg-duplicate{background:#EEF2FF;border-color:#c7d2fe}
+.card.mk-bg-unreportable{background:#F1F5F9;border-color:#cbd5e1}
+.card.mk-bg-underreview{background:#FFFBEB;border-color:#fde68a}
+.fbar.fbar-card{padding:10px 16px;border-bottom:1px solid #eee8dd;margin:0}
+.fbar .flbl{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.fbar .sp{flex:1}
 .node-link{color:#3d352b;font-weight:600}
 
 /* rendered markdown (.md blocks — reports, features, session-state) */

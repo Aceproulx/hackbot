@@ -30,6 +30,10 @@ from .config import EMAIL_DOMAIN
 from .config import MAX_SLOTS
 from .config import NOTIFY
 from .config import load_config
+from .config import HUNTS_ROOT
+from .config import SESSIONS_ROOT
+from .state import VALID_MARKS
+from .state import set_report_mark
 from .util import _URL_RE
 from .util import _HANDLE_RE
 # UNRESOLVED: _run_worker_pool (same-module or missing)
@@ -391,3 +395,33 @@ def _api_pool_action(body):
     if action == "status":
         return _run_worker_pool("status")
     return {"ok": False, "message": "unknown pool action"}, 400
+
+
+def _resolve_report(handle: str, name: str):
+    """Locate a report md file under runs or sessions — normalized, no traversal."""
+    safe_h = os.path.basename(os.path.normpath(handle))
+    safe_n = os.path.basename(os.path.normpath(name))
+    for root in (HUNTS_ROOT, SESSIONS_ROOT):
+        rp = os.path.join(root, safe_h, "reports", safe_n)
+        if os.path.isfile(rp):
+            return rp
+    return None
+
+
+def _api_report_mark(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip()
+    name = (data.get("name") or "").strip()
+    mark = (data.get("mark") or "").strip().lower()
+    if not handle or not name:
+        return {"ok": False, "message": "handle and report name are required"}, 400
+    if mark and mark not in VALID_MARKS:
+        return {"ok": False, "message": f"unknown mark: {mark}"}, 400
+    rp = _resolve_report(handle, name)
+    if not rp:
+        return {"ok": False, "message": "report not found"}, 404
+    set_report_mark(handle, name, mark or "", path=rp)
+    return {"ok": True, "message": f"{name} → {mark or 'cleared'}", "mark": mark or ""}, 200

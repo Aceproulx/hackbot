@@ -43,6 +43,7 @@ from .util import fmt_time
 from .util import fmt_ts
 from .state import get_findings
 from .state import get_queue
+from .state import MARK_LABELS
 # UNRESOLVED: get_reading (same-module or missing)
 from .state import get_run_dirs
 from .state import get_session_dirs
@@ -375,7 +376,7 @@ def v_hunt(name):
         f'<div id="t-{key}" data-tabgroup="hunt" style="display:{"" if active else "none"}">{content}</div>'
         for key, _lbl, content, active in tabs)
 
-    body = f'<div class="breadcrumb">Workspace / Hunts / <b>{esc(target)}</b></div>'
+    body = f'<div class="breadcrumb"><span>Workspace / Hunts / <b>{esc(target)}</b></span></div>'
     body += f'<div class="tabs">{tb}</div>{panels}'
     hp = hero(f"<span class='mono'>{esc(target)}</span>",
               sub=f"{esc(h['kind'])} · {esc(os.path.basename(hpath))} · evidence {len(h['evidence'])} · reports {len(h['reports'])} · threads in operator console",
@@ -665,18 +666,37 @@ def v_findings():
              f'<div class="val">{hs["hunts"]}</div><div class="sub">{hs["runs"]} runs · {hs["sessions"]} sessions</div></div>'
              f'</div>')
 
+    def mk_pill(mark):
+        if not mark:
+            return '<span class="muted small">\u2014</span>'
+        return f'<span class="mk mk-{esc(mark)}">{esc(MARK_LABELS.get(mark, mark))}</span>'
+
     rrows = "".join(
-        f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}">'
+        f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}"'
+        f' data-mark="{esc(r["mark"])}" data-read="{"1" if r["read"] else "0"}">'
         f'<td>{f"<span class=dot-u></span>" if not r["read"] else ""}</td>'
         f'<td class="mono">{esc(r["handle"])}</td>'
         f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
         f'<td class="num">{fmt_size(os.path.getsize(r["path"]))}</td>'
         f'<td>{fmt_ts(r["mtime"])}</td>'
-        f'<td>{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td></tr>' for r in reps)
-    reports_card = (f'<div class="card"><div class="hd">Reports <span class="sp"></span>'
+        f'<td>{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td>'
+        f'<td>{mk_pill(r["mark"])}</td></tr>' for r in reps)
+    fbar = (f'<div class="fbar fbar-card" id="rep-filterbar">'
+            f'<span class="flbl">Mark</span>'
+            f'<button class="f active" data-fmark="" onclick="repFilter(this)">All marks</button>'
+            + "".join(f'<button class="f" data-fmark="{mk}" onclick="repFilter(this)">{esc(lbl)}</button>'
+                      for mk, lbl in MARK_LABELS.items())
+            + f'<span class="sp"></span>'
+            f'<span class="flbl">State</span>'
+            f'<button class="f active" data-fstate="" onclick="repFilter(this)">All</button>'
+            f'<button class="f" data-fstate="unread" onclick="repFilter(this)">Unread</button>'
+            f'<button class="f" data-fstate="read" onclick="repFilter(this)">Read</button>'
+            f'</div>')
+    reports_card = (f'<div class="card" id="repcard"><div class="hd">Reports <span class="sp"></span>'
                     f'<span class="hint">{len(reps)} files · {unread} unread</span></div>'
-                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th class="num">SIZE</th><th>DRAFTED</th><th>STATE</th></tr></thead>'
-                    f'<tbody>{rrows or f"<tr><td colspan=6><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table></div>')
+                    f'{fbar}'
+                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th class="num">SIZE</th><th>DRAFTED</th><th>STATE</th><th>MARK</th></tr></thead>'
+                    f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table></div>')
 
     erows = "".join(
         f'<tr><td class="mono">{esc(e["handle"])}</td>'
@@ -688,8 +708,28 @@ def v_findings():
                      f'<table><thead><tr><th>PROGRAM</th><th>FILE</th><th class="num">SIZE</th><th>ADDED</th></tr></thead>'
                      f'<tbody>{erows or f"<tr><td colspan=4><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')
 
+    find_js = """(function(){
+var KEY='hb.find';var st={mark:'',read:''};
+try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o&&typeof o==='object'){st.mark=o.mark||'';st.read=o.read||'';}}}catch(e){}
+function apply(){
+  var rows=document.querySelectorAll('#repcard tbody tr');var i,r,show;
+  for(i=0;i<rows.length;i++){r=rows[i];show=true;
+    if(st.mark&&r.getAttribute('data-mark')!==st.mark){show=false;}
+    if(show&&st.read){var rd=r.getAttribute('data-read');show=(st.read==='unread')?(rd==='0'):(rd==='1');}
+    r.classList.toggle('hide-js',!show);}
+  var bs=document.querySelectorAll('#rep-filterbar .f'),j,b,m,s;
+  for(j=0;j<bs.length;j++){b=bs[j];m=b.getAttribute('data-fmark');s=b.getAttribute('data-fstate');
+    if(m!==null){b.classList.toggle('active',m===st.mark);}else if(s!==null){b.classList.toggle('active',s===st.read);}}
+}
+window.repFilter=function(btn){var m=btn.getAttribute('data-fmark'),s=btn.getAttribute('data-fstate');
+  if(m!==null){st.mark=m;}if(s!==null){st.read=s;}
+  try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}
+  apply();};
+apply();
+})();"""
+
     body = stats + reports_card + evidence_card
-    return page("findings", hero("Findings", "Reports and evidence across every hunt"), body)
+    return page("findings", hero("Findings", "Reports and evidence across every hunt"), body, scripts=find_js)
 
 def v_assets(q=None):
     queue = sorted(get_queue(), key=lambda t: -(float(t.get("max_bounty") or 0)))

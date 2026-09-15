@@ -30,6 +30,7 @@ from .actions import _api_mailbox_test
 from .actions import _api_pool_action
 from .actions import _api_provider_test
 from .actions import _api_queue_bulk
+from .actions import _api_report_mark
 from .actions import _api_skills_import
 from .actions import _api_skills_new
 from .actions import _api_telegram_test
@@ -47,9 +48,11 @@ from .state import get_run_dirs
 from .state import get_session_dirs
 from .state import get_workers
 from .state import hunt_stats
+from .state import MARK_LABELS
 from .helpers import decorate_curls
 from .helpers import render_markdown
 from .state import mark_report_read
+from .state import report_mark
 from .layout import hero
 from .icons import icon
 # UNRESOLVED: json (same-module or missing)
@@ -234,8 +237,17 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                      .replace("__SAFE__", json.dumps(safe))
                      .replace("__PACKS__", packs_json)
                      .replace("__ARROW__", icon("arrow-left", 13)))
-            body = f'<div class="breadcrumb">Hunt / Reports / <b>{esc(fname)}</b></div>'
-            body += (f'<div class="card"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
+            cur = report_mark(safe, fname)
+            mbtns = "".join(
+                f'<button class="bc-btn mk-{mk}{" active" if mk == cur else ""}" data-mark="{mk}" onclick="reportMark(this)">{esc(MARK_LABELS[mk])}</button>'
+                for mk in ("duplicate", "unreportable", "valid", "underreview"))
+            marks_bar = (f'<span class="bcsep">{icon("flag", 12)} Mark:</span>{mbtns}'
+                         f'<button class="bc-btn bc-clear{" off" if not cur else ""}" onclick="reportClear()"'
+                         f'{" disabled" if not cur else ""}>Clear</button>')
+            body = (f'<div class="breadcrumb"><span>Hunt / Reports / <b>{esc(fname)}</b></span>'
+                    f'<span class="sp"></span>{marks_bar}</div>')
+            mkcls = f' mk-bg-{cur}' if cur else ''
+            body += (f'<div class="card{mkcls}"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
 f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
                      f'<div class="bd md">{decorate_curls(render_markdown(read_file(rp)))}</div></div>')
             body += ev_ui
@@ -263,8 +275,14 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
                 "out.innerHTML='<div class=\"cv-st '+cls+'\">'+head+'</div><pre>'+cvEsc(d.out)+'</pre>';})\n"
                 ".catch(function(e){btn.disabled=false;if(tri){tri.textContent=old;}btn.classList.remove('run');out.hidden=false;out.innerHTML='<div class=\"cv-st bad\">request failed: '+cvEsc(e)+'</div>';});}\n"
                 "cvApply();")
+            mark_js = (
+                "function reportMark(btn){var m=btn.getAttribute('data-mark');\n"
+                "apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:m})\n"
+                ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to mark report.');return;}location.reload();});}\n"
+                "function reportClear(){apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:''})\n"
+                ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to clear mark.');return;}location.reload();});}\n")
             return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn + cv_toggle),
-                        body, scripts=ev_js + cv_js).encode()
+                        body, scripts=ev_js + cv_js + mark_js).encode()
         return b"404 report not found"
 
     if p[0] == "evidence":
@@ -311,7 +329,7 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
                             f'<span class="sp"></span><span class="sz tag">binary · {fmt_size(sz)}</span> '
                             f'<a class="btn ghost small" href="{raw_url}" target="_blank">Raw ↗</a></div></div>'
                         )
-            body = (f'<div class="breadcrumb">Hunt / <a href="/evidence/{esc(safe)}">Evidence</a> / <b>{esc(pack)}</b></div>'
+            body = (f'<div class="breadcrumb"><span>Hunt / <a href="/evidence/{esc(safe)}">Evidence</a> / <b>{esc(pack)}</b></span></div>'
                     f'<div class="card" style="margin-bottom:14px"><div class="hd">Pack: {esc(pack)} <span class="sp"></span>'
                     f'<a class="btn ghost small" href="/evidence/{esc(safe)}">{icon("arrow-left", 13)} All packs</a></div></div>'
                     + "".join(files_html))
@@ -483,6 +501,10 @@ def route_post(path, qs, body):
         return json.dumps(payload).encode(), status
     if p[:3] == ["api", "skills", "import"]:
         payload, status = _api_skills_import(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "report", "mark"]:
+        payload, status = _api_report_mark(body)
         return json.dumps(payload).encode(), status
 
     if p[:3] == ["api", "telegram", "test"]:

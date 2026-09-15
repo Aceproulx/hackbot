@@ -648,7 +648,10 @@ function createReader(rootEl) {
         acceptNode: function(node){
           var p = node.parentElement;
           if (!p) return NodeFilter.FILTER_REJECT;
-          if (p.closest('pre, code, script, style, .cv-ctl, .cv-out')) return NodeFilter.FILTER_REJECT;
+          /* read inline code and code blocks aloud too (grey-highlighted
+             endpoints/URLs like `POST https://...` are report content);
+             still skip scripts, styles, and console command controls */
+          if (p.closest('script, style, .cv-ctl, .cv-out')) return NodeFilter.FILTER_REJECT;
           if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_ACCEPT;
         }

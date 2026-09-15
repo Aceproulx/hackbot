@@ -55,6 +55,9 @@ from .state import recent_reports
 from .helpers import render_markdown
 from .helpers import render_log_html
 from .helpers import clp_toggle_js
+from .tts import TTS_CSS
+from .tts import tts_js
+from .tts import tts_settings_panel
 from .layout import hero
 from .layout import hunt_action_btn
 from .icons import icon
@@ -968,6 +971,7 @@ def v_settings():
           + '<span class="t" data-tabbtn="s" data-target="s4" onclick="showTab(\'s\',\'s4\')">Data</span>'
           + '<span class="t" data-tabbtn="s" data-target="s5" onclick="showTab(\'s\',\'s5\')">Progress observer</span>'
           + "<span class='t' data-tabbtn='s' data-target='s6' onclick=\"showTab('s','s6')\">System prompts</span>"
+          + '<span class="t" data-tabbtn="s" data-target="s7" onclick="showTab(\'s\',\'s7\')">Voice</span>'
           + "</div>")
 
     provider_card = (f'<div class="card"><div class="hd">opencode ({esc(PLATFORM)}) <span class="sp"></span>'
@@ -1017,7 +1021,8 @@ def v_settings():
               f'<div id="s3" data-tabgroup="s" style="display:none">{cred}</div>'
               f'<div id="s4" data-tabgroup="s" style="display:none">{data}</div>'
               f'<div id="s5" data-tabgroup="s" style="display:none">{progress}</div>'
-              f'<div id="s6" data-tabgroup="s" style="display:none">{sysprompts}</div>')
+              f'<div id="s6" data-tabgroup="s" style="display:none">{sysprompts}</div>'
+              f'<div id="s7" data-tabgroup="s" style="display:none">{tts_settings_panel()}</div>')
     body = tb + panels + ('<div class="modal-bg" id="cmodal" onclick="if(event.target===this)this.style.display=\'none\'">'
                       '<div class="modal"><div class="hd">Configure</div><div class="bd">'
                       '<div id="c-err" class="small" style="color:var(--accent);display:none;margin-bottom:8px"></div>'
@@ -1028,4 +1033,5 @@ def v_settings():
                       '<button class="btn ghost small" onclick="closeM(\'cmodal\')">Cancel</button>'
                       '<button class="btn small" style="margin-left:8px" onclick="configSave()">Save</button>'
                       '</div></div></div></div>')
-    return page("settings", hero("Settings", "Agent providers, channels, credentials and operator data"), body)
+    return page("settings", hero("Settings", "Agent providers, channels, credentials and operator data"), body,
+                extra_css=TTS_CSS, scripts=tts_js())

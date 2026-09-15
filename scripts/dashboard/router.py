@@ -57,6 +57,9 @@ from .state import MARK_LABELS
 from .helpers import decorate_curls
 from .helpers import render_markdown
 from .helpers import render_log_html
+from .tts import TTS_CSS
+from .tts import tts_js
+from .tts import tts_reader_bar
 from .state import mark_report_read
 from .state import report_mark
 from .layout import hero
@@ -274,8 +277,9 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                     f'<span class="sp"></span>{marks_bar}</div>')
             mkcls = f' mk-bg-{cur}' if cur else ''
             body += (f'<div class="card{mkcls}"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
-f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
-                     f'<div class="bd md">{decorate_curls(render_markdown(read_file(rp)))}</div></div>')
+                     f'{tts_reader_bar()}'
+                     f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
+                     f'<div class="bd md tts-root" id="tts-root">{decorate_curls(render_markdown(read_file(rp)))}</div></div>')
             body += ev_ui
             cv_toggle = (
                 f'<button class="cv-toggle" id="cv-toggle" onclick="cvToggle()" '
@@ -308,7 +312,7 @@ f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 
                 "function reportClear(){apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:''})\n"
                 ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to clear mark.');return;}location.reload();});}\n")
             return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn + cv_toggle),
-                        body, scripts=ev_js + cv_js + mark_js).encode()
+                        body, extra_css=TTS_CSS, scripts=ev_js + cv_js + mark_js + tts_js()).encode()
         return b"404 report not found"
 
     if p[0] == "evidence":

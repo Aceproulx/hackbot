@@ -87,6 +87,33 @@ from .views import v_usage
 from .views import v_workspaces
 from .layout import need_attention
 
+
+def _resolve_hunt_root(name: str) -> str:
+    """Resolve a target handle to its actual hunt directory.
+
+    Hunt dirs are created as ``<handle>-<date>`` by the worker pool, but
+    queue entries and report URLs only carry the bare ``<handle>``.  Try
+    exact match in HUNTS_ROOT first, then date-suffixed glob, then
+    SESSIONS_ROOT (for legacy session-recording dirs that lack reports/).
+    """
+    # 1. exact match in HUNTS_ROOT  (preferred — has reports/evidence)
+    exact = os.path.join(HUNTS_ROOT, name)
+    if os.path.isdir(exact):
+        return exact
+    # 2. date-suffixed fallback in HUNTS_ROOT  (challenge-0326-intigriti-io-20260915)
+    matches = sorted(
+        glob.glob(os.path.join(HUNTS_ROOT, name + "-*")),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    if matches:
+        return matches[0]
+    # 3. SESSIONS_ROOT  (legacy session-recording dirs)
+    sess = os.path.join(SESSIONS_ROOT, name)
+    if os.path.isdir(sess):
+        return sess
+    return exact  # fall through for 404 logic
+
 TEXT_EXTS = {".md", ".markdown", ".txt", ".log", ".json", ".req", ".http", ".py", ".sh", ".yaml", ".yml",
              ".toml", ".csv", ".ts", ".js", ".html", ".htm", ".xml", ".graphql", ".gql", ".conf",
              ".ini", ".env", ".j2", ".crt", ".pem", ".sql", ".css", ".scss"}
@@ -124,9 +151,8 @@ def looks_text(path):
 
 
 def _evidence_root(safe):
-    ep = os.path.join(SESSIONS_ROOT, safe, "evidence")
-    if not os.path.isdir(ep):
-        ep = os.path.join(HUNTS_ROOT, safe, "evidence")
+    rroot = _resolve_hunt_root(safe)
+    ep = os.path.join(rroot, "evidence")
     return ep if os.path.isdir(ep) else ""
 
 
@@ -168,9 +194,7 @@ def route(path, qs):
         name = qs.get("name", [""])[0]
         if name:
             safe = os.path.basename(os.path.normpath(name))
-            hpath = os.path.join(HUNTS_ROOT, safe)
-            if not os.path.isdir(hpath):
-                hpath = os.path.join(SESSIONS_ROOT, safe)
+            hpath = _resolve_hunt_root(safe)
             if os.path.isdir(hpath):
                 out = v_hunt(safe)
                 if out:
@@ -180,9 +204,7 @@ def route(path, qs):
     if p[0] == "report":
         safe = os.path.basename(os.path.normpath(p[1])) if len(p) > 1 else ""
         fname = os.path.basename(os.path.normpath("/".join(p[2:]))) if len(p) > 2 else ""
-        rroot = os.path.join(HUNTS_ROOT, safe)
-        if not os.path.isdir(rroot):
-            rroot = os.path.join(SESSIONS_ROOT, safe)
+        rroot = _resolve_hunt_root(safe)
         rp = os.path.join(rroot, "reports", fname)
         if os.path.isfile(rp):
             mark_report_read(safe, fname)

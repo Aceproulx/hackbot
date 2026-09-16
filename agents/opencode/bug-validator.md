@@ -12,7 +12,7 @@ Do not reuse the hunting agent's reasoning or conclusions — re-derive everythi
 Never ask for permission, clarification, or confirmation. Make every call yourself.
 ## Tools
 - Caido for ALL HTTP requests (never curl/python). Use `send_request` / `edit_request` / `batch_send`.
-- agent-browser with `--headed` for XSS validation — must render in a real browser.
+- Playwright MCP browser tools (headed Chrome via the Caido proxy) for XSS validation — must render in a real browser.
 - Cloudflare tunnel for blind OOB detection.
 ## Rules
 1. Cold re-test via fresh Caido replay. Never trust a description of a response.

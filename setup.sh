@@ -108,7 +108,7 @@ write_config() {
     --arg payloads_dir "${CONFIG_PAYLOADS_DIR:-$HOME/Projects/payloads/coffinxp-payloads}" \
     --arg sessions_dir "${CONFIG_SESSIONS_DIR:-$HOME/Projects/hackbot/hunts/sessions}" \
     --arg hackbot_misc_dir "$HOME/Projects/hackbot-misc" \
-    --arg playwright_profile "$HOME/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA" \
+    --arg playwright_profile "$HOME/Projects/hackbot-misc/.playwright-profiles/Profile-userA" \
     --argjson max_worker_slots "${CONFIG_MAX_WORKER_SLOTS:-2}" \
     --arg installed_at "$installed_at" \
     --arg version "" \
@@ -149,8 +149,7 @@ load_config() {
 create_dirs() {
   mkdir -p "$HOME/Projects/hackbot-misc/notify"
   mkdir -p "$HOME/Projects/hackbot/hunts/sessions"
-  mkdir -p "$HOME/Projects/hackbot-misc/.agent-browser-profiles"
-  mkdir -p "$HOME/.agent-browser"
+  mkdir -p "$HOME/Projects/hackbot-misc/.playwright-profiles"
   mkdir -p "$HACKBOT_DIR"
   mkdir -p "$HOME/.local/bin"
   ok "Directory structure ready"
@@ -239,9 +238,8 @@ install_mcps() {
 }
 
 install_browser_profiles() {
-  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
-  local AGENT_CFG="$HOME/.agent-browser/config.json"
-  mkdir -p "$PROFILES_DIR" "$HOME/.agent-browser"
+  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.playwright-profiles"
+  mkdir -p "$PROFILES_DIR"
   if [[ -d "$REPO_ROOT/browser-profiles" ]]; then
     cp -a "$REPO_ROOT/browser-profiles/." "$PROFILES_DIR/"
     chmod +x "$PROFILES_DIR"/*.sh 2>/dev/null || true
@@ -252,16 +250,6 @@ install_browser_profiles() {
     ok "Browser profiles installed (seed + clone/switch/sync scripts)"
   else
     warn "browser-profiles/ not found — skipping browser profiles"
-  fi
-  # Legacy agent-browser config (kept so switch-account.sh still works).
-  # Playwright MCP ignores this — it gets the profile via --user-data-dir.
-  if [[ ! -f "$AGENT_CFG" ]]; then
-    local DEFAULT_PROFILE
-    DEFAULT_PROFILE="$PROFILES_DIR/Profile-Default"
-    jq -n --arg profile "$DEFAULT_PROFILE" \
-      '{headed:true,args:"--disable-blink-features=AutomationControlled,--start-maximized",profile:$profile}' \
-      > "$AGENT_CFG"
-    ok "Created ~/.agent-browser/config.json -> Profile-Default"
   fi
 }
 

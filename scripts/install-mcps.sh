@@ -229,7 +229,7 @@ install_playwright() {
   PORT="$(jq -r '.caido_proxy_port // 8080' "$CONFIG" 2>/dev/null || echo 8080)"
   PROFILE="$(jq -r '.playwright_profile // ""' "$CONFIG" 2>/dev/null || echo "")"
   if [[ -z "$PROFILE" ]]; then
-    PROFILE="$MISC/.agent-browser-profiles/Profile-userA"
+    PROFILE="$MISC/.playwright-profiles/Profile-userA"
   fi
   PROFILE="${PROFILE/#\~/$HOME}"
   # browser_isolation: how concurrent agents keep their browser profiles apart.
@@ -288,7 +288,7 @@ install_playwright() {
       info "    Single shared profile: $PROFILE — concurrent workers WILL collide on the profile lock."
       ;;
   esac
-  info "    Browser profiles: $MISC/.agent-browser-profiles/ (claim-account.sh / use-account.sh)"
+  info "    Browser profiles: $MISC/.playwright-profiles/ (claim-account.sh / use-account.sh)"
   info "    Create profiles with: $REPO_ROOT/browser-profiles/clone-profile.sh <name>"
 }
 

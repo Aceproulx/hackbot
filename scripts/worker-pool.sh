@@ -78,12 +78,12 @@ spawn_worker() {
   # worker's Playwright MCP server uses its own Chrome profile.
   local HACKBOT_CONFIG=~/.hackbot/config.json
   local BROWSER_ISOLATION="isolated"
-  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.playwright-profiles"
   local BASE_PROFILE="$PROFILES_DIR/Profile-userA"
   if [[ -f "$HACKBOT_CONFIG" ]]; then
     BROWSER_ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$HACKBOT_CONFIG" 2>/dev/null || echo "isolated")"
     PROFILES_DIR="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$HACKBOT_CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
-    PROFILES_DIR="${PROFILES_DIR/#\~/$HOME}/.agent-browser-profiles"
+    PROFILES_DIR="${PROFILES_DIR/#\~/$HOME}/.playwright-profiles"
     BASE_PROFILE="$(jq -r '.playwright_profile // ""' "$HACKBOT_CONFIG" 2>/dev/null || echo "")"
     BASE_PROFILE="${BASE_PROFILE/#\~/$HOME}"
   fi

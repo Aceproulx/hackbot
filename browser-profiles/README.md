@@ -11,7 +11,7 @@ is how the browser process gets its cookies/login session.
 ## Layout
 
 ```
-.agent-browser-profiles/
+.playwright-profiles/
   Profile-Default/          # initial account (source of truth for extensions)
   clone-profile.sh          # create a new account profile
   switch-account.sh         # switch account (single agent, sequential use only)
@@ -43,13 +43,13 @@ is how the browser process gets its cookies/login session.
 ```
 
 - Fails loudly if `Profile-<name>` does not exist.
-- Edits only the `profile` field in `~/.agent-browser/config.json` (legacy —
-  kept for agent-browser compatibility) via a real JSON parser.
-- Kills any running Chrome process whose `--user-data-dir`
-  matches the *old* profile path (not all Chrome).
-- Prints which account is now active.
-- **⚠ Do NOT call this when two agents run concurrently** — it mutates the
-  shared `config.json` and causes a race condition. Use `use-account.sh` instead.
+- Kills any running Chrome process whose `--user-data-dir` lives under the
+  profiles dir (not all Chrome) — releases the old profile's lock.
+- Prints the new profile path and the `--user-data-dir` flag to relaunch your
+  Playwright MCP server with (Playwright MCP reads the profile only from its
+  launch flag, never from a config file).
+- **⚠ Do NOT call this when two agents run concurrently** — it kills browser
+  processes across profiles. Use `use-account.sh` instead.
 
 ## Concurrent agents — two agents at once
 

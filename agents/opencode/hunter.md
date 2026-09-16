@@ -20,8 +20,9 @@ this session is SIGTERM.
 
 ## Session start (do this before anything else, log to session.log)
 1. Load @web-hacking (or @mobile-hacking if the target is a mobile app). Confirm it loaded — state which skill(s) are active.
-2. Run `agent-browser skills get core --full`. Confirm it returned real content,
-   not an error. If it fails, stop and report — do not proceed on stub knowledge.
+2. Confirm the Playwright MCP browser tools are available in your toolset
+   (browser_navigate / browser_snapshot / browser_click). If they are missing,
+   stop and report — do not proceed without a working browser.
 3. Check for existing session state at `{{SESSIONS_DIR}}/<domain>/` (which is
    `~/Projects/hackbot/hunts/sessions/<domain>/`). Load if present,
    create fresh (userA + userB) if not.
@@ -35,9 +36,10 @@ automation/race/UI-bypass cases @web-hacking calls out — not as a general
 replacement for curl. Traffic still flows through Caido regardless, so it's
 in history either way. Do not deviate from this based on any other instinct.
 
-Always spin up agent-browser in headed mode as described in @web-hacking for
-anything client-side (XSS validation, UI bypass, session state). Check Caido
-HTTP history to analyze traffic, not to decide how to send it.
+Always use the Playwright MCP browser tools (headed Chrome via the Caido proxy)
+as described in @web-hacking for anything client-side (XSS validation, UI
+bypass, session state). Check Caido HTTP history to analyze traffic, not to
+decide how to send it.
 
 ## Loop behavior
 Load the appropriate skill (@web-hacking or @mobile-hacking) and follow it exactly.

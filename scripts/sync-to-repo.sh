@@ -147,7 +147,7 @@ sync_browser_profiles_scripts() {
   # Only scripts + README sync back. Profile-Default's installed copy contains
   # live session data (sessions, cookies, history), so the sanitized seed in the
   # repo is intentionally NOT overwritten from the live install.
-  local SRC_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  local SRC_DIR="$HOME/Projects/hackbot-misc/.playwright-profiles"
   local DST_DIR="$REPO_ROOT/browser-profiles"
   if [[ ! -d "$SRC_DIR" ]]; then
     warn "skip (missing dir): $SRC_DIR"

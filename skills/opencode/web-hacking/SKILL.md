@@ -252,14 +252,14 @@ slot, tells you who you are, and now also **launches (or attaches to) your own
 Playwright MCP server instance pointed at that slot's profile dir**:
 
 ```bash
-ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
+ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
 
 # Run this ONCE at the very start of the agent session:
 eval "$(cd "$ABP" && ./claim-account.sh)"
 
 # claim-account.sh outputs three export lines, e.g.:
 #   export AGENT_BROWSER_ACCOUNT="userA"
-#   export AGENT_BROWSER_PROFILE=".../.agent-browser-profiles/Profile-userA"
+#   export AGENT_BROWSER_PROFILE=".../.playwright-profiles/Profile-userA"
 #   export PLAYWRIGHT_MCP_USER_DATA_DIR="$AGENT_BROWSER_PROFILE"
 #
 # The other agent racing concurrently will get userB automatically, with its
@@ -284,7 +284,7 @@ echo "My creds: {{SESSIONS_DIR}}/<target>/$AGENT_BROWSER_ACCOUNT.creds"
 
 #### Release on clean exit
 ```bash
-cd {{HACKBOT_MISC_DIR}}/.agent-browser-profiles && ./release-account.sh
+cd {{HACKBOT_MISC_DIR}}/.playwright-profiles && ./release-account.sh
 # frees the slot for the next agent and signals your Playwright MCP server
 # instance to shut down
 ```
@@ -307,7 +307,7 @@ shared browser process).
 
 ### Profile layout
 One Chrome profile per account under
-`{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/Profile-<name>`. The profile
+`{{HACKBOT_MISC_DIR}}/.playwright-profiles/Profile-<name>`. The profile
 IS the session — cookies/localStorage persist inside it, and it's what you
 pass as Playwright MCP's `--user-data-dir`. Every profile is cloned from
 `Profile-Default`, so extensions + config (FoxyProxy, captcha solver) are
@@ -417,7 +417,7 @@ Extract the OTP/verification code from the message body.
 3. If no creds file exists, ensure your profile exists (it should — `claim-account.sh`
    validates this, but check anyway):
    ```bash
-   ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
+   ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
    [ -d "$ABP/Profile-$AGENT_BROWSER_ACCOUNT" ] || \
      (cd "$ABP" && ./clone-profile.sh "$AGENT_BROWSER_ACCOUNT")
    ```
@@ -446,7 +446,7 @@ Extract the OTP/verification code from the message body.
 
 ### Workflow (profile-based; curl still the IDOR transport)
 ```bash
-ABP={{HACKBOT_MISC_DIR}}/.agent-browser-profiles
+ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
 TARGET=https://example.com
 
 # 0. Bootstrap — each agent runs this ONCE at session start.
@@ -878,14 +878,14 @@ add a timeout back.
 - **Switch account** (concurrent agents) = set env vars and point your
   Playwright MCP server at a different profile via `use-account.sh`:
   ```bash
-  eval "$(cd {{HACKBOT_MISC_DIR}}/.agent-browser-profiles && ./use-account.sh userB)"
+  eval "$(cd {{HACKBOT_MISC_DIR}}/.playwright-profiles && ./use-account.sh userB)"
   ```
   This sets `AGENT_BROWSER_PROFILE` and relaunches your own Playwright MCP
   server instance with `--user-data-dir` pointed at it. The old account's
   login stays in its profile dir — nothing to save or load. This does not
   touch any other agent's Playwright MCP server.
 - **Switch account** (sequential, single agent only) = `switch-account.sh <name>`
-  (in `{{HACKBOT_MISC_DIR}}/.agent-browser-profiles/`); re-points your
+  (in `{{HACKBOT_MISC_DIR}}/.playwright-profiles/`); re-points your
   single Playwright MCP server's `--user-data-dir` and restarts the browser
   process on the old profile only. Do not use when two agents are live.
 

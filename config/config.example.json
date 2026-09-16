@@ -13,8 +13,8 @@
   "payloads_dir": "~/Projects/payloads/coffinxp-payloads",
   "sessions_dir": "~/Projects/hackbot/hunts/sessions",
   "hackbot_misc_dir": "~/Projects/hackbot-misc",
-  "playwright_profile": "~/Projects/hackbot-misc/.playwright-profiles/Profile-userA",
-  "browser_isolation": "isolated",
+  "playwright_profile": "~/Projects/hackbot-misc/.playwright-profiles/Profile-hackbot",
+  "browser_isolation": "per-slot",
   "max_worker_slots": 2,
   "installed_at": "",
   "version": ""

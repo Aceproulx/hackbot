@@ -2,11 +2,13 @@
 import json
 import os
 import re
+from datetime import datetime
 from time import time
 
 from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
     SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE,
+    WATCHDOG, WATCHDOG_LOG, WATCHDOG_PID, WATCHDOG_REPORTS_DIR,
 )
 from .helpers import mtime, read_json, read_jsonl, read_lines, read_file, count_files
 
@@ -272,6 +274,122 @@ def skill_dirs() -> list[tuple[str, str]]:
                 p = os.path.join(base, d)
                 if os.path.isdir(p) and os.path.isfile(os.path.join(p, "SKILL.md")):
                     out.append((d, p))
+    return out
+
+
+# ── watchdog ──────────────────────────────────────────────────────────────────
+
+_WG_TITLE_RE = re.compile(r"^#\s*Watchdog Report\s*[—\-:]*\s*(\S+)", re.I)
+_WG_POOL_RE = re.compile(r"^Pool:\s*(.+)$", re.I | re.M)
+_WG_LOG_RE = re.compile(r"^\[([^\]]+)\]\s*(.*)$")
+
+# log-prefix → event kind (order matters: most specific first)
+_WG_KINDS = (
+    ("timeout", "Monitor cycle TIMEOUT"),
+    ("cycle-done", "Monitor cycle finished"),
+    ("cycle-start", "Monitor cycle started"),
+    ("started", "Watchdog started"),
+    ("stopped", "Watchdog stopped"),
+    ("killed", "Killed daemon"),
+    ("daemon", "Daemon PID:"),
+    ("sleep", "Sleeping "),
+)
+
+
+def watchdog_daemon() -> dict:
+    """Daemon liveness — PID file + kill(0) probe, mirroring watchdog.sh status."""
+    pid = read_file(WATCHDOG_PID).strip()
+    running = False
+    if pid:
+        try:
+            os.kill(int(pid), 0)
+            running = True
+        except Exception:
+            running = False
+    return {"running": running, "pid": pid}
+
+
+def watchdog_settings() -> dict:
+    """Interval / timeout read straight from the installed watchdog script."""
+    txt = read_file(WATCHDOG) if WATCHDOG else ""
+
+    def grab(key: str, dflt: int) -> int:
+        m = re.search(rf"^{key}=(\d+)", txt, re.M)
+        return int(m.group(1)) if m else dflt
+
+    return {"interval": grab("INTERVAL", 1800), "timeout": grab("TIMEOUT", 900)}
+
+
+def parse_watchdog_report(text: str) -> dict:
+    """Turn one cycle report into a notification-shaped dict (summary + actions)."""
+    rep = {"ts": "", "slots": 0, "running": 0, "healthy": 0, "fixed": 0, "stuck": 0, "actions": []}
+    m = _WG_TITLE_RE.search(text)
+    if m:
+        rep["ts"] = m.group(1)
+    # Pool line has several shapes — e.g. "0 healthy-prior", "0 healthy-untouched",
+    # "1 stuck (monitoring)" instead of "N fixed". Match each segment independently.
+    m = _WG_POOL_RE.search(text)
+    if m:
+        seg = m.group(1)
+
+        def num(pat: str) -> int:
+            mm = re.search(pat, seg, re.I)
+            return int(mm.group(1)) if mm else 0
+
+        rep["slots"] = num(r"(\d+)\s*slots?")
+        rep["running"] = num(r"(\d+)\s*running")
+        rep["healthy"] = num(r"(\d+)\s*healthy")
+        rep["fixed"] = num(r"(\d+)\s*fixed")
+        rep["stuck"] = num(r"(\d+)\s*stuck")
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 4:
+            continue
+        first = cells[0].lower()
+        if first == "worker" or set(cells[0]) <= set("-: "):
+            continue  # header row / separator
+        rep["actions"].append({
+            "worker": cells[0],
+            "handle": cells[1],
+            "verdict": cells[2],
+            "action": cells[3],
+            "reason": " | ".join(cells[4:]) if len(cells) > 4 else "",
+        })
+    return rep
+
+
+def get_watchdog_reports(limit: int = 40) -> list:
+    """Newest-first parsed cycle reports from watchdog-reports/*.md."""
+    if not os.path.isdir(WATCHDOG_REPORTS_DIR):
+        return []
+    files = [f for f in os.listdir(WATCHDOG_REPORTS_DIR) if f.endswith(".md")]
+    files.sort(key=lambda f: mtime(os.path.join(WATCHDOG_REPORTS_DIR, f)), reverse=True)
+    out = []
+    for f in files[:limit]:
+        p = os.path.join(WATCHDOG_REPORTS_DIR, f)
+        rep = parse_watchdog_report(read_file(p))
+        rep["file"] = f
+        rep["mtime"] = mtime(p)
+        if not rep["ts"]:
+            rep["ts"] = datetime.fromtimestamp(mtime(p)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        out.append(rep)
+    return out
+
+
+def get_watchdog_events(limit: int = 120) -> list:
+    """Newest-first parsed watchdog.log lines: {ts, msg, kind}."""
+    out = []
+    for line in read_lines(WATCHDOG_LOG, limit=5000)[-limit:]:
+        m = _WG_LOG_RE.match(line.strip())
+        if not m:
+            continue
+        ts, msg = m.group(1), m.group(2)
+        kind = next((k for k, prefix in _WG_KINDS if msg.startswith(prefix)), "other")
+        out.append({"ts": ts, "msg": msg, "kind": kind})
+    out.reverse()
     return out
 
 

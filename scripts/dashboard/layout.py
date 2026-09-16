@@ -40,6 +40,7 @@ NAV = [
         ("findings", "Findings", "file-text"),
         ("history", "History", "clock"),
         ("monitors", "Monitors", "activity"),
+        ("watchdog", "Watchdog", "radio"),
         ("topology", "Topology", "git-branch"),
     ]),
     ("LIBRARY", [

@@ -110,6 +110,8 @@ SLOT: ${SLOT} of ${MAX_SLOTS}
 
 FIRST ACTION: Run intigriti get_program_scope ${PROGRAM_ID} to get exact in-scope/out-of-scope assets.
 
+PENDING INSTRUCTIONS: Before each major action (navigate, register, submit, exploit, report), check for a pending instruction file at ${POOL_DIR}/${WORKER_ID}-instructions.txt. If it exists, read it, follow it, then delete it.
+
 REGISTRATION EMAILS:
 {{EMAIL_BASE}}+${HANDLE}-a@{{EMAIL_DOMAIN}}  (userA)
 {{EMAIL_BASE}}+${HANDLE}-b@{{EMAIL_DOMAIN}}  (userB)
@@ -168,6 +170,7 @@ PROMPT
     cat > "$RUNNER" << EOF
 #!/usr/bin/env bash
 cd '${HUNT_DIR}'
+export NODE_PATH="\$(npm root -g 2>/dev/null)/@playwright/mcp/node_modules"
 ${PLAYWRIGHT_ENV}
 exec opencode run --agent hunter "\$(cat '${PROMPT_FILE}')" 2>&1 | tee '${WORKER_LOG}'
 EOF

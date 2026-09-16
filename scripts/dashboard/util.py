@@ -84,6 +84,24 @@ def fmt_ts(ts):
     except Exception:
         return str(ts)
 
+def ts_key(ts):
+    """Numeric sort/filter key for a timestamp that may be epoch-seconds
+    (int/float or numeric string) or an ISO-8601 string such as
+    '2026-09-15T13:31:50Z'. Returns 0.0 when the value is unusable."""
+    if not ts:
+        return 0.0
+    if isinstance(ts, (int, float)):
+        return float(ts)
+    s = str(ts).strip()
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return 0.0
+
 def mtime(path):
     try:
         return os.path.getmtime(path)

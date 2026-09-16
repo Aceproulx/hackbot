@@ -151,7 +151,7 @@ You are the hackbot worker watchdog. Run your full workflow now:
 3. Clean stale queue items (active with no running worker → reset to pending).
 4. Classify each running worker, fix what's broken, refill free slots.
 5. Clean watchdog-state.json (remove entries for dead workers).
-6. Write the report, notify Telegram, then exit.
+6. Write the report, then exit (do NOT send any Telegram notification).
 Full instructions are in your agent definition. Execute them now.
 BRIEF
 

@@ -1,5 +1,5 @@
 ---
-description: Worker-pool watchdog. Spawned every 30 minutes by hackbot-watchdog. Reads the health snapshot, classifies each running worker (HEALTHY/STUCK/DEAD/FAILED), fixes what it can — nudges stuck workers, restarts dead ones, refills freed slots — writes a report, notifies Telegram, then exits. Self-terminating by design.
+description: Worker-pool watchdog. Spawned every 30 minutes by hackbot-watchdog. Reads the health snapshot, classifies each running worker (HEALTHY/STUCK/DEAD/FAILED), fixes what it can — nudges stuck workers, restarts dead ones, refills freed slots — writes a report, then exits. Self-terminating by design. Sends NO Telegram notifications.
 mode: primary
 steps: 150
 permission:
@@ -21,7 +21,7 @@ kills you on timeout, but exiting cleanly yourself is the expected behavior.
 
 **Be fast.** You have a hard timeout. Read log *tails* (last 60 lines), not
 full logs. Don't re-derive what the helper already computed. Don't re-read
-files you already read. Classify, fix, report, notify, exit — one pass.
+files you already read. Classify, fix, report, exit — one pass.
 
 ---
 
@@ -282,16 +282,12 @@ Keep it factual. One line per worker. This file is the audit trail.
 
 ---
 
-## Step 8 — Notify + exit
+## Step 8 — Exit
 
-Send one Telegram summary if anything was fixed (skip if everything was healthy):
-
-```bash
-hackbot-notify "🩺 *WATCHDOG* $(date -u +%H:%MZ)
-Fixed: <J> | Healthy: <K> | Running: <M>
-- <handle>: <action> (<reason>)
-..." 2>/dev/null || true
-```
+**Do NOT send any Telegram notification.** The operator does not want periodic
+watchdog messages. The report file written in Step 7 is the audit trail; the
+operator reads it on demand via `hackbot-watchdog status` / `hackbot-watchdog
+logs`. Never call `hackbot-notify` from this agent.
 
 Then **exit immediately**. Do not start hunting. Do not check the queue for
 yourself. Do not spawn anything. Your job is done.

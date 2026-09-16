@@ -50,6 +50,7 @@ from .ansi import ansi_to_html
 from .util import count_files
 from .util import esc
 from .util import fmt_size
+from .util import ts_key
 from .state import get_findings
 from .state import get_pool
 from .state import get_queue
@@ -92,6 +93,7 @@ from .views import v_settings
 from .views import v_skills
 from .views import v_topology
 from .views import v_usage
+from .views import v_watchdog
 from .views import v_workspaces
 from .layout import need_attention
 
@@ -161,6 +163,7 @@ def route(path, qs):
             "hunts": lambda: v_hunts(q),
             "history": v_history,
             "monitors": v_monitors,
+            "watchdog": v_watchdog,
             "topology": v_topology,
             "knowledge": lambda: v_knowledge(q) if q else v_knowledge(""),
             "memory": v_memory,
@@ -800,7 +803,7 @@ def api_usage(range_val):
     ws = _window_start(range_val, now)
     queue = get_queue()
     workers = get_workers()
-    findings = [f for f in get_findings() if not ws or (float(f.get("ts") or 0) >= ws)]
+    findings = [f for f in get_findings() if not ws or (ts_key(f.get("ts")) >= ws)]
     sess = [s for s in get_session_dirs() if not ws or float(s.get("mtime") or 0) >= ws]
     runs = [r for r in get_run_dirs() if not ws or float(r.get("mtime") or 0) >= ws]
     hunted = sum(1 for t in queue if t.get("bugs_found", 0) > 0 or t.get("status") == "active")

@@ -108,7 +108,7 @@ write_config() {
     --arg payloads_dir "${CONFIG_PAYLOADS_DIR:-$HOME/Projects/payloads/coffinxp-payloads}" \
     --arg sessions_dir "${CONFIG_SESSIONS_DIR:-$HOME/Projects/hackbot/hunts/sessions}" \
     --arg hackbot_misc_dir "$HOME/Projects/hackbot-misc" \
-    --arg playwright_profile "$HOME/Projects/hackbot-misc/.playwright-profiles/Profile-userA" \
+    --arg playwright_profile "$HOME/Projects/hackbot-misc/.playwright-profiles/Profile-hackbot" \
     --argjson max_worker_slots "${CONFIG_MAX_WORKER_SLOTS:-2}" \
     --arg installed_at "$installed_at" \
     --arg version "" \

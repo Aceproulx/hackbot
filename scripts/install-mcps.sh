@@ -247,6 +247,12 @@ install_playwright() {
   ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$CONFIG" 2>/dev/null || echo "isolated")"
 
   local CMD_JSON ENV_JSON
+  # Browsers route through the Caido proxy (PORT) so traffic lands in Caido
+  # history for evidence. The Caido CA cert MUST be trusted by Chrome for this
+  # to work — install it with:
+  #   sudo cp caido.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
+  #   certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Caido" -i caido.crt
+  # Without it, Chrome fails with ERR_TOO_MANY_RETRIES on every navigation.
   case "$ISOLATION" in
     isolated)
       CMD_JSON="$(jq -n --arg port "$PORT" \

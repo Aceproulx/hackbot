@@ -35,12 +35,14 @@ from .config import SESSIONS_CFG
 from .config import SESSIONS_ROOT
 from .config import TELEGRAM_CHAT
 from .config import TELEGRAM_TOKEN
+from .config import WATCHDOG_LOG
 from .util import age
 from .util import count_files
 from .util import esc
 from .util import fmt_size
 from .util import fmt_time
 from .util import fmt_ts
+from .util import ts_key
 from .state import get_findings
 from .state import get_queue
 from .state import MARK_LABELS
@@ -52,6 +54,10 @@ from .state import hunt_stats
 from .state import all_reports
 from .state import all_evidence
 from .state import recent_reports
+from .state import get_watchdog_reports
+from .state import get_watchdog_events
+from .state import watchdog_daemon
+from .state import watchdog_settings
 from .helpers import render_markdown
 from .helpers import render_log_html
 from .helpers import clp_toggle_js
@@ -468,6 +474,152 @@ def v_monitors():
             f'<div id="t-h" data-tabgroup="m" style="display:none">{hcard}</div>')
     return page("monitors", hero("Monitors", f"Watchdogs, worker lanes and campaign history · {att} items need attention"), body, refresh=0)
 
+# ── Watchdog ───────────────────────────────────────────────────────────────────
+# The 30-minute monitor used to Telegram a per-cycle summary. That delivery was
+# removed; this panel is where those messages surface instead — one bubble per
+# cycle report, plus the timeout alerts it still sends.
+
+_WG_CSS = """
+.wg-feed{display:flex;flex-direction:column;gap:12px}
+.wg-msg{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--grey);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.wg-msg.good{border-left-color:var(--green)}
+.wg-msg.warn{border-left-color:var(--amber)}
+.wg-msg.bad{border-left-color:var(--accent)}
+.wg-msg-hd{display:flex;align-items:center;gap:9px;padding:10px 14px;background:#fbf9f5;border-bottom:1px solid #eee8dd}
+.wg-msg-hd .ic-svg{color:var(--muted);flex:none}
+.wg-msg.bad .wg-msg-hd .ic-svg{color:var(--accent)}
+.wg-msg.good .wg-msg-hd .ic-svg{color:var(--green)}
+.wg-kind{font-size:10.5px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
+.wg-msg-hd time{margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.wg-msg-body{padding:13px 15px}
+.wg-counts{display:flex;flex-wrap:wrap;gap:5px 16px;margin-bottom:11px}
+.wg-count{font-size:12.5px;color:var(--muted)}
+.wg-count b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:800}
+.wg-actions{list-style:none;display:flex;flex-direction:column;gap:9px;margin:0;padding:0}
+.wg-actions li{font-size:12.5px;line-height:1.45}
+.wg-actions .han{font-weight:700;color:var(--ink);margin-left:7px}
+.wg-actions .act{color:var(--muted)}
+.wg-why{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;padding-left:2px}
+"""
+
+
+def _wg_clock(ts):
+    """'Sep 16 · 11:40Z' from an ISO-8601 Z timestamp."""
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).strftime("%b %d · %H:%MZ")
+    except Exception:
+        return str(ts or "—")
+
+
+def _wg_rel(ts):
+    """Human '3h ago' from an ISO-8601 Z timestamp."""
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        secs = (datetime.now(timezone.utc) - dt).total_seconds()
+    except Exception:
+        return ""
+    if secs < 90:
+        return "just now"
+    if secs < 3600:
+        return f"{int(secs // 60)}m ago"
+    if secs < 86400:
+        return f"{int(secs // 3600)}h ago"
+    return f"{int(secs // 86400)}d ago"
+
+
+def _wg_verdict(v):
+    s = (v or "").strip().rstrip("*").upper()
+    state = {"HEALTHY": "running", "ALIVE": "running", "DEAD": "failed",
+             "STUCK": "attention", "WEDGED": "attention", "HUNG": "attention"}.get(s, "idle")
+    return pill(state, s or "—")
+
+
+def v_watchdog():
+    daemon = watchdog_daemon()
+    cfg = watchdog_settings()
+    reports = get_watchdog_reports(40)
+    events = get_watchdog_events(120)
+
+    # The messages the watchdog would have pushed: one per cycle report, plus
+    # the rare timeout alert (the one notification it still sends).
+    notes = [{"kind": "cycle", "ts": r["ts"], "report": r} for r in reports]
+    timeouts = [e for e in events if e["kind"] == "timeout"]
+    notes += [{"kind": "timeout", "ts": e["ts"], "msg": e["msg"]} for e in timeouts]
+    notes.sort(key=lambda n: n.get("ts") or "", reverse=True)
+
+    last_rel = _wg_rel(reports[0]["ts"]) if reports else ""
+
+    stats = ""
+    d_color = "var(--green)" if daemon["running"] else "var(--grey)"
+    d_word = "RUNNING" if daemon["running"] else "STOPPED"
+    d_sub = f'PID {esc(daemon["pid"])}' if (daemon["running"] and daemon["pid"]) else "daemon idle"
+    st = [
+        ("Daemon", f'<span style="color:{d_color}">{d_word}</span>', d_sub, "radio"),
+        ("Interval", f'{cfg["interval"] // 60} min', f'{cfg["interval"]}s between cycles', "clock"),
+        ("Timeout", f'{cfg["timeout"] // 60} min', "hard cap per cycle", "alert-triangle"),
+        ("Cycles", str(len(reports)), f'latest {last_rel}' if last_rel else "none recorded", "refresh-cw"),
+        ("Alerts", str(len(timeouts)), "timeout notifications", "x-circle"),
+    ]
+    for lab, val, sub, ic in st:
+        stats += (f'<div class="stat"><div class="lab">{icon(ic, 13)} {lab}</div>'
+                  f'<div class="val">{val}</div><div class="sub">{esc(sub)}</div></div>')
+    stats = f'<div class="stats">{stats}</div>'
+
+    bubbles = []
+    for n in notes[:40]:
+        if n["kind"] == "timeout":
+            body = (f'<div class="wg-counts"><span class="wg-count">Monitor cycle exceeded '
+                    f'<b>{cfg["timeout"]}s</b> and was killed — the worker lane is stuck, not slow. '
+                    f'This is the one alert the watchdog still sends.</span></div>')
+            bubbles.append(
+                f'<article class="wg-msg bad"><div class="wg-msg-hd">{icon("alert-triangle", 15)}'
+                f'<span class="wg-kind">TIMEOUT</span><time>{_wg_clock(n["ts"])}</time></div>'
+                f'<div class="wg-msg-body">{body}</div></article>')
+            continue
+
+        r = n["report"]
+        tone = "bad" if (r["fixed"] or r["stuck"]) else "good"
+        acts = ""
+        for a in r["actions"]:
+            why = f'<span class="wg-why">{esc(a["reason"])}</span>' if a["reason"] else ""
+            acts += (f'<li>{_wg_verdict(a["verdict"])}<span class="han mono">{esc(a["handle"])}</span> '
+                     f'<span class="act">→ {esc(a["action"])}</span>{why}</li>')
+        if not acts:
+            acts = '<li class="muted">No actions taken — every lane healthy.</li>'
+        stuck_chip = f'<span class="wg-count"><b>{r["stuck"]}</b> stuck</span>' if r["stuck"] else ""
+        counts = (f'<div class="wg-counts">'
+                  f'<span class="wg-count"><b>{r["fixed"]}</b> fixed</span>'
+                  f'<span class="wg-count"><b>{r["healthy"]}</b> healthy</span>'
+                  f'<span class="wg-count"><b>{r["running"]}</b> running</span>'
+                  f'{stuck_chip}'
+                  f'<span class="wg-count">{r["slots"]} slots</span></div>')
+        bubbles.append(
+            f'<article class="wg-msg {tone}"><div class="wg-msg-hd">{icon("send", 15)}'
+            f'<span class="wg-kind">CYCLE</span><time>{_wg_clock(r["ts"])}</time></div>'
+            f'<div class="wg-msg-body">{counts}<ul class="wg-actions">{acts}</ul></div></article>')
+
+    if bubbles:
+        feed = (f'<div class="card"><div class="hd">Notifications <span class="sp"></span>'
+                f'<span class="hint">what the watchdog sends — delivered here instead of Telegram</span></div>'
+                f'<div class="bd"><div class="wg-feed">{"".join(bubbles)}</div></div></div>')
+    else:
+        feed = (f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("radio", 34)}</div>'
+                f'<div class="t">No watchdog messages yet</div>'
+                f'<p>Start the watchdog daemon (or run it once) — each cycle writes a report and the '
+                f'messages it would send you appear here.</p></div></div></div>')
+
+    log_lines = "\n".join(f'[{e["ts"]}] {e["msg"]}' for e in reversed(events))
+    log_card = (f'<div class="card"><div class="hd">Cycle log <span class="sp"></span>'
+                f'<span class="hint">{esc(os.path.basename(WATCHDOG_LOG))} · last {len(events)} lines</span></div>'
+                f'<pre class="terminal">{esc(log_lines) or "(log empty)"}</pre></div>')
+
+    hero_html = hero(
+        "Watchdog",
+        f"30-minute monitor · {len(reports)} cycles recorded · "
+        f"{len(timeouts)} timeout alert{'s' if len(timeouts) != 1 else ''}",
+    )
+    return page("watchdog", hero_html, stats + feed + log_card, refresh=0, extra_css=_WG_CSS)
+
 def rel_graph(workers, runs, sess, by_prog, findings):
     left = [("Worker " + str(w.get("slot", "?")), str(w.get("handle") or ""), f"/console?w={esc(w.get('id',''))}")
             for w in workers if w.get("status") == "running"]
@@ -485,7 +637,7 @@ def rel_graph(workers, runs, sess, by_prog, findings):
         if s["handle"] not in mids:
             mids.append(s["handle"])
 
-    right = sorted(findings, key=lambda f: float(f.get("ts") or 0), reverse=True)[:14]
+    right = sorted(findings, key=lambda f: ts_key(f.get("ts")), reverse=True)[:14]
 
     if not left and not mids and not right:
         return ('<svg viewBox="0 0 940 120" xmlns="http://www.w3.org/2000/svg">'

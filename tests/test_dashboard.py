@@ -101,6 +101,7 @@ VIEW_PATHS = [
     ("/v/hunts",              r"HUNTS"),
     ("/v/history",            r"HISTORY"),
     ("/v/monitors",           r"MONITORS"),
+    ("/v/watchdog",           r"WATCHDOG"),
     ("/v/topology",           r"TOPOLOGY"),
     ("/v/knowledge",          r"KNOWLEDGE"),
     ("/v/memory",             r"MEMORY"),
@@ -218,12 +219,14 @@ class TestConsole:
 
     def test_log_selector_options_unique(self, browser):
         nav(browser, "/console")
+        # The log picker is a custom dropdown (#logdd .dd-item); the only native
+        # <select> is the tail-window size (4 numeric options).
         opts = browser.evaluate("""
-            [...document.querySelectorAll('select option')]
-                .map(o => o.value)
+            [...document.querySelectorAll('#logdd .dd-item')]
+                .map(a => a.getAttribute('href'))
         """)
-        assert len(opts) >= 10
-        assert len(opts) == len(set(opts)), "Duplicate option values in console selector"
+        assert len(opts) >= 10, f"Expected ≥10 log options, got {len(opts)}"
+        assert len(opts) == len(set(opts)), "Duplicate option values in console log selector"
 
     def test_worker_log_via_param(self, browser):
         nav(browser, "/console?w=worker-2-nvidiapublicbugbounty")
@@ -345,6 +348,33 @@ class TestMonitors:
         no_overflow(browser)
         cards = browser.query_selector_all(".card")
         assert len(cards) >= 1
+
+# ── WATCHDOG ────────────────────────────────────────────────────────────────
+
+class TestWatchdog:
+    def test_panel_renders(self, browser):
+        nav(browser, "/v/watchdog")
+        no_overflow(browser)
+        stats = browser.query_selector_all(".stat")
+        assert len(stats) == 5, f"Expected 5 watchdog stat cards, got {len(stats)}"
+
+    def test_feed_or_empty_state(self, browser):
+        nav(browser, "/v/watchdog")
+        has_msgs = len(browser.query_selector_all(".wg-msg")) > 0
+        has_empty = browser.query_selector(".empty") is not None
+        assert has_msgs or has_empty, "Neither notification bubbles nor empty state"
+
+    def test_cycle_bubbles(self, browser):
+        nav(browser, "/v/watchdog")
+        msgs = browser.query_selector_all(".wg-msg")
+        kinds = [m.inner_text() for m in msgs]
+        assert any("CYCLE" in k for k in kinds), f"No CYCLE bubble in {kinds}"
+
+    def test_daemon_card_and_log(self, browser):
+        nav(browser, "/v/watchdog")
+        text = browser.inner_text("body")
+        assert "Watchdog" in text
+        assert browser.query_selector(".terminal"), "No cycle log terminal"
 
 # ── CONSOLE TAB (from other pages) ──────────────────────────────────────────
 

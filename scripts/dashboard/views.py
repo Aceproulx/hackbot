@@ -108,7 +108,8 @@ def v_overview():
     wr = ""
     if workers:
         rows = []
-        for i, w in enumerate(workers, 1):
+        ordered = sorted(workers, key=lambda w: 0 if w.get("status") == "running" else 1)[:10]
+        for i, w in enumerate(ordered, 1):
             tname, tfull = trunc(w.get("handle", "") or "", 13)
             rows.append(f'<tr><td style="font-weight:700">{i}</td>'
                         f'<td class="mono" title="{esc(tfull)}">{esc(tname)}</td>'
@@ -117,9 +118,9 @@ def v_overview():
                         f'<td>{fmt_time(w.get("started_at"))}</td>'
                         f'<td><a class="nw" href="/console?w={esc(w.get("id",""))}">log →</a></td></tr>')
         wr = (f'<div class="card"><div class="hd">Active Workers '
-              f'<span class="sp"></span><span class="hint">worker pool · max {MAX_SLOTS} lanes</span></div>'
-f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS</th>'
-                  f'<th>STARTED</th><th></th></tr></thead>'
+              f'<span class="sp"></span><span class="hint">worker pool · max {MAX_SLOTS} lanes · showing {len(ordered)}/{len(workers)}</span></div>'
+              f'<table><thead><tr><th>ID</th><th>TARGET</th><th>STATE</th><th class="num">BUGS</th>'
+              f'<th>STARTED</th><th></th></tr></thead>'
               f'<tbody>{"".join(rows)}</tbody></table></div>')
     else:
         wr = (f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("moon", 34)}</div>'

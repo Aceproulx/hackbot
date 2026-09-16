@@ -48,6 +48,7 @@ __pycache__/
 browser-profiles/Profile-*/Default/Sessions/
 browser-profiles/Profile-*/Default/Session Storage/
 browser-profiles/Profile-*/Default/Cookies*
+browser-profiles/hackbot-profile/Default/Cookies*
 browser-profiles/Profile-*/Default/History*
 browser-profiles/Profile-*/Default/Login Data*
 browser-profiles/Profile-*/Default/Web Data*

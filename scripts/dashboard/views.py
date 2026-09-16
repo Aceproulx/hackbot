@@ -734,23 +734,19 @@ def v_assets(q=None):
         handlers[w.get("handle")] = w
     rows = ""
     for t in queue:
-        disp, full = trunc(t.get("handle", ""))
-        hint = f' title="{esc(full)}"' if full != disp else ""
         pname, pfull = trunc(t.get("name", ""), 25)
         phint = f' title="{esc(pfull)}"' if pfull != pname else ""
         rows += (f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(t.get("base_url",""))}">'
                  f'<td><b{phint}>{esc(pname)}</b>{self_hosted_badge(t)}'
                  + (f'<div class="mono small muted" style="word-break:break-all">{esc(t.get("base_url"))}</div>' if t.get("base_url") else "")
                  + f'</td>'
-                 f'<td class="mono"{hint}>{esc(disp)}</td>'
                  f'<td>{pill(t.get("status",""))}</td>'
-                 f'<td class="num">{esc((t.get("program_id") or "")[:8])}</td>'
                  f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
                  f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td>'
                  f'<td>{hunt_action_btn(t)}</td></tr>')
     body = (f'<div class="card"><div class="hd">In-Scope Targets <span class="sp"></span>'
             f'<span class="hint">{len(queue)} programs · {sum(1 for t in queue if t.get("status")=="active")} active</span></div>'
-            f'<table><thead><tr><th>PROGRAM</th><th>HANDLE</th><th>STATE</th><th class="num">ID</th>'
+            f'<table><thead><tr><th>PROGRAM</th><th>STATE</th>'
             f'<th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
     return page("assets", hero("Assets", "Every in-scope program with tags and hunt state"), body)
 

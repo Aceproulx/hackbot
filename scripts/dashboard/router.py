@@ -58,6 +58,7 @@ from .state import MARK_LABELS
 from .helpers import decorate_curls
 from .helpers import render_markdown
 from .helpers import render_log_html
+from .helpers import resolve_hunt_root
 from .tts import TTS_CSS
 from .tts import tts_js
 from .tts import tts_reader_bar
@@ -93,30 +94,8 @@ from .layout import need_attention
 
 
 def _resolve_hunt_root(name: str) -> str:
-    """Resolve a target handle to its actual hunt directory.
-
-    Hunt dirs are created as ``<handle>-<date>`` by the worker pool, but
-    queue entries and report URLs only carry the bare ``<handle>``.  Try
-    exact match in HUNTS_ROOT first, then date-suffixed glob, then
-    SESSIONS_ROOT (for legacy session-recording dirs that lack reports/).
-    """
-    # 1. exact match in HUNTS_ROOT  (preferred — has reports/evidence)
-    exact = os.path.join(HUNTS_ROOT, name)
-    if os.path.isdir(exact):
-        return exact
-    # 2. date-suffixed fallback in HUNTS_ROOT  (challenge-0326-intigriti-io-20260915)
-    matches = sorted(
-        glob.glob(os.path.join(HUNTS_ROOT, name + "-*")),
-        key=os.path.getmtime,
-        reverse=True,
-    )
-    if matches:
-        return matches[0]
-    # 3. SESSIONS_ROOT  (legacy session-recording dirs)
-    sess = os.path.join(SESSIONS_ROOT, name)
-    if os.path.isdir(sess):
-        return sess
-    return exact  # fall through for 404 logic
+    """Back-compat alias — the resolver now lives in helpers."""
+    return resolve_hunt_root(name)
 
 TEXT_EXTS = {".md", ".markdown", ".txt", ".log", ".json", ".req", ".http", ".py", ".sh", ".yaml", ".yml",
              ".toml", ".csv", ".ts", ".js", ".html", ".htm", ".xml", ".graphql", ".gql", ".conf",
@@ -279,6 +258,7 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
             mkcls = f' mk-bg-{cur}' if cur else ''
             body += (f'<div class="card{mkcls}"><div class="hd">{icon("file-text", 16)} {esc(fname)} <span class="sp"></span>'
                      f'{tts_reader_bar()}'
+                     f'<button class="btn ghost small" onclick="copyReportMd()" title="Copy report as markdown">{icon("copy", 13)} Copy MD</button>'
                      f'<a class="btn ghost small" href="/hunts?name={esc(safe)}">{icon("arrow-left", 13)} Hunt</a></div>'
                      f'<div class="bd md tts-root" id="tts-root">{decorate_curls(render_markdown(read_file(rp)))}</div></div>')
             body += ev_ui
@@ -311,7 +291,14 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                 "apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:m})\n"
                 ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to mark report.');return;}location.reload();});}\n"
                 "function reportClear(){apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:''})\n"
-                ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to clear mark.');return;}location.reload();});}\n")
+                ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to clear mark.');return;}location.reload();});}\n"
+                "var REPORT_MD=" + json.dumps(read_file(rp)) + ";\n"
+                "function copyReportMd(){\n"
+                "var done=function(){var b=document.querySelector('.btn[onclick=\"copyReportMd()\"]');if(b){var o=b.innerHTML;b.innerHTML='"+icon("check", 13)+" Copied';setTimeout(function(){b.innerHTML=o;},1500);}};\n"
+                "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(REPORT_MD).then(done,function(){fallbackCopy(REPORT_MD);done();});}\n"
+                "else{fallbackCopy(REPORT_MD);done();}\n"
+                "}\n"
+                "function fallbackCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}\n")
             return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn + cv_toggle),
                         body, extra_css=TTS_CSS, scripts=ev_js + cv_js + mark_js + tts_js()).encode()
         return b"404 report not found"

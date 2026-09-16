@@ -58,6 +58,7 @@ ICONS: dict[str, str] = {
     "radio":         '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
     "chevron-down":  '<polyline points="6 9 12 15 18 9"/>',
+    "copy":          '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 }
 
 

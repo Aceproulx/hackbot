@@ -736,9 +736,12 @@ def v_assets(q=None):
     for t in queue:
         pname, pfull = trunc(t.get("name", ""), 25)
         phint = f' title="{esc(pfull)}"' if pfull != pname else ""
-        rows += (f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(t.get("base_url",""))}">'
+        url = t.get("base_url") or ""
+        udisp, ufull = trunc(url, 48)
+        uhint = f' title="{esc(ufull)}"' if ufull != udisp else ""
+        rows += (f'<tr class="filter-item as-row" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}">'
                  f'<td><b{phint}>{esc(pname)}</b>{self_hosted_badge(t)}'
-                 + (f'<div class="mono small muted" style="word-break:break-all">{esc(t.get("base_url"))}</div>' if t.get("base_url") else "")
+                 + (f'<div class="mono small muted as-url"{uhint} data-full="{esc(url)}">{esc(udisp)}</div>' if url else "")
                  + f'</td>'
                  f'<td>{pill(t.get("status",""))}</td>'
                  f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
@@ -748,7 +751,22 @@ def v_assets(q=None):
             f'<span class="hint">{len(queue)} programs · {sum(1 for t in queue if t.get("status")=="active")} active</span></div>'
             f'<table><thead><tr><th>PROGRAM</th><th>STATE</th>'
             f'<th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
-    return page("assets", hero("Assets", "Every in-scope program with tags and hunt state"), body)
+    js = ("(function(){"
+          "document.addEventListener('click',function(e){"
+          "var t=e.target.closest?e.target.closest('.as-row'):null;"
+          "if(!t)return;"
+          "if(e.target.closest&&e.target.closest('button,a'))return;"
+          "var u=t.querySelector('.as-url');"
+          "if(!u)return;"
+          "var full=u.getAttribute('data-full')||'';"
+          "if(u.classList.contains('open')){u.textContent=u.getAttribute('data-short')||u.textContent;u.classList.remove('open');t.classList.remove('as-open');}"
+          "else{u.setAttribute('data-short',u.textContent);u.textContent=full;u.classList.add('open');t.classList.add('as-open');}"
+          "});"
+          "})();")
+    css = (".as-row{cursor:pointer}"
+           ".as-row .as-url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}"
+           ".as-row.as-open .as-url{white-space:normal;word-break:break-all;max-width:none}")
+    return page("assets", hero("Assets", "Every in-scope program with tags and hunt state"), body, extra_css=css, scripts=js)
 
 def skill_info(path):
     raw = read_file(path)

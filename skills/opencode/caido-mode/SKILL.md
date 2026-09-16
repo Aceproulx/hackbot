@@ -227,6 +227,22 @@ npx tsx caido-client.ts rename-collection <collection-id> "Auth Bypass Tests"
 npx tsx caido-client.ts delete-collection <collection-id>
 ```
 
+**Collection naming convention (REQUIRED):** every hunt writes its replay
+requests into its own Replay collection, and collections MUST be named
+descriptively after the target — `[Hunt <target-handle>]` — e.g.
+`[Hunt challenge-0426-intigriti-io]`. Never leave a collection named after
+an opaque UUID (`[Hunt hunt-<uuid>]`): the operator can't tell which target
+it belongs to. When starting work on a target:
+
+1. `replay-collections` — check whether a `[Hunt <handle>]` collection
+   already exists for this target.
+2. If not, `create-collection "[Hunt <handle>]"` and reuse it for the whole
+   hunt.
+3. If you find a UUID-named collection for your target, `rename-collection`
+   it to `[Hunt <handle>]` before writing requests into it.
+4. Every replay session you save goes into that collection (via
+   `create-session --collection <id>` or `move-session`).
+
 ### Fuzzing
 
 ```bash

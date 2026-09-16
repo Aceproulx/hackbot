@@ -16,8 +16,8 @@
 
 set -euo pipefail
 
-QUEUE_FILE=/home/aceos/Projects/hackbot-misc/target-queue.json
-HISTORY_FILE=/home/aceos/Projects/hackbot-misc/queue-history.jsonl
+QUEUE_FILE={{HACKBOT_MISC_DIR}}/target-queue.json
+HISTORY_FILE={{HACKBOT_MISC_DIR}}/queue-history.jsonl
 LOCK_FILE=/tmp/hackbot-queue.lock
 MIN_REHUNT_DAYS="${MIN_REHUNT_DAYS:-7}"     # don't re-hunt a target within this window
 NOTIFY="hackbot-notify"
@@ -447,81 +447,6 @@ cmd_add() {
   unlock
 }
 
-# ── add-file (batch self-hosted targets from a .txt, space/newline-separated) ───
-
-cmd_add_file() {
-  FILE="${2:-}"
-  NOTES="${3:-}"
-  [[ -z "$FILE" ]] && { echo "Usage: queue-manager.sh add-file <file.txt> [notes]" >&2; exit 1; }
-  [[ -f "$FILE" ]] || { echo "ERROR: file not found: $FILE" >&2; exit 1; }
-
-  # tokens = any whitespace-separated site (spaces, tabs, newlines)
-  mapfile -t TOKENS < <(tr -s '[:space:]' '\n' < "$FILE" | sed '/^$/d')
-  [[ ${#TOKENS[@]} -eq 0 ]] && { echo "ERROR: no targets found in $FILE" >&2; exit 1; }
-
-  ADDED=()
-  DUPLICATES=()
-  SKIPPED=()
-
-  lock
-  [[ -f "$QUEUE_FILE" ]] || echo "[]" > "$QUEUE_FILE"
-
-  for TOK in "${TOKENS[@]}"; do
-    URL="$TOK"
-    [[ "$URL" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*:// ]] || URL="https://$URL"
-    HOST=$(echo "$URL" | sed -E 's~^[a-zA-Z][a-zA-Z0-9+.-]*://~~; s~[/?#].*$~~; s~:.*$~~')
-    if [[ -z "$HOST" ]]; then
-      SKIPPED+=("$TOK (unparseable)")
-      continue
-    fi
-    HANDLE=$(slugify_host "$HOST")
-    [[ -z "$HANDLE" ]] && HANDLE="self-$(date -u +%s)"
-
-    if jq -e --arg h "$HANDLE" '.[] | select(.handle == $h)' "$QUEUE_FILE" >/dev/null 2>&1; then
-      DUPLICATES+=("$HANDLE")
-      continue
-    fi
-
-    NOW=$(ts)
-    jq --arg h "$HANDLE" --arg url "$URL" --arg name "$HANDLE" --arg notes "$NOTES" --arg ts "$NOW" '
-      . + [{
-        handle: $h,
-        program_id: ("self:" + $h),
-        name: $name,
-        base_url: $url,
-        max_bounty: 0,
-        min_bounty: 0,
-        tags: ["self-hosted"],
-        confidentiality: "private",
-        status: "pending",
-        score: 50,
-        boost: 0,
-        bugs_found: 0,
-        last_hunted: null,
-        last_verdict: null,
-        active_worker: null,
-        started_at: null,
-        queued_at: $ts,
-        rehunt_after: null,
-        self_hosted: true,
-        browser_scope: "full",
-        notes: $notes
-      }]
-    ' "$QUEUE_FILE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE_FILE"
-
-    echo "{\"ts\":\"$NOW\",\"handle\":\"$HANDLE\",\"event\":\"added\",\"url\":\"$URL\",\"self_hosted\":true}" \
-      >> "$HISTORY_FILE"
-    ADDED+=("$HANDLE")
-  done
-
-  unlock
-
-  echo "Batch add-file '$FILE': ${#ADDED[@]} added, ${#DUPLICATES[@]} already queued, ${#SKIPPED[@]} skipped"
-  for h in "${ADDED[@]}"; do echo "  + $h"; done
-  for h in "${DUPLICATES[@]}"; do echo "  ~ $h (already in queue)"; done
-  for s in "${SKIPPED[@]}"; do echo "  ! $s"; done
-}
-
 # ── dispatch ───────────────────────────────────────────────────────────────────
 
 CMD="${1:-status}"
@@ -537,6 +462,5 @@ case "$CMD" in
   requeue)  cmd_requeue "$@" ;;
   boost)    cmd_boost "$@" ;;
   add)      cmd_add "$@" ;;
-  add-file) cmd_add_file "$@" ;;
-  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add add-file"; exit 1 ;;
+  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add"; exit 1 ;;
 esac

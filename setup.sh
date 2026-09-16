@@ -208,7 +208,7 @@ apply_config_to_installed() {
       esac
     done < <(find "$dir" -type f \( -name '*.sh' -o -name '*.md' -o -name '*.json' -o -name '*.yml' -o -name '*.yaml' -o -name '*.txt' \) -print0 2>/dev/null)
   done
-  for s in notify-telegram.sh queue-manager.sh dashboard.sh worker-pool.sh; do
+  for s in notify-telegram.sh queue-manager.sh dashboard.sh worker-pool.sh watchdog.sh watchdog-helper.sh; do
     if [[ -f "$REPO_ROOT/scripts/$s" ]]; then
       apply_config "$REPO_ROOT/scripts/$s"
     fi
@@ -242,6 +242,7 @@ install_symlinks() {
   ln -sf "$REPO_ROOT/scripts/queue-manager.sh"    "$HOME/.local/bin/hackbot-queue"
   ln -sf "$REPO_ROOT/scripts/dashboard.sh"        "$HOME/.local/bin/hackbot-dashboard"
   ln -sf "$REPO_ROOT/scripts/worker-pool.sh"      "$HOME/.local/bin/hackbot-workers"
+  ln -sf "$REPO_ROOT/scripts/watchdog.sh"         "$HOME/.local/bin/hackbot-watchdog"
   ok "CLI symlinks created in ~/.local/bin"
 }
 
@@ -331,7 +332,7 @@ summary() {
   echo "  Config file:         $CONFIG_LOCATION"
   echo "  Install log:         $LOG_FILE"
   echo "  Skills installed:    $skill_count"
-  echo "  CLI scripts:         hackbot-notify, hackbot-queue, hackbot-dashboard, hackbot-workers"
+  echo "  CLI scripts:         hackbot-notify, hackbot-queue, hackbot-dashboard, hackbot-workers, hackbot-watchdog"
   echo "  MCPs:                installed via scripts/install-mcps.sh"
   echo ""
   echo "  Manual steps remaining:"

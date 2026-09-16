@@ -114,6 +114,35 @@ hackbot-workers logs [worker_id]
 
 Workers run in tmux windows. Attach with: `tmux attach -t hackbot`
 
+### hackbot-watchdog
+
+Periodic worker-pool monitor. Every 30 minutes it spawns a self-terminating
+`worker-monitor` agent that checks each running worker, classifies it
+(HEALTHY / STUCK / DEAD / FAILED), fixes what it can — nudges stuck workers,
+restarts dead ones, cleans orphaned queue entries — writes a report to
+`worker-pool/watchdog-reports/`, notifies Telegram, then exits.
+
+```bash
+hackbot-watchdog start [--interval 1800] [--timeout 900]   # run the loop
+hackbot-watchdog once                                      # single cycle (manual)
+hackbot-watchdog status                                    # loop running?
+hackbot-watchdog stop                                      # stop the loop
+hackbot-watchdog logs                                      # tail the loop log
+```
+
+How it decides a worker is stuck: log silent for >15 min **and** no meaningful
+CPU consumed since the last cycle (CPU delta is tracked in
+`worker-pool/watchdog-state.json`). A worker doing Caido/browser-heavy work
+may have a stale log but is left alone if it's consuming CPU. A stuck worker
+is nudged once; if it ignores the nudge for 30+ min it is killed and the
+target restarted. Dead/failed workers are restarted on the same target unless
+the log shows heavy WAF/captcha blocking (hostile target — slot is left free
+for the refill-watcher to pick a better one).
+
+Components: `scripts/watchdog.sh` (scheduler/CLI), `scripts/watchdog-helper.sh`
+(deterministic health snapshot), `agents/opencode/worker-monitor.md` (the
+monitor agent).
+
 ## Skills Reference
 
 There are two skill packages: **Antigravity** (flat `.md` files) and **OpenCode** (directories with `SKILL.md`).

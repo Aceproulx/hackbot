@@ -1,0 +1,15 @@
+{
+  "name": "captcha-bridge-mcp",
+  "version": "1.0.0",
+  "description": "MCP server bridging the CAPTCHA-solving browser extension and an AI agent — replaces the earlier CLI/relay-server.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^5.2.1",
+    "zod": "^4.5.4"
+  }
+}

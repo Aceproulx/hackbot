@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Not-A-Robot Clicker",
+  "version": "1.0.0",
+  "description": "Click the reCAPTCHA v2 \"I'm not a robot\" checkbox — only when triggered via the MCP.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.google.com/recaptcha/*",
+    "https://www.recaptcha.net/recaptcha/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Not-A-Robot Clicker"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.google.com/recaptcha/*",
+        "https://www.recaptcha.net/recaptcha/*"
+      ],
+      "all_frames": true,
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

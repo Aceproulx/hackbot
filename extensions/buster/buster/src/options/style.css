@@ -1,0 +1,1365 @@
+/*!******************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js!./node_modules/vue-loader/dist/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js!./node_modules/sass-loader/dist/cjs.js??clonedRuleSet-2.use[3]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./src/options/App.vue?vue&type=style&index=0&id=64f45072&lang=scss ***!
+  \******************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+@keyframes v-shake {
+59% {
+    margin-left: 0;
+}
+60%, 80% {
+    margin-left: 2px;
+}
+70%, 90% {
+    margin-left: -2px;
+}
+}
+/*!
+ * ress.css • v2.0.4
+ * MIT License
+ * github.com/filipelinhares/ress
+ */
+/* # =================================================================
+   # Global selectors
+   # ================================================================= */
+html {
+  box-sizing: border-box;
+  overflow-y: scroll; /* All browsers without overlaying scrollbars */
+  -webkit-text-size-adjust: 100%; /* Prevent adjustments of font size after orientation changes in iOS */
+  word-break: normal;
+  tab-size: 4;
+}
+*,
+::before,
+::after {
+  background-repeat: no-repeat; /* Set `background-repeat: no-repeat` to all elements and pseudo elements */
+  box-sizing: inherit;
+}
+::before,
+::after {
+  text-decoration: inherit; /* Inherit text-decoration and vertical align to ::before and ::after pseudo elements */
+  vertical-align: inherit;
+}
+* {
+  padding: 0; /* Reset `padding` and `margin` of all elements */
+  margin: 0;
+}
+
+/* # =================================================================
+   # General elements
+   # ================================================================= */
+hr {
+  overflow: visible; /* Show the overflow in Edge and IE */
+  height: 0; /* Add the correct box sizing in Firefox */
+}
+details,
+main {
+  display: block; /* Render the `main` element consistently in IE. */
+}
+summary {
+  display: list-item; /* Add the correct display in all browsers */
+}
+small {
+  font-size: 80%; /* Set font-size to 80% in `small` elements */
+}
+[hidden] {
+  display: none; /* Add the correct display in IE */
+}
+abbr[title] {
+  border-bottom: none; /* Remove the bottom border in Chrome 57 */
+  /* Add the correct text decoration in Chrome, Edge, IE, Opera, and Safari */
+  text-decoration: underline;
+  text-decoration: underline dotted;
+}
+a {
+  background-color: transparent; /* Remove the gray background on active links in IE 10 */
+}
+a:active,
+a:hover {
+  outline-width: 0; /* Remove the outline when hovering in all browsers */
+}
+code,
+kbd,
+pre,
+samp {
+  font-family: monospace, monospace; /* Specify the font family of code elements */
+}
+pre {
+  font-size: 1em; /* Correct the odd `em` font sizing in all browsers */
+}
+b,
+strong {
+  font-weight: bolder; /* Add the correct font weight in Chrome, Edge, and Safari */
+}
+
+/* https://gist.github.com/unruthless/413930 */
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+sub {
+  bottom: -0.25em;
+}
+sup {
+  top: -0.5em;
+}
+
+/* # =================================================================
+   # Forms
+   # ================================================================= */
+input {
+  border-radius: 0;
+}
+
+/* Replace pointer cursor in disabled elements */
+[disabled] {
+  cursor: default;
+}
+[type=number]::-webkit-inner-spin-button,
+[type=number]::-webkit-outer-spin-button {
+  height: auto; /* Correct the cursor style of increment and decrement buttons in Chrome */
+}
+[type=search] {
+  -webkit-appearance: textfield; /* Correct the odd appearance in Chrome and Safari */
+  outline-offset: -2px; /* Correct the outline style in Safari */
+}
+[type=search]::-webkit-search-cancel-button,
+[type=search]::-webkit-search-decoration {
+  -webkit-appearance: none; /* Remove the inner padding in Chrome and Safari on macOS */
+}
+textarea {
+  overflow: auto; /* Internet Explorer 11+ */
+  resize: vertical; /* Specify textarea resizability */
+}
+button,
+input,
+optgroup,
+select,
+textarea {
+  font: inherit; /* Specify font inheritance of form elements */
+}
+optgroup {
+  font-weight: bold; /* Restore the font weight unset by the previous rule */
+}
+button {
+  overflow: visible; /* Address `overflow` set to `hidden` in IE 8/9/10/11 */
+}
+button,
+select {
+  text-transform: none; /* Firefox 40+, Internet Explorer 11- */
+}
+
+/* Apply cursor pointer to button elements */
+button,
+[type=button],
+[type=reset],
+[type=submit],
+[role=button] {
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Remove inner padding and border in Firefox 4+ */
+button::-moz-focus-inner,
+[type=button]::-moz-focus-inner,
+[type=reset]::-moz-focus-inner,
+[type=submit]::-moz-focus-inner {
+  border-style: none;
+  padding: 0;
+}
+
+/* Replace focus style removed in the border reset above */
+button:-moz-focusring,
+[type=button]::-moz-focus-inner,
+[type=reset]::-moz-focus-inner,
+[type=submit]::-moz-focus-inner {
+  outline: 1px dotted ButtonText;
+}
+button,
+html [type=button],
+[type=reset],
+[type=submit] {
+  -webkit-appearance: button; /* Correct the inability to style clickable types in iOS */
+}
+
+/* Remove the default button styling in all browsers */
+button,
+input,
+select,
+textarea {
+  background-color: transparent;
+  border-style: none;
+}
+
+/* Style select like a standard input */
+select {
+  -moz-appearance: none; /* Firefox 36+ */
+  -webkit-appearance: none; /* Chrome 41+ */
+}
+select::-ms-expand {
+  display: none; /* Internet Explorer 11+ */
+}
+select::-ms-value {
+  color: currentColor; /* Internet Explorer 11+ */
+}
+legend {
+  border: 0; /* Correct `color` not being inherited in IE 8/9/10/11 */
+  color: inherit; /* Correct the color inheritance from `fieldset` elements in IE */
+  display: table; /* Correct the text wrapping in Edge and IE */
+  max-width: 100%; /* Correct the text wrapping in Edge and IE */
+  white-space: normal; /* Correct the text wrapping in Edge and IE */
+  max-width: 100%; /* Correct the text wrapping in Edge 18- and IE */
+}
+::-webkit-file-upload-button {
+  /* Correct the inability to style clickable types in iOS and Safari */
+  -webkit-appearance: button;
+  color: inherit;
+  font: inherit; /* Change font properties to `inherit` in Chrome and Safari */
+}
+::-ms-clear,
+::-ms-reveal {
+  display: none;
+}
+
+/* # =================================================================
+   # Specify media element style
+   # ================================================================= */
+img {
+  border-style: none; /* Remove border when inside `a` element in IE 8/9/10 */
+}
+
+/* Add the correct vertical alignment in Chrome, Firefox, and Opera */
+progress {
+  vertical-align: baseline;
+}
+
+/* # =================================================================
+   # Accessibility
+   # ================================================================= */
+/* Hide content from screens but not screenreaders */
+@media screen {
+[hidden~=screen] {
+    display: inherit;
+}
+[hidden~=screen]:not(:active):not(:focus):not(:target) {
+    position: absolute !important;
+    clip: rect(0 0 0 0) !important;
+}
+}
+/* Specify the progress cursor of updating elements */
+[aria-busy=true] {
+  cursor: progress;
+}
+
+/* Specify the pointer cursor of trigger elements */
+[aria-controls] {
+  cursor: pointer;
+}
+
+/* Specify the unstyled cursor of disabled, not-editable, or otherwise inoperable elements */
+[aria-disabled=true] {
+  cursor: default;
+}
+.dialog-transition-enter-active,
+.dialog-bottom-transition-enter-active,
+.dialog-top-transition-enter-active {
+  transition-duration: 225ms !important;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1) !important;
+}
+.dialog-transition-leave-active,
+.dialog-bottom-transition-leave-active,
+.dialog-top-transition-leave-active {
+  transition-duration: 125ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
+}
+.dialog-transition-enter-active, .dialog-transition-leave-active,
+.dialog-bottom-transition-enter-active,
+.dialog-bottom-transition-leave-active,
+.dialog-top-transition-enter-active,
+.dialog-top-transition-leave-active {
+  transition-property: transform, opacity !important;
+  pointer-events: none;
+}
+.dialog-transition-enter-from, .dialog-transition-leave-to {
+  transform: scale(0.9);
+  opacity: 0;
+}
+.dialog-transition-enter-to, .dialog-transition-leave-from {
+  opacity: 1;
+}
+.dialog-bottom-transition-enter-from, .dialog-bottom-transition-leave-to {
+  transform: translateY(calc(50vh + 50%));
+}
+.dialog-top-transition-enter-from, .dialog-top-transition-leave-to {
+  transform: translateY(calc(-50vh - 50%));
+}
+.picker-transition-enter-active,
+.picker-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-leave-active,
+.picker-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-move,
+.picker-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-enter-from, .picker-transition-leave-to,
+.picker-reverse-transition-enter-from,
+.picker-reverse-transition-leave-to {
+  opacity: 0;
+}
+.picker-transition-leave-from, .picker-transition-leave-active, .picker-transition-leave-to,
+.picker-reverse-transition-leave-from,
+.picker-reverse-transition-leave-active,
+.picker-reverse-transition-leave-to {
+  position: absolute !important;
+}
+.picker-transition-enter-active, .picker-transition-leave-active,
+.picker-reverse-transition-enter-active,
+.picker-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.picker-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-transition-enter-from {
+  transform: translate(0, 100%);
+}
+.picker-transition-leave-to {
+  transform: translate(0, -100%);
+}
+.picker-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.picker-reverse-transition-enter-from {
+  transform: translate(0, -100%);
+}
+.picker-reverse-transition-leave-to {
+  transform: translate(0, 100%);
+}
+.expand-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-transition-enter-active, .expand-transition-leave-active {
+  transition-property: height !important;
+}
+.expand-x-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-x-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-x-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.expand-x-transition-enter-active, .expand-x-transition-leave-active {
+  transition-property: width !important;
+}
+.scale-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-transition-leave-to {
+  opacity: 0;
+}
+.scale-transition-leave-active {
+  transition-duration: 100ms !important;
+}
+.scale-transition-enter-from {
+  opacity: 0;
+  transform: scale(0);
+}
+.scale-transition-enter-active, .scale-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scale-rotate-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-transition-leave-to {
+  opacity: 0;
+}
+.scale-rotate-transition-leave-active {
+  transition-duration: 100ms !important;
+}
+.scale-rotate-transition-enter-from {
+  opacity: 0;
+  transform: scale(0) rotate(-45deg);
+}
+.scale-rotate-transition-enter-active, .scale-rotate-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scale-rotate-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scale-rotate-reverse-transition-leave-to {
+  opacity: 0;
+}
+.scale-rotate-reverse-transition-leave-active {
+  transition-duration: 100ms !important;
+}
+.scale-rotate-reverse-transition-enter-from {
+  opacity: 0;
+  transform: scale(0) rotate(45deg);
+}
+.scale-rotate-reverse-transition-enter-active, .scale-rotate-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.message-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.message-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.message-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.message-transition-enter-from, .message-transition-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+}
+.message-transition-leave-from, .message-transition-leave-active {
+  position: absolute;
+}
+.message-transition-enter-active, .message-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.slide-y-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-transition-enter-from, .slide-y-transition-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+}
+.slide-y-transition-enter-active, .slide-y-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.slide-y-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-y-reverse-transition-enter-from, .slide-y-reverse-transition-leave-to {
+  opacity: 0;
+  transform: translateY(15px);
+}
+.slide-y-reverse-transition-enter-active, .slide-y-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scroll-y-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-transition-enter-from, .scroll-y-transition-leave-to {
+  opacity: 0;
+}
+.scroll-y-transition-enter-from {
+  transform: translateY(-15px);
+}
+.scroll-y-transition-leave-to {
+  transform: translateY(15px);
+}
+.scroll-y-transition-enter-active, .scroll-y-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scroll-y-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-y-reverse-transition-enter-from, .scroll-y-reverse-transition-leave-to {
+  opacity: 0;
+}
+.scroll-y-reverse-transition-enter-from {
+  transform: translateY(15px);
+}
+.scroll-y-reverse-transition-leave-to {
+  transform: translateY(-15px);
+}
+.scroll-y-reverse-transition-enter-active, .scroll-y-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scroll-x-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-transition-enter-from, .scroll-x-transition-leave-to {
+  opacity: 0;
+}
+.scroll-x-transition-enter-from {
+  transform: translateX(-15px);
+}
+.scroll-x-transition-leave-to {
+  transform: translateX(15px);
+}
+.scroll-x-transition-enter-active, .scroll-x-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.scroll-x-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.scroll-x-reverse-transition-enter-from, .scroll-x-reverse-transition-leave-to {
+  opacity: 0;
+}
+.scroll-x-reverse-transition-enter-from {
+  transform: translateX(15px);
+}
+.scroll-x-reverse-transition-leave-to {
+  transform: translateX(-15px);
+}
+.scroll-x-reverse-transition-enter-active, .scroll-x-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.slide-x-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-transition-enter-from, .slide-x-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-15px);
+}
+.slide-x-transition-enter-active, .slide-x-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.slide-x-reverse-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-reverse-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-reverse-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.slide-x-reverse-transition-enter-from, .slide-x-reverse-transition-leave-to {
+  opacity: 0;
+  transform: translateX(15px);
+}
+.slide-x-reverse-transition-enter-active, .slide-x-reverse-transition-leave-active {
+  transition-property: transform, opacity !important;
+}
+.fade-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fade-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fade-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fade-transition-enter-from, .fade-transition-leave-to {
+  opacity: 0 !important;
+}
+.fade-transition-enter-active, .fade-transition-leave-active {
+  transition-property: opacity !important;
+}
+.fab-transition-enter-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fab-transition-leave-active {
+  transition-duration: 0.3s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fab-transition-move {
+  transition-duration: 0.5s !important;
+  transition-property: transform !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fab-transition-enter-from, .fab-transition-leave-to {
+  transform: scale(0) rotate(-45deg);
+}
+.fab-transition-enter-active, .fab-transition-leave-active {
+  transition-property: transform !important;
+}
+.v-locale--is-rtl {
+  direction: rtl;
+}
+.v-locale--is-ltr {
+  direction: ltr;
+}
+.blockquote {
+  padding: 16px 0 16px 24px;
+  font-size: 18px;
+  font-weight: 300;
+}
+html {
+  font-family: "Roboto", sans-serif;
+  line-height: 1.5;
+  font-size: 1rem;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+html.overflow-y-hidden {
+  overflow-y: hidden !important;
+}
+:root {
+  --v-theme-overlay-multiplier: 1;
+  --v-scrollbar-offset: 0px;
+}
+@supports (-webkit-touch-callout: none) {
+body {
+    cursor: pointer;
+}
+}
+:root {
+  --md-source: #6750A4;
+  /* primary */
+  --md-ref-palette-primary0: #000000;
+  --md-ref-palette-primary10: #21005D;
+  --md-ref-palette-primary20: #381E72;
+  --md-ref-palette-primary30: #4F378B;
+  --md-ref-palette-primary40: #6750A4;
+  --md-ref-palette-primary50: #7F67BE;
+  --md-ref-palette-primary60: #9A82DB;
+  --md-ref-palette-primary70: #B69DF8;
+  --md-ref-palette-primary80: #D0BCFF;
+  --md-ref-palette-primary90: #EADDFF;
+  --md-ref-palette-primary95: #F6EDFF;
+  --md-ref-palette-primary99: #FFFBFE;
+  --md-ref-palette-primary100: #FFFFFF;
+  /* secondary */
+  --md-ref-palette-secondary0: #000000;
+  --md-ref-palette-secondary10: #1D192B;
+  --md-ref-palette-secondary20: #332D41;
+  --md-ref-palette-secondary30: #4A4458;
+  --md-ref-palette-secondary40: #625B71;
+  --md-ref-palette-secondary50: #7A7289;
+  --md-ref-palette-secondary60: #958DA5;
+  --md-ref-palette-secondary70: #B0A7C0;
+  --md-ref-palette-secondary80: #CCC2DC;
+  --md-ref-palette-secondary90: #E8DEF8;
+  --md-ref-palette-secondary95: #F6EDFF;
+  --md-ref-palette-secondary99: #FFFBFE;
+  --md-ref-palette-secondary100: #FFFFFF;
+  /* tertiary */
+  --md-ref-palette-tertiary0: #000000;
+  --md-ref-palette-tertiary10: #31111D;
+  --md-ref-palette-tertiary20: #492532;
+  --md-ref-palette-tertiary30: #633B48;
+  --md-ref-palette-tertiary40: #7D5260;
+  --md-ref-palette-tertiary50: #986977;
+  --md-ref-palette-tertiary60: #B58392;
+  --md-ref-palette-tertiary70: #D29DAC;
+  --md-ref-palette-tertiary80: #EFB8C8;
+  --md-ref-palette-tertiary90: #FFD8E4;
+  --md-ref-palette-tertiary95: #FFECF1;
+  --md-ref-palette-tertiary99: #FFFBFA;
+  --md-ref-palette-tertiary100: #FFFFFF;
+  /* error */
+  --md-ref-palette-error0: #000000;
+  --md-ref-palette-error10: #410E0B;
+  --md-ref-palette-error20: #601410;
+  --md-ref-palette-error30: #8C1D18;
+  --md-ref-palette-error40: #B3261E;
+  --md-ref-palette-error50: #DC362E;
+  --md-ref-palette-error60: #E46962;
+  --md-ref-palette-error70: #EC928E;
+  --md-ref-palette-error80: #F2B8B5;
+  --md-ref-palette-error90: #F9DEDC;
+  --md-ref-palette-error95: #FCEEEE;
+  --md-ref-palette-error99: #FFFBF9;
+  --md-ref-palette-error100: #FFFFFF;
+  /* neutral */
+  --md-ref-palette-neutral0: #000000;
+  --md-ref-palette-neutral10: #1C1B1F;
+  --md-ref-palette-neutral20: #313033;
+  --md-ref-palette-neutral30: #484649;
+  --md-ref-palette-neutral40: #605D62;
+  --md-ref-palette-neutral50: #787579;
+  --md-ref-palette-neutral60: #939094;
+  --md-ref-palette-neutral70: #AEAAAE;
+  --md-ref-palette-neutral80: #C9C5CA;
+  --md-ref-palette-neutral90: #E6E1E5;
+  --md-ref-palette-neutral95: #F4EFF4;
+  --md-ref-palette-neutral99: #FFFBFE;
+  --md-ref-palette-neutral100: #FFFFFF;
+  /* neutral-variant */
+  --md-ref-palette-neutral-variant0: #000000;
+  --md-ref-palette-neutral-variant10: #1D1A22;
+  --md-ref-palette-neutral-variant20: #322F37;
+  --md-ref-palette-neutral-variant30: #49454F;
+  --md-ref-palette-neutral-variant40: #605D66;
+  --md-ref-palette-neutral-variant50: #79747E;
+  --md-ref-palette-neutral-variant60: #938F99;
+  --md-ref-palette-neutral-variant70: #AEA9B4;
+  --md-ref-palette-neutral-variant80: #CAC4D0;
+  --md-ref-palette-neutral-variant90: #E7E0EC;
+  --md-ref-palette-neutral-variant95: #F5EEFA;
+  --md-ref-palette-neutral-variant99: #FFFBFE;
+  --md-ref-palette-neutral-variant100: #FFFFFF;
+  /* color1 */
+  --md-ref-palette-color1-1: #2d2e2e;
+  --md-ref-palette-color1-2: #ecf0f1;
+  /* color2 */
+  --md-ref-palette-color2-1: #628643;
+  --md-ref-palette-color2-2: #5e972f;
+  --md-ref-palette-color2-3: #76a64e;
+  /* color3 */
+  --md-ref-palette-color3-1: #d29a42;
+  --md-ref-palette-color3-2: #ffad01;
+  --md-ref-palette-color3-3: #ffba4b;
+  /* color4 */
+  --md-ref-palette-color4-1: #2e2c34;
+  --md-ref-palette-color4-2: #f2edf7;
+  /* color5 */
+  --md-ref-palette-color5-1: #f2f2f7;
+  /* color6 */
+  --md-ref-palette-color6-1: #e74c3c;
+}
+:root {
+  --md-sys-state-hover-state-layer-opacity: 0.08;
+  --md-sys-state-focus-state-layer-opacity: 0.12;
+  --md-sys-state-pressed-state-layer-opacity: 0.12;
+  --md-sys-state-dragged-state-layer-opacity: 0.16;
+}
+:root {
+  /* display - large */
+  --md-sys-typescale-display-large-font-family-name: Roboto;
+  --md-sys-typescale-display-large-font-weight: 400;
+  --md-sys-typescale-display-large-font-size: 57px;
+  --md-sys-typescale-display-large-letter-spacing: 0px;
+  --md-sys-typescale-display-large-line-height: 64px;
+  /* display - medium */
+  --md-sys-typescale-display-medium-font-family-name: Roboto;
+  --md-sys-typescale-display-medium-font-weight: 400;
+  --md-sys-typescale-display-medium-font-size: 45px;
+  --md-sys-typescale-display-medium-letter-spacing: 0px;
+  --md-sys-typescale-display-medium-line-height: 52px;
+  /* display - small */
+  --md-sys-typescale-display-small-font-family-name: Roboto;
+  --md-sys-typescale-display-small-font-weight: 400;
+  --md-sys-typescale-display-small-font-size: 36px;
+  --md-sys-typescale-display-small-letter-spacing: 0px;
+  --md-sys-typescale-display-small-line-height: 44px;
+  /* headline - large */
+  --md-sys-typescale-headline-large-font-family-name: Roboto;
+  --md-sys-typescale-headline-large-font-weight: 400;
+  --md-sys-typescale-headline-large-font-size: 32px;
+  --md-sys-typescale-headline-large-letter-spacing: 0px;
+  --md-sys-typescale-headline-large-line-height: 40px;
+  /* headline - medium */
+  --md-sys-typescale-headline-medium-font-family-name: Roboto;
+  --md-sys-typescale-headline-medium-font-weight: 400;
+  --md-sys-typescale-headline-medium-font-size: 28px;
+  --md-sys-typescale-headline-medium-letter-spacing: 0px;
+  --md-sys-typescale-headline-medium-line-height: 36px;
+  /* headline - small */
+  --md-sys-typescale-headline-small-font-family-name: Roboto;
+  --md-sys-typescale-headline-small-font-weight: 400;
+  --md-sys-typescale-headline-small-font-size: 24px;
+  --md-sys-typescale-headline-small-letter-spacing: 0px;
+  --md-sys-typescale-headline-small-line-height: 32px;
+  /* title - large */
+  --md-sys-typescale-title-large-font-family-name: Roboto;
+  --md-sys-typescale-title-large-font-weight: 400;
+  --md-sys-typescale-title-large-font-size: 22px;
+  --md-sys-typescale-title-large-letter-spacing: 0px;
+  --md-sys-typescale-title-large-line-height: 28px;
+  /* title - medium */
+  --md-sys-typescale-title-medium-font-family-name: Roboto;
+  --md-sys-typescale-title-medium-font-weight: 500;
+  --md-sys-typescale-title-medium-font-size: 16px;
+  --md-sys-typescale-title-medium-letter-spacing: 0.15px;
+  --md-sys-typescale-title-medium-line-height: 24px;
+  /* title - small */
+  --md-sys-typescale-title-small-font-family-name: Roboto;
+  --md-sys-typescale-title-small-font-weight: 500;
+  --md-sys-typescale-title-small-font-size: 14px;
+  --md-sys-typescale-title-small-letter-spacing: 0.10px;
+  --md-sys-typescale-title-small-line-height: 20px;
+  /* body - large */
+  --md-sys-typescale-body-large-font-family-name: Roboto;
+  --md-sys-typescale-body-large-font-weight: 400;
+  --md-sys-typescale-body-large-font-size: 16px;
+  --md-sys-typescale-body-large-letter-spacing: 0.50px;
+  --md-sys-typescale-body-large-line-height: 24px;
+  /* body - medium */
+  --md-sys-typescale-body-medium-font-family-name: Roboto;
+  --md-sys-typescale-body-medium-font-weight: 400;
+  --md-sys-typescale-body-medium-font-size: 14px;
+  --md-sys-typescale-body-medium-letter-spacing: 0.25px;
+  --md-sys-typescale-body-medium-line-height: 20px;
+  /* body - small */
+  --md-sys-typescale-body-small-font-family-name: Roboto;
+  --md-sys-typescale-body-small-font-weight: 400;
+  --md-sys-typescale-body-small-font-size: 12px;
+  --md-sys-typescale-body-small-letter-spacing: 0.40px;
+  --md-sys-typescale-body-small-line-height: 16px;
+  /* label - large */
+  --md-sys-typescale-label-large-font-family-name: Roboto;
+  --md-sys-typescale-label-large-font-weight: 500;
+  --md-sys-typescale-label-large-font-size: 14px;
+  --md-sys-typescale-label-large-letter-spacing: 0.10px;
+  --md-sys-typescale-label-large-line-height: 20px;
+  /* label - medium */
+  --md-sys-typescale-label-medium-font-family-name: Roboto;
+  --md-sys-typescale-label-medium-font-weight: 500;
+  --md-sys-typescale-label-medium-font-size: 12px;
+  --md-sys-typescale-label-medium-letter-spacing: 0.50px;
+  --md-sys-typescale-label-medium-line-height: 16px;
+  /* label - small */
+  --md-sys-typescale-label-small-font-family-name: Roboto;
+  --md-sys-typescale-label-small-font-weight: 500;
+  --md-sys-typescale-label-small-font-size: 11px;
+  --md-sys-typescale-label-small-letter-spacing: 0.50px;
+  --md-sys-typescale-label-small-line-height: 16px;
+}
+:root {
+  /* Headline 1 */
+  --mdc-typography-headline1-font-family-name: Roboto;
+  --mdc-typography-headline1-font-weight: 300;
+  --mdc-typography-headline1-font-size: 96px;
+  --mdc-typography-headline1-letter-spacing: -1.50px;
+  --mdc-typography-headline1-line-height: 96px;
+  /* Headline 2 */
+  --mdc-typography-headline2-font-family-name: Roboto;
+  --mdc-typography-headline2-font-weight: 300;
+  --mdc-typography-headline2-font-size: 60px;
+  --mdc-typography-headline2-letter-spacing: -0.50px;
+  --mdc-typography-headline2-line-height: 60px;
+  /* Headline 3 */
+  --mdc-typography-headline3-font-family-name: Roboto;
+  --mdc-typography-headline3-font-weight: 400;
+  --mdc-typography-headline3-font-size: 48px;
+  --mdc-typography-headline3-letter-spacing: 0px;
+  --mdc-typography-headline3-line-height: 50px;
+  /* Headline 4 */
+  --mdc-typography-headline4-font-family-name: Roboto;
+  --mdc-typography-headline4-font-weight: 400;
+  --mdc-typography-headline4-font-size: 34px;
+  --mdc-typography-headline4-letter-spacing: 0.25px;
+  --mdc-typography-headline4-line-height: 40px;
+  /* Headline 5 */
+  --mdc-typography-headline5-font-family-name: Roboto;
+  --mdc-typography-headline5-font-weight: 400;
+  --mdc-typography-headline5-font-size: 24px;
+  --mdc-typography-headline5-letter-spacing: 0px;
+  --mdc-typography-headline5-line-height: 32px;
+  /* Headline 6 */
+  --mdc-typography-headline6-font-family-name: Roboto;
+  --mdc-typography-headline6-font-weight: 500;
+  --mdc-typography-headline6-font-size: 20px;
+  --mdc-typography-headline6-letter-spacing: 0.25px;
+  --mdc-typography-headline6-line-height: 32px;
+  /* Subtitle 1 */
+  --mdc-typography-subtitle1-font-family-name: Roboto;
+  --mdc-typography-subtitle1-font-weight: 400;
+  --mdc-typography-subtitle1-font-size: 16px;
+  --mdc-typography-subtitle1-letter-spacing: 0.15px;
+  --mdc-typography-subtitle1-line-height: 28px;
+  /* Subtitle 2 */
+  --mdc-typography-subtitle2-font-family-name: Roboto;
+  --mdc-typography-subtitle2-font-weight: 500;
+  --mdc-typography-subtitle2-font-size: 14px;
+  --mdc-typography-subtitle2-letter-spacing: 0.1px;
+  --mdc-typography-subtitle2-line-height: 22px;
+  /* Body 1 */
+  --mdc-typography-body1-font-family-name: Roboto;
+  --mdc-typography-body1-font-weight: 400;
+  --mdc-typography-body1-font-size: 16px;
+  --mdc-typography-body1-letter-spacing: 0.5px;
+  --mdc-typography-body1-line-height: 24px;
+  /* Body 2 */
+  --mdc-typography-body2-font-family-name: Roboto;
+  --mdc-typography-body2-font-weight: 400;
+  --mdc-typography-body2-font-size: 14px;
+  --mdc-typography-body2-letter-spacing: 0.25px;
+  --mdc-typography-body2-line-height: 20px;
+  /* Caption */
+  --mdc-typography-caption-font-family-name: Roboto;
+  --mdc-typography-caption-font-weight: 400;
+  --mdc-typography-caption-font-size: 12px;
+  --mdc-typography-caption-letter-spacing: 0.4px;
+  --mdc-typography-caption-line-height: 20px;
+  /* Button */
+  --mdc-typography-button-font-family-name: Roboto;
+  --mdc-typography-button-font-weight: 500;
+  --mdc-typography-button-font-size: 14px;
+  --mdc-typography-button-letter-spacing: 1.25px;
+  --mdc-typography-button-line-height: 36px;
+  /* Overline */
+  --mdc-typography-overline-font-family-name: Roboto;
+  --mdc-typography-overline-font-weight: 400;
+  --mdc-typography-overline-font-size: 10px;
+  --mdc-typography-overline-letter-spacing: 1.5px;
+  --mdc-typography-overline-line-height: 32px;
+}
+:root {
+  --md-sys-color-primary-light: var(--md-ref-palette-primary40);
+  --md-sys-color-on-primary-light: var(--md-ref-palette-primary100);
+  --md-sys-color-primary-container-light: var(--md-ref-palette-primary90);
+  --md-sys-color-on-primary-container-light: var(--md-ref-palette-primary10);
+  --md-sys-color-secondary-light: var(--md-ref-palette-secondary40);
+  --md-sys-color-on-secondary-light: var(--md-ref-palette-secondary100);
+  --md-sys-color-secondary-container-light: var(--md-ref-palette-secondary90);
+  --md-sys-color-on-secondary-container-light: var(--md-ref-palette-secondary10);
+  --md-sys-color-tertiary-light: var(--md-ref-palette-tertiary40);
+  --md-sys-color-on-tertiary-light: var(--md-ref-palette-tertiary100);
+  --md-sys-color-tertiary-container-light: var(--md-ref-palette-tertiary90);
+  --md-sys-color-on-tertiary-container-light: var(--md-ref-palette-tertiary10);
+  --md-sys-color-error-light: var(--md-ref-palette-error40);
+  --md-sys-color-on-error-light: var(--md-ref-palette-error100);
+  --md-sys-color-error-container-light: var(--md-ref-palette-error90);
+  --md-sys-color-on-error-container-light: var(--md-ref-palette-error10);
+  --md-sys-color-outline-light: var(--md-ref-palette-neutral-variant50);
+  --md-sys-color-background-light: var(--md-ref-palette-neutral100);
+  --md-sys-color-on-background-light: var(--md-ref-palette-neutral10);
+  --md-sys-color-surface-light: var(--md-ref-palette-neutral100);
+  --md-sys-color-on-surface-light: var(--md-ref-palette-neutral10);
+  --md-sys-color-surface-variant-light: var(--md-ref-palette-neutral-variant90);
+  --md-sys-color-on-surface-variant-light: var(--md-ref-palette-neutral-variant30);
+  --md-sys-color-inverse-surface-light: var(--md-ref-palette-neutral20);
+  --md-sys-color-inverse-on-surface-light: var(--md-ref-palette-neutral95);
+  --md-sys-color-inverse-primary-light: var(--md-ref-palette-primary80);
+  --md-sys-color-shadow-light: var(--md-ref-palette-neutral-variant0);
+  --md-sys-color-surface-tint-light: var(--md-ref-palette-primary40);
+  --md-sys-color-outline-variant-light: var(--md-ref-palette-neutral-variant80);
+  --md-sys-color-scrim-light: var(--md-ref-palette-neutral0);
+  --md-sys-color-notice-surface-light: var(--md-ref-palette-color1-2);
+  --md-sys-color-goals-light: var(--md-ref-palette-color2-3);
+  --md-sys-color-cta-light: var(--md-ref-palette-color3-2);
+  --md-sys-color-cta-surface-light: var(--md-ref-palette-color3-3);
+  --md-sys-color-cta-coin-light: var(--md-ref-palette-color2-2);
+  --md-sys-color-menu-surface-light: var(--md-ref-palette-color4-2);
+}
+.v-theme--light {
+  color-scheme: light !important;
+  --md-sys-color-primary: var(--md-sys-color-primary-light);
+  --md-sys-color-on-primary: var(--md-sys-color-on-primary-light);
+  --md-sys-color-primary-container: var(--md-sys-color-primary-container-light);
+  --md-sys-color-on-primary-container: var(--md-sys-color-on-primary-container-light);
+  --md-sys-color-secondary: var(--md-sys-color-secondary-light);
+  --md-sys-color-on-secondary: var(--md-sys-color-on-secondary-light);
+  --md-sys-color-secondary-container: var(--md-sys-color-secondary-container-light);
+  --md-sys-color-on-secondary-container: var(--md-sys-color-on-secondary-container-light);
+  --md-sys-color-tertiary: var(--md-sys-color-tertiary-light);
+  --md-sys-color-on-tertiary: var(--md-sys-color-on-tertiary-light);
+  --md-sys-color-tertiary-container: var(--md-sys-color-tertiary-container-light);
+  --md-sys-color-on-tertiary-container: var(--md-sys-color-on-tertiary-container-light);
+  --md-sys-color-error: var(--md-sys-color-error-light);
+  --md-sys-color-on-error: var(--md-sys-color-on-error-light);
+  --md-sys-color-error-container: var(--md-sys-color-error-container-light);
+  --md-sys-color-on-error-container: var(--md-sys-color-on-error-container-light);
+  --md-sys-color-outline: var(--md-sys-color-outline-light);
+  --md-sys-color-background: var(--md-sys-color-background-light);
+  --md-sys-color-on-background: var(--md-sys-color-on-background-light);
+  --md-sys-color-surface: var(--md-sys-color-surface-light);
+  --md-sys-color-on-surface: var(--md-sys-color-on-surface-light);
+  --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-light);
+  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-light);
+  --md-sys-color-inverse-surface: var(--md-sys-color-inverse-surface-light);
+  --md-sys-color-inverse-on-surface: var(--md-sys-color-inverse-on-surface-light);
+  --md-sys-color-inverse-primary: var(--md-sys-color-inverse-primary-light);
+  --md-sys-color-shadow: var(--md-sys-color-shadow-light);
+  --md-sys-color-surface-tint: var(--md-sys-color-surface-tint-light);
+  --md-sys-color-outline-variant: var(--md-sys-color-outline-variant-light);
+  --md-sys-color-scrim: var(--md-sys-color-scrim-light);
+  --md-sys-color-notice-surface: var(--md-sys-color-notice-surface-light);
+  --md-sys-color-goals: var(--md-sys-color-goals-light);
+  --md-sys-color-cta: var(--md-sys-color-cta-light);
+  --md-sys-color-cta-surface: var(--md-sys-color-cta-surface-light);
+  --md-sys-color-cta-coin: var(--md-sys-color-cta-coin-light);
+  --md-sys-color-menu-surface: var(--md-sys-color-menu-surface-light);
+}
+:root {
+  --md-sys-color-primary-dark: var(--md-ref-palette-primary80);
+  --md-sys-color-on-primary-dark: var(--md-ref-palette-primary20);
+  --md-sys-color-primary-container-dark: var(--md-ref-palette-primary30);
+  --md-sys-color-on-primary-container-dark: var(--md-ref-palette-primary90);
+  --md-sys-color-secondary-dark: var(--md-ref-palette-secondary80);
+  --md-sys-color-on-secondary-dark: var(--md-ref-palette-secondary20);
+  --md-sys-color-secondary-container-dark: var(--md-ref-palette-secondary30);
+  --md-sys-color-on-secondary-container-dark: var(--md-ref-palette-secondary90);
+  --md-sys-color-tertiary-dark: var(--md-ref-palette-tertiary80);
+  --md-sys-color-on-tertiary-dark: var(--md-ref-palette-tertiary20);
+  --md-sys-color-tertiary-container-dark: var(--md-ref-palette-tertiary30);
+  --md-sys-color-on-tertiary-container-dark: var(--md-ref-palette-tertiary90);
+  --md-sys-color-error-dark: var(--md-ref-palette-error80);
+  --md-sys-color-on-error-dark: var(--md-ref-palette-error20);
+  --md-sys-color-error-container-dark: var(--md-ref-palette-error30);
+  --md-sys-color-on-error-container-dark: var(--md-ref-palette-error80);
+  --md-sys-color-outline-dark: var(--md-ref-palette-neutral-variant60);
+  --md-sys-color-background-dark: var(--md-ref-palette-neutral10);
+  --md-sys-color-on-background-dark: var(--md-ref-palette-neutral90);
+  --md-sys-color-surface-dark: var(--md-ref-palette-neutral10);
+  --md-sys-color-on-surface-dark: var(--md-ref-palette-neutral90);
+  --md-sys-color-surface-variant-dark: var(--md-ref-palette-neutral-variant30);
+  --md-sys-color-on-surface-variant-dark: var(--md-ref-palette-neutral-variant80);
+  --md-sys-color-inverse-surface-dark: var(--md-ref-palette-neutral90);
+  --md-sys-color-inverse-on-surface-dark: var(--md-ref-palette-neutral20);
+  --md-sys-color-inverse-primary-dark: var(--md-ref-palette-primary40);
+  --md-sys-color-shadow-dark: var(--md-ref-palette-neutral-variant0);
+  --md-sys-color-surface-tint-dark: var(--md-ref-palette-primary80);
+  --md-sys-color-outline-variant-dark: var(--md-ref-palette-neutral-variant30);
+  --md-sys-color-scrim-dark: var(--md-ref-palette-neutral0);
+  --md-sys-color-notice-surface-dark: var(--md-ref-palette-color1-1);
+  --md-sys-color-goals-dark: var(--md-ref-palette-color2-1);
+  --md-sys-color-cta-dark: var(--md-ref-palette-color3-1);
+  --md-sys-color-cta-surface-dark: var(--md-ref-palette-color3-1);
+  --md-sys-color-cta-coin-dark: var(--md-ref-palette-color2-2);
+  --md-sys-color-menu-surface-dark: var(--md-ref-palette-color4-1);
+}
+.v-theme--dark {
+  color-scheme: dark !important;
+  --md-sys-color-primary: var(--md-sys-color-primary-dark);
+  --md-sys-color-on-primary: var(--md-sys-color-on-primary-dark);
+  --md-sys-color-primary-container: var(--md-sys-color-primary-container-dark);
+  --md-sys-color-on-primary-container: var(--md-sys-color-on-primary-container-dark);
+  --md-sys-color-secondary: var(--md-sys-color-secondary-dark);
+  --md-sys-color-on-secondary: var(--md-sys-color-on-secondary-dark);
+  --md-sys-color-secondary-container: var(--md-sys-color-secondary-container-dark);
+  --md-sys-color-on-secondary-container: var(--md-sys-color-on-secondary-container-dark);
+  --md-sys-color-tertiary: var(--md-sys-color-tertiary-dark);
+  --md-sys-color-on-tertiary: var(--md-sys-color-on-tertiary-dark);
+  --md-sys-color-tertiary-container: var(--md-sys-color-tertiary-container-dark);
+  --md-sys-color-on-tertiary-container: var(--md-sys-color-on-tertiary-container-dark);
+  --md-sys-color-error: var(--md-sys-color-error-dark);
+  --md-sys-color-on-error: var(--md-sys-color-on-error-dark);
+  --md-sys-color-error-container: var(--md-sys-color-error-container-dark);
+  --md-sys-color-on-error-container: var(--md-sys-color-on-error-container-dark);
+  --md-sys-color-outline: var(--md-sys-color-outline-dark);
+  --md-sys-color-background: var(--md-sys-color-background-dark);
+  --md-sys-color-on-background: var(--md-sys-color-on-background-dark);
+  --md-sys-color-surface: var(--md-sys-color-surface-dark);
+  --md-sys-color-on-surface: var(--md-sys-color-on-surface-dark);
+  --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-dark);
+  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-dark);
+  --md-sys-color-inverse-surface: var(--md-sys-color-inverse-surface-dark);
+  --md-sys-color-inverse-on-surface: var(--md-sys-color-inverse-on-surface-dark);
+  --md-sys-color-inverse-primary: var(--md-sys-color-inverse-primary-dark);
+  --md-sys-color-shadow: var(--md-sys-color-shadow-dark);
+  --md-sys-color-surface-tint: var(--md-sys-color-surface-tint-dark);
+  --md-sys-color-outline-variant: var(--md-sys-color-outline-variant-dark);
+  --md-sys-color-scrim: var(--md-sys-color-scrim-dark);
+  --md-sys-color-notice-surface: var(--md-sys-color-notice-surface-dark);
+  --md-sys-color-goals: var(--md-sys-color-goals-dark);
+  --md-sys-color-cta: var(--md-sys-color-cta-dark);
+  --md-sys-color-cta-surface: var(--md-sys-color-cta-surface-dark);
+  --md-sys-color-cta-coin: var(--md-sys-color-cta-coin-dark);
+  --md-sys-color-menu-surface: var(--md-sys-color-menu-surface-dark);
+}
+html {
+  overflow: initial !important;
+}
+body {
+  font-family: "Roboto", sans-serif;
+  font-size: 100%;
+  margin: 0;
+}
+.v-application {
+  background: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+}
+.v-ripple__container .v-ripple__animation--in {
+  opacity: 0.08 !important;
+}
+.scale-transition-enter-active, .scale-transition-leave-active {
+  transform-origin: center top !important;
+  transition: opacity 0.08s linear, transform 0.12s cubic-bezier(0, 0, 0.2, 1) !important;
+}
+.scale-transition-enter-active, .scale-transition-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+.scale-transition-enter-from {
+  opacity: 0;
+  transform: scale(0.8);
+}
+.scale-transition-leave-from, .scale-transition-leave-to {
+  opacity: 0;
+  transform: scale(0);
+}
+.fade-transition-enter-active, .fade-transition-leave-active {
+  transition: 0.12s linear !important;
+}
+.v-application__wrap {
+  display: grid;
+  grid-row-gap: 32px;
+  grid-column-gap: 48px;
+  padding: 24px;
+  grid-auto-rows: min-content;
+  grid-auto-columns: min-content;
+}
+.section-title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  line-height: 32px;
+}
+.section-desc {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+  line-height: 20px;
+  padding-top: 8px;
+  max-width: 380px;
+}
+.option-wrap {
+  display: grid;
+  grid-row-gap: 24px;
+  padding-top: 24px;
+}
+.option {
+  display: flex;
+  align-items: center;
+  height: 20px;
+}
+.option.button {
+  height: 40px;
+}
+.option.select, .option.text-field {
+  height: 56px;
+}
+.text-field .v-input__control {
+  width: 326px;
+}
+.section-client .section-desc {
+  width: 272px;
+}
+.wit-add-api {
+  display: flex;
+  align-items: center;
+}
+.wit-add-api .vn-select .v-input__control, .wit-add-api .vn-select .v-input__details {
+  max-width: calc(100vw - 48px - 124px) !important;
+}
+.wit-add-api .vn-button {
+  margin-left: 24px;
+  color: var(--md-sys-color-primary);
+}
+.service-guide {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  line-height: 24px;
+}
+.client-download,
+.model-card {
+  width: 272px;
+}
+.model-card .download-button {
+  margin-bottom: 8px;
+}
+.model-desc {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+  line-height: 24px;
+}
+.download-desc,
+.download-error {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+  line-height: 20px;
+}
+.download-desc a {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+  line-height: 20px;
+}
+.download-desc {
+  max-width: 240px;
+}
+.download-error {
+  margin-top: 12px;
+  color: var(--md-sys-color-error);
+}
+.download-link {
+  visibility: hidden;
+}
+.download-button {
+  margin-top: 24px;
+  background-color: var(--md-sys-color-primary);
+}
+.download-button .v-btn__content {
+  color: var(--md-sys-color-on-primary);
+}
+.section-sponsors .sponsor-logo, .section-sponsors .sponsor-logo a, .section-sponsors .sponsor-logo img {
+  height: 42px;
+}
+.section-sponsors .sponsor-logo img {
+  cursor: pointer;
+}
+.section-sponsors .contribute-button {
+  color: var(--md-sys-color-primary);
+}
+.section-sponsors .contribute-button .vn-icon {
+  background-color: var(--md-sys-color-cta);
+}
+.section-sponsors .button:not(:only-child) {
+  margin-top: 12px;
+}
+@media (min-width: 736px) {
+.show-sponsors .v-application__wrap {
+    grid-template-columns: minmax(280px, max-content) max-content;
+    grid-template-rows: min-content min-content 1fr;
+    grid-template-areas: "services sponsors" "client sponsors" "misc sponsors";
+    justify-content: center;
+}
+.section-services {
+    grid-area: services;
+}
+.section-client {
+    grid-area: client;
+}
+.section-misc {
+    grid-area: misc;
+}
+.section-sponsors {
+    grid-area: sponsors;
+}
+& .vn-checkbox,
+  & .vn-switch {
+    grid-template-columns: min-content;
+}
+}

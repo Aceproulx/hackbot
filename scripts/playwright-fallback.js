@@ -5,8 +5,10 @@
  * browser_click / browser_type / browser_evaluate missing, or the MCP
  * connection is closed).
  *
- * Wraps the globally-installed `playwright-mcp` binary and speaks MCP
- * JSON-RPC to it over stdio. Same flags as the opencode MCP config.
+ * Wraps the playwright-mcp launcher (scripts/playwright-mcp.sh) and speaks MCP
+ * JSON-RPC to it over stdio. The launcher generates the MCP config: bundled
+ * Chromium (channel "chromium"), the buster + captcha-bridge unpacked
+ * extensions via --load-extension, and the Caido proxy.
  *
  * USAGE:
  *   node scripts/playwright-fallback.js navigate <url> [--profile <dir>]
@@ -39,12 +41,13 @@ const { spawn } = require('child_process');
 
 // ---- config (must match the opencode MCP config) ----
 const SERVER_FLAGS = [
-  '--no-sandbox',
-  '--browser', 'chrome',
   '--caps', 'vision',
   '--console-level', 'info',
   '--ignore-https-errors',
 ];
+
+// Path to the launcher wrapper (repo-relative).
+const WRAPPER = require('path').join(__dirname, 'playwright-mcp.sh');
 
 // ---- arg parsing ----
 const args = process.argv.slice(2);
@@ -67,8 +70,8 @@ if (!cmd) {
 // ---- MCP client ----
 function startServer() {
   const serverArgs = [...SERVER_FLAGS];
-  if (profile) serverArgs.push('--user-data-dir', profile);
-  const child = spawn('playwright-mcp', serverArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+  if (profile) serverArgs.unshift('--profile', profile);
+  const child = spawn('bash', [WRAPPER, ...serverArgs], { stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = '';
   let stderrBuf = '';
   const pending = new Map();
@@ -128,7 +131,7 @@ async function main() {
     console.error('FATAL: playwright-mcp did not respond in 30s. stderr:\n' + server.getStderr());
     server.child.kill('SIGKILL');
     process.exit(1);
-  }, 30000);
+  }, 120000);
 
   try {
     await server.send('initialize', {

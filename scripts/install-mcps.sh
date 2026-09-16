@@ -214,14 +214,68 @@ install_composio() {
   register_everywhere "composio" "npx" '["-y","composio-mcp"]' "$ENV_JSON"
 }
 
+install_caido_cert() {
+  # Trust the Caido CA so Chromium can navigate through the proxy without
+  # ERR_TOO_MANY_RETRIES. Installs into: system store, Chrome/Chromium NSS DB,
+  # and NODE_EXTRA_CA_CERTS (for Node-based MCP servers / scripts).
+  local CA_URL="${1:-http://127.0.0.1:8080/ca.crt}"
+  local TMP CRT
+  TMP="$(mktemp /tmp/caido-ca.XXXXXX.crt)"
+  if ! curl -fsS --max-time 10 "$CA_URL" -o "$TMP" 2>/dev/null; then
+    warn "Could not fetch Caido CA from $CA_URL — is Caido running? Skipping cert install."
+    rm -f "$TMP"
+    return 0
+  fi
+
+  local FP
+  FP="$(openssl x509 -in "$TMP" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 || true)"
+  info "    Caido CA fingerprint: ${FP:-unknown}"
+
+  # 1. System store (for curl, git, etc.)
+  if [[ -d /usr/local/share/ca-certificates ]]; then
+    if sudo -n cp "$TMP" /usr/local/share/ca-certificates/caido.crt 2>/dev/null; then
+      sudo -n update-ca-certificates >/dev/null 2>&1 || true
+      ok "installed Caido CA into system store (/usr/local/share/ca-certificates/caido.crt)"
+    else
+      warn "Could not write to system store (needs sudo) — skipping."
+    fi
+  fi
+
+  # 2. Chrome/Chromium NSS DB (fixes ERR_TOO_MANY_RETRIES in the browser)
+  if command -v certutil >/dev/null 2>&1; then
+    mkdir -p "$HOME/.pki/nssdb"
+    certutil -d "sql:$HOME/.pki/nssdb" -D -n "Caido" >/dev/null 2>&1 || true
+    if certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n "Caido" -i "$TMP" >/dev/null 2>&1; then
+      ok "added Caido CA to Chrome NSS DB (~/.pki/nssdb)"
+    else
+      warn "certutil failed to add Caido CA to NSS DB."
+    fi
+  else
+    warn "certutil not found — Chrome may still fail with ERR_TOO_MANY_RETRIES."
+    info "    Install with: sudo apt install libnss3-tools"
+  fi
+
+  # 3. NODE_EXTRA_CA_CERTS for Node-based MCP servers / scripts
+  if [[ -f /etc/ssl/certs/caido.pem || -f /usr/local/share/ca-certificates/caido.crt ]]; then
+    local PEM="/etc/ssl/certs/caido.pem"
+    [[ -f "$PEM" ]] || PEM="/usr/local/share/ca-certificates/caido.crt"
+    if ! grep -q "NODE_EXTRA_CA_CERTS" "$HOME/.zshenv" 2>/dev/null; then
+      printf '\nexport NODE_EXTRA_CA_CERTS="%s"\n' "$PEM" >> "$HOME/.zshenv"
+      ok "added NODE_EXTRA_CA_CERTS=$PEM to ~/.zshenv"
+    else
+      ok "NODE_EXTRA_CA_CERTS already set in ~/.zshenv"
+    fi
+  fi
+
+  rm -f "$TMP"
+}
+
 install_playwright() {
   info "[5/5] Playwright MCP (browser automation)"
-  # Uses npx lazily (@playwright/mcp fetched on first launch) — no global install.
-  # Requires Google Chrome installed on the system.
-  if ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1; then
-    warn "Google Chrome not found on PATH — Playwright MCP is configured with --browser chrome."
-    info "    Install Chrome: https://www.google.com/chrome/  (or set the flag to 'chromium')."
-  fi
+  # Launched via scripts/playwright-mcp.sh, which generates the MCP config:
+  # bundled Chromium (channel "chromium"), buster + captcha-bridge unpacked
+  # extensions via --load-extension, and the Caido proxy. No system Chrome
+  # required — Playwright's own Chromium build is used.
 
   local MISC PORT PROFILE ISOLATION
   MISC="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
@@ -246,34 +300,34 @@ install_playwright() {
   #                        workers WILL collide on the Chrome profile lock.
   ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$CONFIG" 2>/dev/null || echo "isolated")"
 
-  local CMD_JSON ENV_JSON
   # Browsers route through the Caido proxy (PORT) so traffic lands in Caido
-  # history for evidence. The Caido CA cert MUST be trusted by Chrome for this
-  # to work — install it with:
-  #   sudo cp caido.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
-  #   certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Caido" -i caido.crt
-  # Without it, Chrome fails with ERR_TOO_MANY_RETRIES on every navigation.
+  # history for evidence. The Caido CA cert MUST be trusted by Chromium for
+  # this to work — install it now.
+  install_caido_cert "http://127.0.0.1:${PORT}/ca.crt"
+
+  local WRAPPER="$REPO_ROOT/scripts/playwright-mcp.sh"
+  local CMD_JSON ENV_JSON
   case "$ISOLATION" in
     isolated)
-      CMD_JSON="$(jq -n --arg port "$PORT" \
-        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--isolated"]')"
+      CMD_JSON="$(jq -n --arg w "$WRAPPER" \
+        '["bash",$w,"--caps","vision","--console-level","info","--ignore-https-errors","--isolated"]')"
       ;;
     per-slot)
       # {env:PLAYWRIGHT_PROFILE} is substituted by OpenCode at config load from
-      # the process environment. Empty (unset) is falsy in Playwright MCP, so
-      # it falls back to a fresh temp profile — never the shared one.
-      CMD_JSON="$(jq -n --arg port "$PORT" \
-        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir","{env:PLAYWRIGHT_PROFILE}"]')"
+      # the process environment. Empty (unset) is falsy in the wrapper, so it
+      # falls back to a fresh temp profile — never the shared one.
+      CMD_JSON="$(jq -n --arg w "$WRAPPER" \
+        '["bash",$w,"--caps","vision","--console-level","info","--ignore-https-errors","--profile","{env:PLAYWRIGHT_PROFILE}"]')"
       ;;
     shared)
-      CMD_JSON="$(jq -n --arg profile "$PROFILE" --arg port "$PORT" \
-        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",$profile]')"
+      CMD_JSON="$(jq -n --arg w "$WRAPPER" --arg p "$PROFILE" \
+        '["bash",$w,"--caps","vision","--console-level","info","--ignore-https-errors","--profile",$p]')"
       ;;
     *)
       warn "Unknown browser_isolation '$ISOLATION' — falling back to 'isolated'."
       ISOLATION="isolated"
-      CMD_JSON="$(jq -n --arg port "$PORT" \
-        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--isolated"]')"
+      CMD_JSON="$(jq -n --arg w "$WRAPPER" \
+        '["bash",$w,"--caps","vision","--console-level","info","--ignore-https-errors","--isolated"]')"
       ;;
   esac
   ENV_JSON="{}"
@@ -296,6 +350,7 @@ install_playwright() {
   esac
   info "    Browser profiles: $MISC/.playwright-profiles/ (claim-account.sh / use-account.sh)"
   info "    Create profiles with: $REPO_ROOT/browser-profiles/clone-profile.sh <name>"
+  info "    Extensions: buster + captcha-bridge loaded via --load-extension (see scripts/playwright-mcp.sh)"
 }
 
 echo ""

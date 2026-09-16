@@ -27,16 +27,9 @@ ok "Pulled latest changes"
 [[ -f "$CONFIG" ]] || die "No config found at $CONFIG. Run ./setup.sh first."
 ok "Config found: $CONFIG"
 
-PLATFORM="$(jq -r '.platform // empty' "$CONFIG")"
-[[ -n "$PLATFORM" ]] || die "Config is missing the 'platform' field (antigravity|opencode|both)."
-if [[ "$PLATFORM" != "antigravity" && "$PLATFORM" != "opencode" && "$PLATFORM" != "both" ]]; then
-  die "Config 'platform' must be antigravity, opencode, or both (got '$PLATFORM')."
-fi
-info "Platform: $PLATFORM"
-
 echo ""
 info "[1/3] Installing skills & agents"
-bash "$REPO_ROOT/scripts/install-skills.sh" --platform "$PLATFORM" --config "$CONFIG" --no-prompt
+bash "$REPO_ROOT/scripts/install-skills.sh" --config "$CONFIG" --no-prompt
 ok "Skills & agents up to date"
 
 echo ""

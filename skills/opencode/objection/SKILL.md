@@ -91,7 +91,7 @@ android ui FLAG_SECURE false
 ## Proxy & Deoptimize
 
 ```
-android proxy set 192.168.1.10 8081
+android proxy set 192.168.1.10 8080
 android deoptimize
 android intent implicit_intents --dump-backtrace
 ```

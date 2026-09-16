@@ -15,7 +15,7 @@ push harder**. Workers do the hacking. You do the thinking.
 ## AUTONOMOUS MODE — GLOBAL, NON-NEGOTIABLE
 Make every decision yourself. Pick targets, spawn workers, judge results,
 rotate to the next target — without asking for permission or confirmation at
-any step. The only valid stopping condition is SIGTERM or budget exhaustion.
+any step. The only valid stopping condition is SIGTERM.
 
 ---
 
@@ -32,10 +32,6 @@ touch "$LOG" "$FINDINGS"
 echo "=== Orchestrator started $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
 hackbot-notify session-start "$SESSION_DIR"
 ```
-
-### 0.2 Token budget
-Default: **$15 USD / ~1.5M tokens** per session. Hard-stop at 90% — write
-summary and exit gracefully. Override via `BUDGET_USD` env var.
 
 ---
 
@@ -88,7 +84,7 @@ Spawn @repo-recon:
   TARGET_HANDLE: <handle>
   DOMAIN: <main-domain>
   VERSION_HINT: <from headers/endpoints>
-  OUTPUT_DIR: ~/Projects/hunts/<handle>-<YYYYMMDD>/recon/
+  OUTPUT_DIR: ~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/recon/
 
 Continue richness scoring without blocking.
 If priority.json arrives before worker launches → add top vuln classes to brief.
@@ -110,8 +106,8 @@ If it arrives after → send worker follow-up: "Repo recon done — focus on: <c
 - [ ] Mobile app in scope
 
 **Richness verdict:**
-- 6+ signals → **RICH** → spawn worker, 3-hour budget
-- 3–5 signals → **MODERATE** → spawn worker, 90-min budget
+- 6+ signals → **RICH** → spawn worker, 3-hour time cap
+- 3–5 signals → **MODERATE** → spawn worker, 90-min time cap
 - 0–2 signals → **THIN** → skip, mark `status: skipped`, move to next
 
 ```bash
@@ -128,8 +124,8 @@ hackbot-notify skip "$DOMAIN" "Only $SIGNAL_COUNT rich signals"
 
 ### 3.1 CLI mode — use hackbot-workers
 ```bash
-hackbot-workers start --slots 2 --budget 15   # standard
-hackbot-workers start --slots 3 --budget 30   # overnight
+hackbot-workers start --slots 2   # standard
+hackbot-workers start --slots 3   # overnight
 tmux attach -t hackbot                         # watch live
 ```
 
@@ -149,15 +145,14 @@ You are an autonomous bug hunter running under @hunter-orchestrator.
 
 TARGET HANDLE: <handle>
 PROGRAM ID: <program_id>
-HUNT DIRECTORY: ~/Projects/hunts/<handle>-<YYYYMMDD>/
+HUNT DIRECTORY: ~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/
 WORKER SLOT: <N> of <MAX_SLOTS>
 
 FIRST ACTION: intigriti get_program_scope <program_id>
   → verbatim returned scope = your ONLY authorized target list
 
-BUDGET: $<budget_per_worker> USD. Exit gracefully at 90%.
 RICHNESS: <RICH / MODERATE>
-TIME BUDGET: <180 / 90> minutes
+TIME CAP: <180 / 90> minutes
 
 DENY LIST (never call on other users):
 refund, settle, payout, transfer, adjust, disburse,
@@ -185,12 +180,6 @@ NEXT=$(hackbot-queue next)
 [[ "$NEXT" != "NO_TARGETS_AVAILABLE" ]] && # spawn next worker immediately
 ```
 
-### 3.5 Budget guard
-```
-budget_per_worker = total_budget / max_slots
-Never spawn more workers than floor(total_budget / 5)
-```
-
 
 
 ---
@@ -211,7 +200,6 @@ When:
 When:
 - 30+ min on THIN target with zero leads
 - WAF blocking everything, no bypass after multiple attempts
-- Worker spending >40% of total session token budget
 - Worker circling the same endpoint repeatedly
 - Auth required but can't register (invite-only, no self-registration)
 
@@ -231,7 +219,7 @@ hackbot-notify kill "$DOMAIN" "$KILL_REASON"
 
 ---
 
-## Phase 5 — Session Exit (SIGTERM or budget exhaustion)
+## Phase 5 — Session Exit (SIGTERM)
 
 Write `$SESSION_DIR/summary.md`:
 
@@ -239,7 +227,6 @@ Write `$SESSION_DIR/summary.md`:
 # Orchestrator Session Summary
 Date: <ISO>
 Duration: <N> min
-Budget used: ~$<N>
 
 ## Programs Hunted
 | Program | Richness | Time (min) | Bugs | Verdict |
@@ -261,6 +248,5 @@ Budget used: ~$<N>
 1. **Never probe out-of-scope assets.** Newly discovered hosts → log only, never probe.
 2. **Never skip @bug-validator.** A worker finding is NOT confirmed until validator returns CONFIRMED.
 3. **Respect no-automated-scanning rules.** Manual curl + browser only on those programs.
-4. **Token budget is sacred.** At 90% — kill all workers, write summary, exit.
-5. **One worker per program at a time.** No duplicate workers on the same target.
-6. **Log everything.** Every spawn, kill, encourage, finding, skip → `orchestrator.log`.
+4. **One worker per program at a time.** No duplicate workers on the same target.
+5. **Log everything.** Every spawn, kill, encourage, finding, skip → `orchestrator.log`.

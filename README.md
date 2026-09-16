@@ -2,7 +2,7 @@
 
 > Autonomous bug bounty pipeline for Intigriti researchers. Install once, hunt forever.
 
-Hackbot is a complete bug-bounty automation framework. It bundles skills, agents, scripts, and MCP integrations for running autonomous hunting sessions via OpenCode, Antigravity CLI (agy), or both. One interactive `setup.sh` configures everything for your account.
+Hackbot is a complete bug-bounty automation framework. It bundles skills, agents, scripts, and MCP integrations for running autonomous hunting sessions via OpenCode. One interactive `setup.sh` configures everything for your account.
 
 ## Features
 
@@ -19,7 +19,7 @@ Hackbot is a complete bug-bounty automation framework. It bundles skills, agents
 - Google Chrome (for Playwright MCP browser automation)
 - Node.js ≥ 18
 - Python 3.10+
-- OpenCode and/or Antigravity CLI (agy) — already installed
+- OpenCode — already installed
 - tmux, jq, curl, git
 
 ## Quick Start
@@ -35,7 +35,7 @@ Then:
 
 ```bash
 hackbot-queue init
-hackbot-workers start --budget 15
+hackbot-workers start
 ```
 
 ## Configuration
@@ -44,7 +44,7 @@ All settings live in `~/.hackbot/config.json` (created by `setup.sh`).
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `platform` | `antigravity`, `opencode`, or `both` | — |
+| `platform` | `opencode` | — |
 | `intigriti_username` | Your Intigriti username | — |
 | `email_base` | Email prefix before `+`/`-` (e.g. `aceproulx`) | — |
 | `email_domain` | Your email domain | `intigriti.me` |
@@ -55,11 +55,10 @@ All settings live in `~/.hackbot/config.json` (created by `setup.sh`).
 | `curl_proxy_port` | curl proxy port for Caido | `8081` |
 | `oob_tunnel_url` | OOB/SSRF tunnel (e.g. cloudflared URL) | — |
 | `payloads_dir` | Path to XSS/curl payloads directory | `~/Projects/payloads/coffinxp-payloads` |
-| `sessions_dir` | Where hunt session data is stored | `~/Projects/hunts/sessions` |
+| `sessions_dir` | Where hunt session data is stored | `~/Projects/hackbot/hunts/sessions` |
 | `hackbot_misc_dir` | Where hackbot runtime data lives | `~/Projects/hackbot-misc` |
 | `playwright_profile` | Default Chrome profile dir for Playwright MCP `--user-data-dir` | `~/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA` |
 | `max_worker_slots` | Max parallel workers | `2` |
-| `default_budget_usd` | Default cost budget in USD | `15` |
 
 ## CLI Tools
 
@@ -106,7 +105,7 @@ hackbot-dashboard export       # Export to markdown
 Parallel worker pool manager.
 
 ```bash
-hackbot-workers start [--slots 2] [--budget 15]
+hackbot-workers start [--slots 2]
 hackbot-workers status
 hackbot-workers stop
 hackbot-workers logs [worker_id]
@@ -145,7 +144,7 @@ monitor agent).
 
 ## Skills Reference
 
-There are two skill packages: **Antigravity** (flat `.md` files) and **OpenCode** (directories with `SKILL.md`).
+There is one skill package: **OpenCode** (directories with `SKILL.md`).
 
 ### Core Skills (7)
 
@@ -186,7 +185,7 @@ make sync
 - **setup.sh fails with "command not found: jq"** — install jq first: `sudo apt install jq`
 - **hackbot-notify not sending** — check `~/.hackbot/config.json` has valid Telegram token/chat_id
 - **"No targets available"** — run `hackbot-queue init` first
-- **Worker spawns but doesn't start hunting** — ensure OpenCode/agy is in PATH
+- **Worker spawns but doesn't start hunting** — ensure OpenCode is in PATH
 - **MCP connection errors** — check API keys, ensure MCP server processes are running
 - **macOS sed errors** — setup.sh auto-detects macOS; if issues occur, install GNU sed via `brew install gnu-sed`
 

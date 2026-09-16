@@ -176,7 +176,7 @@ Trigger as soon as ANY of these are true:
 
 TARGET: <domain or product name>
 VERSION_HINT: <anything fingerprinted — version string, framework, package name>
-OUTPUT_DIR: ~/Projects/hunts/<handle>-<YYYYMMDD>/recon/
+OUTPUT_DIR: ~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/recon/
 ```
 
 ### What repo-recon does (load the skill to see full detail)
@@ -267,6 +267,14 @@ eval "$(cd "$ABP" && ./claim-account.sh)"
 # After this, every Playwright MCP tool call in this agent's connection is
 # fully isolated to this account's profile.
 ```
+
+> **If `claim-account.sh` cannot launch/attach your Playwright MCP server**
+> (no MCP tools in your toolset, connection closed), the env vars it exports
+> (`AGENT_BROWSER_PROFILE`, `PLAYWRIGHT_MCP_USER_DATA_DIR`) still point at
+> your profile — use the fallback helper with those vars:
+> `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js navigate <url>`
+> (profile is picked up automatically from the env vars). See the
+> "Playwright MCP UNAVAILABLE — FALLBACK" section.
 
 Check your identity any time:
 ```bash
@@ -794,6 +802,68 @@ missing server-side validation). Completely separate from solving.
 
 ## Browser Session — Keep Open
 
+### Playwright MCP UNAVAILABLE — FALLBACK (read this before anything below)
+
+**Trigger condition — if ANY of these is true, use the fallback:**
+- The Playwright MCP tools are NOT in your toolset: `browser_navigate`,
+  `browser_snapshot`, `browser_click`, `browser_type`, `browser_fill_form`,
+  `browser_select_option`, `browser_evaluate`, `browser_console_messages`,
+  `browser_network_requests`, `browser_take_screenshot`, `browser_tabs`,
+  `browser_press_key`, `browser_hover`, `browser_wait_for`, `browser_find`.
+- The MCP connection is closed / erroring (`-32000 Connection closed`, tool
+  calls fail, tools vanished mid-session).
+
+**Do NOT skip browser verification when this happens.** Drive the browser
+directly with the fallback helper:
+
+```
+node {{HACKBOT_DIR}}/scripts/playwright-fallback.js <command> [args] [--profile <dir>]
+```
+
+#### Command mapping — MCP tool → fallback command
+
+| MCP tool | Fallback command |
+|---|---|
+| `browser_navigate(url)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js navigate <url>` |
+| `browser_snapshot()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js snapshot` |
+| `browser_find(text)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js find <text-or-/regex/>` |
+| `browser_click(ref)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js click <ref>` |
+| `browser_type(ref, text)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js type <ref> <text>` |
+| `browser_press_key(key)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js press <key>` |
+| `browser_hover(ref)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js hover <ref>` |
+| `browser_evaluate(fn)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js evaluate "() => ..."` |
+| `browser_console_messages()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js console` |
+| `browser_network_requests()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js network` |
+| `browser_take_screenshot(path)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js screenshot <path>` |
+| `browser_wait_for(secs)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js wait <seconds>` |
+| `browser_close()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js close` |
+
+#### Rules — non-negotiable
+
+1. **One action per invocation.** Each call spawns a fresh server, performs
+   ONE action, prints the result, exits. Chain calls: `navigate` → `snapshot`
+   → `click` → `snapshot`. Do not expect state to survive between calls
+   unless a profile is used.
+2. **Profile resolution (in order):** `--profile <dir>` flag →
+   `$PLAYWRIGHT_MCP_USER_DATA_DIR` → `$AGENT_BROWSER_PROFILE` → ephemeral.
+   After `claim-account.sh` the env vars are already set — just run the
+   command. Without a profile the session does NOT persist between calls.
+3. **Screenshots must be written inside the project dir.** The server only
+   allows writes under `{{HACKBOT_DIR}}` (e.g.
+   `{{HACKBOT_DIR}}/.playwright-mcp/evidence.png`). Writing to `/tmp` fails
+   with `File access denied`.
+4. **Element refs come from `snapshot` output.** Always run `snapshot` first,
+   read the `[ref=eNN]` values, then use them in `click` / `type` / `hover`.
+5. **The browser is headed** (same as the MCP) — a Chrome window opens per
+   call. Same flags: `--no-sandbox --browser chrome --caps vision
+   --console-level info --ignore-https-errors`.
+6. **`navigate` prints the snapshot automatically** — you get the
+   accessibility tree + refs in one call, no separate `snapshot` needed.
+7. **If the helper itself errors**, check the printed `SERVER STDERR` — the
+   most common failure is a profile dir locked by another Chrome instance
+   (kill it: `pkill -f <profile-dir>`), or `playwright-mcp` not on PATH
+   (reinstall: `npm install -g @playwright/mcp`).
+
 The browser is a headed Chromium session driven via Playwright MCP and
 managed by the user. Never close it — just navigate for a fresh page.
 ⚠ idleTimeout is removed from config. The browser stays open forever. Do NOT
@@ -857,6 +927,11 @@ the validator's own context — it does not change the rule above for hunting.
 Playwright MCP is not a last-resort validator — it's how you understand what
 the app is actually doing client-side. Use it constantly, not just when you
 already suspect XSS.
+
+> **MCP tools missing?** Every `browser_*` call below maps 1:1 to
+> `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js <command>` — see the
+> "Playwright MCP UNAVAILABLE — FALLBACK" section above for the full mapping
+> and rules. Do not skip browser work because the MCP is down.
 
 - **Explore first, don't guess**: navigate the feature via Playwright MCP
   before touching curl. Click through the actual UI flow — buttons, forms,

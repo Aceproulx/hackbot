@@ -14,7 +14,7 @@ bug; assume they still apply.
 ## 1. Hunt dirs are date-suffixed — never assume bare handle paths
 
 The worker pool creates hunt dirs as `<handle>-<date>`, e.g.
-`~/Projects/hunts/challenge-0326-intigriti-io-20260915/`. Queue
+`~/Projects/hackbot/hunts/challenge-0326-intigriti-io-20260915/`. Queue
 entries, report URLs, and the findings log only carry the bare handle
 (`challenge-0326-intigriti-io`).
 

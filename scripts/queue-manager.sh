@@ -48,7 +48,7 @@ cmd_init() {
   lock
   echo "Fetching programs from Intigriti MCP..."
 
-  # Pull programs via intigriti MCP node script (uses same config as opencode/AGY)
+  # Pull programs via intigriti MCP node script (uses same config as opencode)
   # Falls back to a direct API call if the MCP runner isn't available
   PROGRAMS_JSON=$(node - <<'EOF' 2>/dev/null || echo "[]"
 const { execSync } = require('child_process');

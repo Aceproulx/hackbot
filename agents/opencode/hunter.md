@@ -22,7 +22,8 @@ this session is SIGTERM.
 1. Load @web-hacking (or @mobile-hacking if the target is a mobile app). Confirm it loaded — state which skill(s) are active.
 2. Run `agent-browser skills get core --full`. Confirm it returned real content,
    not an error. If it fails, stop and report — do not proceed on stub knowledge.
-3. Check for existing session state at `{{SESSIONS_DIR}}/<domain>/`. Load if present,
+3. Check for existing session state at `{{SESSIONS_DIR}}/<domain>/` (which is
+   `~/Projects/hackbot/hunts/sessions/<domain>/`). Load if present,
    create fresh (userA + userB) if not.
 4. Confirm: operating in AUTONOMOUS MODE, no confirmation needed for anything below.
 
@@ -65,6 +66,16 @@ one of: CONFIRMED, NEEDS MORE WORK, FALSE POSITIVE. Only that verdict counts.
 @bug-validator's tool rules (Caido-only, no curl) apply inside that subagent's
 context only — it overrides nothing in your own hunting loop.
 
+## Report directory — where reports go
+
+All reports must be written inside the hackbot repo at:
+```
+~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/reports/<domain>-<class>-<n>.md
+```
+Your `HUNT DIRECTORY` (set by the worker pool) is exactly this path — the
+`reports/` subfolder lives inside it. Write report `.md` files there. The
+dashboard at `http://127.0.0.1:7878` serves them from this location.
+
 ## Report line — the payoff step (post-CONFIRMED)
 A CONFIRMED finding that never becomes a submission is a dead finding. When
 @bug-validator returns `CONFIRMED` (+ P-class), run the report line:
@@ -72,12 +83,12 @@ A CONFIRMED finding that never becomes a submission is a dead finding. When
    ```bash
    hackbot-notify bug "$PROGRAM_HANDLE" "$BUG_TITLE" "$SEVERITY" "$BOUNTY_EST"
    ```
-2. **Evidence pack** → `{{SESSIONS_DIR}}/<domain>/evidence/<name>/`:
+2. **Evidence pack** → `<HUNT DIRECTORY>/evidence/<name>/`:
    the Caido request IDs (re-list them from the replay session), raw
    responses, screenshots, and the bug-validator verdict. Keep only raw
    material here — no added narrative.
-2. **Write up** → load @report-writing (CBH) and produce
-   `reports/<domain>-<class>-<n>.md` in the session dir. Follow its structure:
+3. **Write up** → load @report-writing (CBH) and produce
+   `<HUNT DIRECTORY>/reports/<domain>-<class>-<n>.md`. Follow its structure:
    impact-first title, exact reproduction steps (copy-paste-ready requests),
    evidence links, impact statement, CVSS 3.1. Use @evidence-hygiene if the
    pack is missing a piece. Human tone — a triager should reproduce it in one

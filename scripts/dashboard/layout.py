@@ -137,6 +137,7 @@ def topbar(active_q=None):
   {att_html}
   <button class="btn" onclick="document.getElementById('taskmodal').style.display='flex'">{icon('plus', 15)} New Task</button>
   <button class="btn ghost" onclick="document.getElementById('fmodal').style.display='flex'">{icon('clipboard-list', 15)} Log finding</button>
+  <button class="btn ghost" id="orch-btn" onclick="startOrchestrator()" title="Start the orchestrator chain (watchdog daemon + refill-watcher)">{icon('play', 14)} Start orchestrator</button>
 </div>"""
 
 def hero(title, sub=None, back=None, crown=None, raw=False):
@@ -391,6 +392,50 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '    location.reload();\n'
         '  }catch(e){showMsg(\'Request failed: \'+e);if(btn){btn.disabled=false;btn.textContent=orig;}}\n'
         '}\n'
+        'function setOrchBtn(running){\n'
+        '  var b=document.getElementById(\'orch-btn\'); if(!b)return;\n'
+        '  if(running){\n'
+        '    b.className=\'btn ghost danger\';\n'
+        '    b.title=\'Stop the orchestrator chain (watchdog, refill-watcher, worker pool)\';\n'
+        '    b.innerHTML=\'<svg class="ic-svg " width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1"/></svg> Stop orchestrator\';\n'
+        '    b.onclick=function(){stopOrchestrator();};\n'
+        '  }else{\n'
+        '    b.className=\'btn ghost\';\n'
+        '    b.title=\'Start the orchestrator chain (watchdog daemon + refill-watcher)\';\n'
+        '    b.innerHTML=\'<svg class="ic-svg " width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> Start orchestrator\';\n'
+        '    b.onclick=function(){startOrchestrator();};\n'
+        '  }\n'
+        '}\n'
+        'function refreshOrchStatus(){\n'
+        '  fetch(\'/api/orchestrator/status\').then(function(r){return r.json();}).then(function(d){\n'
+        '    if(d && typeof d.running!==\'undefined\') setOrchBtn(d.running);\n'
+        '  }).catch(function(){});\n'
+        '}\n'
+        'function stopOrchestrator(){\n'
+        '  openConfirm(\'Stop the entire orchestrator chain (watchdog, refill-watcher, worker pool)? The dashboard stays up.\',\'Stop orchestrator\',function(){doStopOrchestrator();});\n'
+        '}\n'
+        'async function doStopOrchestrator(){\n'
+        '  try{\n'
+        '    var res=await fetch(\'/api/orchestrator/stop\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:\'{}\'});\n'
+        '    var data=await res.json();\n'
+        '    if(!res.ok||!data.ok){showMsg(data.message||\'Failed to stop orchestrator.\',\'Stop orchestrator\');return;}\n'
+        '    showMsg(data.message||\'Orchestrator stopped.\',\'Stop orchestrator\');\n'
+        '    setOrchBtn(false);\n'
+        '  }catch(e){showMsg(\'Request failed: \'+e,\'Stop orchestrator\');}\n'
+        '}\n'
+        'function startOrchestrator(){\n'
+        '  openConfirm(\'Start the orchestrator chain (watchdog daemon + refill-watcher)?\',\'Start orchestrator\',function(){doStartOrchestrator();});\n'
+        '}\n'
+        'async function doStartOrchestrator(){\n'
+        '  try{\n'
+        '    var res=await fetch(\'/api/orchestrator/start\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:\'{}\'});\n'
+        '    var data=await res.json();\n'
+        '    if(!res.ok||!data.ok){showMsg(data.message||\'Failed to start orchestrator.\',\'Start orchestrator\');return;}\n'
+        '    showMsg(data.message||\'Orchestrator started.\',\'Start orchestrator\');\n'
+        '    setOrchBtn(true);\n'
+        '  }catch(e){showMsg(\'Request failed: \'+e,\'Start orchestrator\');}\n'
+        '}\n'
+        'refreshOrchStatus();\n'
         + scripts +
 
         '(function(){\n'

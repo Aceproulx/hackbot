@@ -1,0 +1,28 @@
+## Self hosted sites
+-- https://ably.com/disclosure
+-- https://bankera.com/bug-bounty/
+https://conceptboard.com/bug-bounty-program/
+https://help.alwaysdata.com/en/docs/technical-specifications/bug-bounty/
+https://help.smartling.com/hc/en-us/articles/360008147833-Bug-Bounty-Policy
+https://help.spreaker.com/en/articles/5123644-bug-bounty-program
+https://langfuse.com/security/responsible-disclosure
+https://missiveapp.com/security/bounty
+https://nozbe.com/bug-bounty/
+https://ofza.com/en/bug-bounty-program
+https://planky.com/vulnerability-disclosure-programme
+https://proton.me/security/bug-bounty
+https://security.paloaltonetworks.com/bugbounty
+https://trust.shiftbase.com/api/statuspage/share/8a0a2992-f457-4056-8da5-384cd17de27d/public/download%3FitemUid%3D64c9680b-ef79-4c92-baa0-13b541954bef%26fileId%3Dd6977b4d-4636-4e0f-90f1-ad268c02d5a3%26productId%3Ddefault%26fileEngagementSource%3Dfile_row&ved=2ahUKEwij147whd2WAxVLyDgGHQ53C7M4HhAWegQIMhAB&usg=AOvVaw1n1W1VC_FkHf30Av3wUKkW
+https://www.amplenote.com/help/security_bug_bounty_program
+https://www.emsisoft.com/en/bug-bounty/
+https://www.jetbackup.com/legal/bug-bounty/
+https://www.kraken.com/features/security/bug-bounty
+https://www.leaseweb.com/en/about-us/security-certifications/responsible-disclosure?srsltid=AfmBOorhFfne5CS74Voz3fpq42jEZqedAbM76S9SLdE-ZWTcWdI4FiL6
+https://www.loginradius.com/bug-bounty
+https://www.mailerlite.com/legal/responsible-disclosure-program
+https://www.mailersend.com/legal/responsible-disclosure-program
+https://www.make.com/en/bounty
+https://www.mintlify.com/security/responsible-disclosure
+https://www.punchzee.com/vulnerability-disclosure-and-reward-program
+https://zoviz.com/id/vulnerability-disclosure?srsltid=AfmBOoogAX3jYiGmKPvdaw9CtOgvD917kr6sRDbRKxoC36G71WMMk8-T
+

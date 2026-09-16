@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-mcps.sh — Installs/updates the MCP servers used by hackbot and
-# registers them in the OpenCode and Antigravity configs.
+# registers them in the OpenCode config.
 #
 # Usage: install-mcps.sh [--update]
 #   --update   only update npm packages to latest; skip first-time setup.
@@ -34,7 +34,6 @@ command -v npm >/dev/null 2>&1 || { echo "ERROR: npm is required but not install
 command -v jq  >/dev/null 2>&1 || { echo "ERROR: jq is required but not installed." >&2; exit 1; }
 
 OPENCODE_CONFIG="$HOME/.config/opencode/opencode.jsonc"
-ANTIGRAVITY_CONFIG="$HOME/.gemini/antigravity-cli/settings.json"
 
 npm_install() {
   local PKG="$1"
@@ -85,7 +84,6 @@ register_mcp() {
 register_everywhere() {
   local NAME="$1" CMD="$2" ARGS_JSON="$3" ENV_JSON="$4"
   register_mcp "$OPENCODE_CONFIG"     "$NAME" "$CMD" "$ARGS_JSON" "$ENV_JSON"
-  register_mcp "$ANTIGRAVITY_CONFIG"  "$NAME" "$CMD" "$ARGS_JSON" "$ENV_JSON"
 }
 
 # OpenCode uses a different MCP schema than the generic mcpServers format:
@@ -219,14 +217,13 @@ install_composio() {
 install_playwright() {
   info "[5/5] Playwright MCP (browser automation)"
   # Uses npx lazily (@playwright/mcp fetched on first launch) — no global install.
-  # Requires Google Chrome installed on the system (the skill configures
-  # --browser chrome with isolated --user-data-dir profiles).
+  # Requires Google Chrome installed on the system.
   if ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1; then
     warn "Google Chrome not found on PATH — Playwright MCP is configured with --browser chrome."
     info "    Install Chrome: https://www.google.com/chrome/  (or set the flag to 'chromium')."
   fi
 
-  local MISC PORT PROFILE
+  local MISC PORT PROFILE ISOLATION
   MISC="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
   MISC="${MISC/#\~/$HOME}"
   PORT="$(jq -r '.caido_proxy_port // 8080' "$CONFIG" 2>/dev/null || echo 8080)"
@@ -235,23 +232,64 @@ install_playwright() {
     PROFILE="$MISC/.agent-browser-profiles/Profile-userA"
   fi
   PROFILE="${PROFILE/#\~/$HOME}"
+  # browser_isolation: how concurrent agents keep their browser profiles apart.
+  #   isolated (default) — each session gets a fresh in-memory profile
+  #                        (--isolated). No disk state, no profile-lock
+  #                        collisions between workers. Best for bug hunting,
+  #                        where every target gets fresh registration emails.
+  #   per-slot           — each worker slot gets its own persistent profile
+  #                        (Profile-slot<N>). The path is injected per-process
+  #                        via PLAYWRIGHT_PROFILE (worker-pool.sh sets it at
+  #                        spawn). Unset (interactive) falls back to a fresh
+  #                        temp profile — never the shared one.
+  #   shared             — single shared profile (old behavior). Concurrent
+  #                        workers WILL collide on the Chrome profile lock.
+  ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$CONFIG" 2>/dev/null || echo "isolated")"
 
   local CMD_JSON ENV_JSON
-  # Match the live opencode config command array exactly.
-  CMD_JSON="$(jq -n --arg profile "$PROFILE" --arg port "$PORT" \
-    '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",$profile]')"
+  case "$ISOLATION" in
+    isolated)
+      CMD_JSON="$(jq -n --arg port "$PORT" \
+        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--isolated"]')"
+      ;;
+    per-slot)
+      # {env:PLAYWRIGHT_PROFILE} is substituted by OpenCode at config load from
+      # the process environment. Empty (unset) is falsy in Playwright MCP, so
+      # it falls back to a fresh temp profile — never the shared one.
+      CMD_JSON="$(jq -n --arg port "$PORT" \
+        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir","{env:PLAYWRIGHT_PROFILE}"]')"
+      ;;
+    shared)
+      CMD_JSON="$(jq -n --arg profile "$PROFILE" --arg port "$PORT" \
+        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--user-data-dir",$profile]')"
+      ;;
+    *)
+      warn "Unknown browser_isolation '$ISOLATION' — falling back to 'isolated'."
+      ISOLATION="isolated"
+      CMD_JSON="$(jq -n --arg port "$PORT" \
+        '["npx","-y","@playwright/mcp@latest","--no-sandbox","--browser","chrome","--caps","vision","--console-level","info","--ignore-https-errors","--proxy-server",("http://127.0.0.1:"+$port),"--isolated"]')"
+      ;;
+  esac
   ENV_JSON="{}"
 
-  # OpenCode uses the native "mcp" schema; Antigravity uses the generic mcpServers schema.
   register_opencode_native "playwright" "$CMD_JSON" "$ENV_JSON"
-  register_mcp "$ANTIGRAVITY_CONFIG" "playwright" "npx" \
-    "$(jq -n --argjson c "$CMD_JSON" '$c[1:]')" "$ENV_JSON"
-  ok "registered 'playwright' in both configs"
+  ok "registered 'playwright' in opencode config"
 
+  info "    Isolation mode: $ISOLATION (config key: browser_isolation)"
+  case "$ISOLATION" in
+    isolated)
+      info "    Each session uses a fresh in-memory profile — no disk state, no profile-lock collisions."
+      ;;
+    per-slot)
+      info "    Worker slots get per-slot profiles (worker-pool.sh sets PLAYWRIGHT_PROFILE at spawn)."
+      info "    Interactive sessions (PLAYWRIGHT_PROFILE unset) fall back to a fresh temp profile."
+      ;;
+    shared)
+      info "    Single shared profile: $PROFILE — concurrent workers WILL collide on the profile lock."
+      ;;
+  esac
   info "    Browser profiles: $MISC/.agent-browser-profiles/ (claim-account.sh / use-account.sh)"
-  info "    Default Chrome profile: $PROFILE (config key: playwright_profile)"
   info "    Create profiles with: $REPO_ROOT/browser-profiles/clone-profile.sh <name>"
-  info "    NOTE: each concurrent agent needs its OWN Playwright MCP server process pointed at its own --user-data-dir profile."
 }
 
 echo ""

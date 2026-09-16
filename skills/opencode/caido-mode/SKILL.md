@@ -716,7 +716,7 @@ The MCP server handles the Caido replay flow internally (create session → star
 ## Error Handling
 
 - **Auth errors** (caido-client CLI): Run `npx tsx ~/.agents/skills/caido-mode/caido-client.ts auth-status` to check, re-setup with `npx tsx ~/.agents/skills/caido-mode/caido-client.ts setup <pat>`
-- **Auth errors** (MCP server): Tokens stored at `~/.caido-mcp/token.json`. Re-auth: `/home/aceos/go/bin/caido-mcp-server login --url http://127.0.0.1:8081`
+- **Auth errors** (MCP server): Tokens stored at `~/.caido-mcp/token.json`. Re-auth: `/home/aceos/go/bin/caido-mcp-server login --url http://127.0.0.1:8080`
 - **Connection refused**: Caido not running → `npx tsx caido-client.ts health`
 - **InstanceNotReadyError**: Caido is starting up, wait and retry
 
@@ -741,7 +741,7 @@ The official caido-mcp-server (v4.3.0) is configured in `~/.config/opencode/open
       "command": ["/home/aceos/go/bin/caido-mcp-server", "serve"],
       "enabled": true,
       "environment": {
-        "CAIDO_URL": "http://127.0.0.1:8081",
+        "CAIDO_URL": "http://127.0.0.1:8080",
         "CAIDO_ALLOW_SENSITIVE_HEADERS": "true"
       }
     }
@@ -751,4 +751,4 @@ The official caido-mcp-server (v4.3.0) is configured in `~/.config/opencode/open
 
 **`CAIDO_ALLOW_SENSITIVE_HEADERS=true` disables the official server's default redaction** so real Authorization/Cookie/API-key values reach the model on authorized tests. Leave it unset to restore redaction. The session cookie jar only ever reports cookie names and metadata, never values.
 
-OAuth tokens are stored at `~/.caido-mcp/token.json`. To re-authenticate: `/home/aceos/go/bin/caido-mcp-server login --url http://127.0.0.1:8081`.
+OAuth tokens are stored at `~/.caido-mcp/token.json`. To re-authenticate: `/home/aceos/go/bin/caido-mcp-server login --url http://127.0.0.1:8080`.

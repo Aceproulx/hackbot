@@ -11,11 +11,11 @@
   "curl_proxy_port": 8081,
   "oob_tunnel_url": "",
   "payloads_dir": "~/Projects/payloads/coffinxp-payloads",
-  "sessions_dir": "~/Projects/hunts/sessions",
+  "sessions_dir": "~/Projects/hackbot/hunts/sessions",
   "hackbot_misc_dir": "~/Projects/hackbot-misc",
   "playwright_profile": "~/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA",
+  "browser_isolation": "isolated",
   "max_worker_slots": 2,
-  "default_budget_usd": 15,
   "installed_at": "",
   "version": ""
 }

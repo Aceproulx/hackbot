@@ -58,7 +58,7 @@ hackbot-notify session-start "$SESSION_DIR"
 ```
 
 ### Session End 📊
-Fire at session exit (budget exhaustion or SIGTERM):
+Fire at session exit (SIGTERM):
 ```bash
 hackbot-notify session-end "$SESSION_DIR" "<bugs_confirmed>" "<total_bounty_est>"
 # Example:

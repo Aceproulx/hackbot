@@ -80,6 +80,13 @@ browser-profiles/Profile-*/segmentation_platform/
 browser-profiles/Profile-*/WidevineCdm/
 browser-profiles/Profile-*/Variations*
 browser-profiles/Profile-*/extensions_crx_cache/
+browser-profiles/hackbot-profile/
+browser-profiles/open-site.js
 
 # opencode session state
 .opencode/
+
+# Hunt data (reports, evidence, creds, session state) — live operational data,
+# never commit. Reports are served by the dashboard from hunts/ but contain
+# account creds (.creds), raw evidence, and session logs.
+hunts/

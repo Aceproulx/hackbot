@@ -18,11 +18,11 @@ hunting a different target pulled from `hackbot-queue`.
 ## Quick Start
 
 ```bash
-# Start 2 workers with $15 total budget ($7.50 each)
-hackbot-workers start --slots 2 --budget 15
+# Start 2 workers
+hackbot-workers start --slots 2
 
-# Start 3 workers with $30 budget ($10 each) — overnight mode
-hackbot-workers start --slots 3 --budget 30
+# Start 3 workers — overnight mode
+hackbot-workers start --slots 3
 
 # Watch what's happening
 tmux attach -t hackbot
@@ -38,11 +38,11 @@ hackbot-workers stop
 
 ## Commands
 
-### `start [--slots N] [--budget USD]`
+### `start [--slots N]`
 - Pulls next N targets from `hackbot-queue`
 - Spawns each into a separate tmux window as an AI session
 - Fires `hackbot-notify` when each worker starts
-- Default: 2 slots, $15 total budget
+- Default: 2 slots
 
 ### `status`
 Color-coded table: slot, handle, status (running/done/killed), bugs found, started time.
@@ -108,31 +108,15 @@ preparing the next target while current workers run.
 
 ---
 
-## Token Budget Split
-
-| Total Budget | Slots | Per Worker | Recommended Use |
-|---|---|---|---|
-| $10 | 2 | $5 | Quick daytime run |
-| $15 | 2 | $7.50 | Standard session |
-| $30 | 3 | $10 | Overnight hunt |
-| $50 | 3 | $16.67 | Deep overnight hunt |
-
-Rule: never spawn more workers than `floor(total_budget / 5)`.
-A worker with less than $5 budget will burn out before making progress.
-
----
-
 ## Safety Rules
 
 1. **One worker per program.** Never two workers on the same target.
-2. **Budget hard stops.** Each worker's prompt contains its individual budget.
-   Workers exit gracefully at 90% of their slice.
-3. **Queue owns state.** Workers call `hackbot-queue done` themselves when
+2. **Queue owns state.** Workers call `hackbot-queue done` themselves when
    finished — the queue is the source of truth, not the pool state.
-4. **Findings are atomic.** Workers call `hackbot-dashboard add` immediately on
+3. **Findings are atomic.** Workers call `hackbot-dashboard add` immediately on
    CONFIRMED — not in a batch at the end. If a worker crashes, findings already
    logged are safe.
-5. **Out-of-scope never.** Each worker's prompt contains the full verbatim
+4. **Out-of-scope never.** Each worker's prompt contains the full verbatim
    scope from `intigriti get_program_scope`. No scope inheritance between workers.
 
 ---

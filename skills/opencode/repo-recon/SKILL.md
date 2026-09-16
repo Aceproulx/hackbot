@@ -11,7 +11,7 @@ git forensics, and returns structured `priority.json` to the hunting worker.
 **Mode:** Subagent — spawned by the hunter after initial tech fingerprint.
 Runs in parallel with the worker's early surface exploration.
 
-**Output:** `~/Projects/hunts/<handle>-<YYYYMMDD>/recon/priority.json`
+**Output:** `~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/recon/priority.json`
 
 ---
 
@@ -89,7 +89,7 @@ If zero credible matches: write `{"repo": null, "reason": "no_public_source"}` t
 ## Phase 1 — Clone
 
 ```bash
-RECON_DIR=~/Projects/hunts/<handle>-<YYYYMMDD>/recon
+RECON_DIR=~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/recon
 mkdir -p "$RECON_DIR"
 REPO_DIR="$RECON_DIR/repo"
 
@@ -441,7 +441,7 @@ PARTIAL FIXES (explicitly test these):
 DEPENDENCY CVEs: <list high/critical only>
 WONTFIX ISSUES: <list endpoints>
 
-Full output: ~/Projects/hunts/<handle>-<YYYYMMDD>/recon/priority.json
+Full output: ~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/recon/priority.json
 ```
 
 If repo-recon finds nothing usable (no public source, zero matches):

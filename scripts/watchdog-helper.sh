@@ -123,7 +123,6 @@ FATAL_PATTERNS=(
   'step limit'
   'max steps'
   'steps exhausted'
-  'budget exhausted'
   'insufficient'
   'no targets available'
   'queue exhausted'

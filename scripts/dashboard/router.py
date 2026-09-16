@@ -29,6 +29,9 @@ from .actions import _api_findings_add
 from .actions import _api_findings_update
 from .actions import _api_mailbox_test
 from .actions import _api_pool_action
+from .actions import _api_orchestrator_stop
+from .actions import _api_orchestrator_status
+from .actions import _api_orchestrator_start
 from .actions import _api_provider_test
 from .actions import _api_queue_bulk
 from .actions import _api_report_mark
@@ -554,6 +557,9 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
             return json.dumps(api_stats(), default=str).encode()
         if p[1] == "usage":
             return json.dumps(api_usage(qs.get("range", [""])[0] or "all"), default=str).encode()
+        if p[:3] == ["api", "orchestrator", "status"]:
+            payload, status = _api_orchestrator_status({})
+            return json.dumps(payload).encode()
         return b"{}"
 
     return b"404"
@@ -612,6 +618,18 @@ def route_post(path, qs, body):
         return json.dumps(payload).encode(), status
     if p[:3] == ["api", "pool", "action"]:
         payload, status = _api_pool_action(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "orchestrator", "stop"]:
+        payload, status = _api_orchestrator_stop(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "orchestrator", "status"]:
+        payload, status = _api_orchestrator_status(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "orchestrator", "start"]:
+        payload, status = _api_orchestrator_start(body)
         return json.dumps(payload).encode(), status
 
     if p[:2] == ["api", "curlverify"]:

@@ -1,27 +1,24 @@
 #!/usr/bin/env bash
-# install-skills.sh — Copies skills/agents from the repo into the platform
-# specific directories, then substitutes config values into each installed file.
+# install-skills.sh — Copies skills/agents from the repo into the OpenCode
+# directories, then substitutes config values into each installed file.
 #
-# Usage: install-skills.sh --platform <antigravity|opencode|both> \
-#                          --config <path-to-config.json> [--no-prompt]
+# Usage: install-skills.sh --config <path-to-config.json> [--no-prompt]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-PLATFORM=""
 CONFIG_FILE=""
 NO_PROMPT=0
 
 usage() {
   cat <<EOF
-Usage: $0 --platform <antigravity|opencode|both> --config <path-to-config.json> [--no-prompt]
+Usage: $0 --config <path-to-config.json> [--no-prompt]
 EOF
   exit 1
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --platform)  PLATFORM="$2"; shift 2 ;;
     --config)    CONFIG_FILE="$2"; shift 2 ;;
     --no-prompt) NO_PROMPT=1; shift ;;
     -h|--help)   usage ;;
@@ -29,12 +26,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$PLATFORM" ]]   || { echo "ERROR: --platform is required." >&2; usage; }
 [[ -n "$CONFIG_FILE" ]] || { echo "ERROR: --config is required." >&2; usage; }
-case "$PLATFORM" in
-  antigravity|opencode|both) ;;
-  *) echo "ERROR: --platform must be antigravity|opencode|both (got '$PLATFORM')." >&2; exit 1 ;;
-esac
 [[ -f "$CONFIG_FILE" ]] || { echo "ERROR: Config file not found: $CONFIG_FILE" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required but not installed." >&2; exit 1; }
 
@@ -58,8 +50,8 @@ apply_config() {
     -e "s|{{PAYLOADS_DIR}}|$(jq -r '.payloads_dir' "$CONFIG")|g" \
     -e "s|{{SESSIONS_DIR}}|$(jq -r '.sessions_dir' "$CONFIG")|g" \
     -e "s|{{HACKBOT_MISC_DIR}}|$(jq -r '.hackbot_misc_dir' "$CONFIG")|g" \
+    -e "s|{{HACKBOT_DIR}}|$REPO_ROOT|g" \
     -e "s|{{MAX_WORKER_SLOTS}}|$(jq -r '.max_worker_slots' "$CONFIG")|g" \
-    -e "s|{{DEFAULT_BUDGET_USD}}|$(jq -r '.default_budget_usd' "$CONFIG")|g" \
     "$FILE"
 }
 
@@ -72,24 +64,6 @@ install_if_changed() {
   cp "$SRC" "$DST"
   apply_config "$DST"
   echo "  ✓ $(basename "$DST")"
-}
-
-install_antigravity() {
-  local SRC_DIR="$REPO_ROOT/skills/antigravity"
-  if [[ ! -d "$SRC_DIR" ]]; then
-    echo "  ${YELLOW}!${NC} $SRC_DIR not found — skipping antigravity skills"
-    return 0
-  fi
-  local DST_DIR="$HOME/.gemini/antigravity-cli/skills"
-  mkdir -p "$DST_DIR"
-  local SRC DST installed=0
-  for SRC in "$SRC_DIR"/*.md; do
-    [[ -f "$SRC" ]] || continue
-    DST="$DST_DIR/$(basename "$SRC")"
-    install_if_changed "$SRC" "$DST"
-    installed=$((installed + 1))
-  done
-  echo "  → antigravity: $installed skill(s) installed into $DST_DIR"
 }
 
 install_opencode() {
@@ -125,18 +99,7 @@ install_opencode() {
   echo "  → opencode: $installed agent(s) installed into $HOME/.config/opencode/agent"
 }
 
-case "$PLATFORM" in
-  antigravity)
-    install_antigravity
-    ;;
-  opencode)
-    install_opencode
-    ;;
-  both)
-    install_antigravity
-    install_opencode
-    ;;
-esac
+install_opencode
 
 echo ""
 echo "Skills install complete."

@@ -47,19 +47,7 @@ check_deps() {
 }
 
 gather_platform() {
-  local choice
-  echo ""
-  echo "Which AI platform are you using?"
-  echo "  1) Antigravity CLI (agy)"
-  echo "  2) OpenCode"
-  echo "  3) Both"
-  read -rp "Choice [1/2/3]: " choice
-  case "${choice:-}" in
-    1|antigravity|Antigravity) PLATFORM="antigravity" ;;
-    2|opencode|OpenCode)       PLATFORM="opencode" ;;
-    3|both|Both)               PLATFORM="both" ;;
-    *) warn "Invalid choice, defaulting to antigravity"; PLATFORM="antigravity" ;;
-  esac
+  PLATFORM="opencode"
   log "Platform selection: $PLATFORM"
 }
 
@@ -99,9 +87,8 @@ gather_config() {
   CONFIG_CURL_PROXY_PORT="$(prompt_int "curl proxy port" "8081")"
   CONFIG_OOB_TUNNEL_URL="$(prompt_value "OOB SSRF tunnel (cloudflared URL, can set later)")"
   CONFIG_PAYLOADS_DIR="$(prompt_value "Payloads directory" "$HOME/Projects/payloads/coffinxp-payloads")"
-  CONFIG_SESSIONS_DIR="$(prompt_value "Hunt sessions directory" "$HOME/Projects/hunts/sessions")"
+  CONFIG_SESSIONS_DIR="$(prompt_value "Hunt sessions directory" "$HOME/Projects/hackbot/hunts/sessions")"
   CONFIG_MAX_WORKER_SLOTS="$(prompt_int "Max worker slots" "2")"
-  CONFIG_DEFAULT_BUDGET_USD="$(prompt_int "Default session budget in USD" "15")"
 }
 
 write_config() {
@@ -119,11 +106,10 @@ write_config() {
     --argjson curl_proxy_port "${CONFIG_CURL_PROXY_PORT:-8081}" \
     --arg oob_tunnel_url "${CONFIG_OOB_TUNNEL_URL:-}" \
     --arg payloads_dir "${CONFIG_PAYLOADS_DIR:-$HOME/Projects/payloads/coffinxp-payloads}" \
-    --arg sessions_dir "${CONFIG_SESSIONS_DIR:-$HOME/Projects/hunts/sessions}" \
+    --arg sessions_dir "${CONFIG_SESSIONS_DIR:-$HOME/Projects/hackbot/hunts/sessions}" \
     --arg hackbot_misc_dir "$HOME/Projects/hackbot-misc" \
     --arg playwright_profile "$HOME/Projects/hackbot-misc/.agent-browser-profiles/Profile-userA" \
     --argjson max_worker_slots "${CONFIG_MAX_WORKER_SLOTS:-2}" \
-    --argjson default_budget_usd "${CONFIG_DEFAULT_BUDGET_USD:-15}" \
     --arg installed_at "$installed_at" \
     --arg version "" \
     '{platform:$platform,
@@ -141,7 +127,6 @@ write_config() {
       hackbot_misc_dir:$hackbot_misc_dir,
       playwright_profile:$playwright_profile,
       max_worker_slots:$max_worker_slots,
-      default_budget_usd:$default_budget_usd,
       installed_at:$installed_at,
       version:$version}' > "$CONFIG_LOCATION"
   ok "Config written to $CONFIG_LOCATION"
@@ -149,7 +134,7 @@ write_config() {
 }
 
 load_config() {
-  PLATFORM="$(jq -r '.platform // "antigravity"' "$CONFIG_LOCATION")"
+  PLATFORM="$(jq -r '.platform // "opencode"' "$CONFIG_LOCATION")"
   CONFIG_INTIGRITI_USERNAME="$(jq -r '.intigriti_username // ""' "$CONFIG_LOCATION")"
   CONFIG_EMAIL_BASE="$(jq -r '.email_base // ""' "$CONFIG_LOCATION")"
   CONFIG_TELEGRAM_BOT_TOKEN="$(jq -r '.telegram_bot_token // ""' "$CONFIG_LOCATION")"
@@ -163,7 +148,7 @@ load_config() {
 
 create_dirs() {
   mkdir -p "$HOME/Projects/hackbot-misc/notify"
-  mkdir -p "$HOME/Projects/hunts/sessions"
+  mkdir -p "$HOME/Projects/hackbot/hunts/sessions"
   mkdir -p "$HOME/Projects/hackbot-misc/.agent-browser-profiles"
   mkdir -p "$HOME/.agent-browser"
   mkdir -p "$HACKBOT_DIR"
@@ -188,14 +173,12 @@ apply_config() {
     -e "s|{{SESSIONS_DIR}}|$(jq -r '.sessions_dir' "$CONFIG")|g" \
     -e "s|{{HACKBOT_MISC_DIR}}|$(jq -r '.hackbot_misc_dir' "$CONFIG")|g" \
     -e "s|{{MAX_WORKER_SLOTS}}|$(jq -r '.max_worker_slots' "$CONFIG")|g" \
-    -e "s|{{DEFAULT_BUDGET_USD}}|$(jq -r '.default_budget_usd' "$CONFIG")|g" \
     "$FILE"
 }
 
 apply_config_to_installed() {
   local dir f s
   local dirs=(
-    "$HOME/.gemini/antigravity-cli/skills"
     "$HOME/.config/opencode/skill"
     "$HOME/.config/opencode/agent"
     "$HOME/Projects/hackbot-misc"
@@ -218,7 +201,7 @@ apply_config_to_installed() {
 
 install_skills_agents() {
   if [[ -f "$REPO_ROOT/scripts/install-skills.sh" ]]; then
-    bash "$REPO_ROOT/scripts/install-skills.sh" --platform "$PLATFORM" --config "$CONFIG_LOCATION"
+    bash "$REPO_ROOT/scripts/install-skills.sh" --config "$CONFIG_LOCATION"
     ok "Skills + agents installed"
   else
     warn "scripts/install-skills.sh not found — skipping skills/agents"
@@ -320,7 +303,7 @@ validate() {
 
 summary() {
   local skill_count=0 dir
-  for dir in "$HOME/.config/opencode/skill" "$HOME/.gemini/antigravity-cli/skills"; do
+  for dir in "$HOME/.config/opencode/skill"; do
     if [[ -d "$dir" ]]; then
       skill_count=$((skill_count + $(find "$dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)))
     fi

@@ -29,6 +29,9 @@ from .config import EMAIL_BASE
 from .config import EMAIL_DOMAIN
 from .config import MAX_SLOTS
 from .config import NOTIFY
+from .config import WATCHDOG
+from .config import REFILL_WATCHER
+from .config import POOL_FILE
 from .config import load_config
 from .config import HUNTS_ROOT
 from .config import SESSIONS_ROOT
@@ -420,7 +423,87 @@ def _api_pool_action(body):
     return {"ok": False, "message": "unknown pool action"}, 400
 
 
-def _resolve_report(handle: str, name: str):
+def _api_orchestrator_stop(body):
+    """Stop the whole orchestrator chain (watchdog + refill-watcher + pool).
+
+    Delegates to watchdog.sh stop, which cascades to refill-watcher.sh stop
+    and kills the worker pool. The dashboard server itself is untouched.
+    """
+    if not WATCHDOG:
+        return {"ok": False, "message": "watchdog.sh not found — is hackbot installed? (see setup.sh)"}, 500
+    try:
+        proc = subprocess.run(
+            [WATCHDOG, "stop"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except Exception as e:
+        return {"ok": False, "message": f"failed to run watchdog: {e}"}, 500
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "watchdog stop failed").strip()
+        msg = tail.splitlines()[-1] if tail else "watchdog stop failed"
+        return {"ok": False, "message": msg}, 400
+    return {"ok": True, "message": proc.stdout.strip()}, 200
+
+
+def _orchestrator_running():
+    """True if the watchdog daemon is alive (PID file + kill -0, else pgrep)."""
+    pid_file = os.path.join(os.path.dirname(POOL_FILE), "watchdog.pid")
+    try:
+        with open(pid_file) as fh:
+            pid = int(fh.read().strip())
+        os.kill(pid, 0)
+        return True
+    except Exception:
+        pass
+    try:
+        out = subprocess.run(
+            ["pgrep", "-f", "hackbot-watchdog.*once"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _api_orchestrator_status(body):
+    """Return the running/stopped state of the orchestrator chain."""
+    running = _orchestrator_running()
+    return {"ok": True, "running": running, "message": "running" if running else "stopped"}, 200
+
+
+def _api_orchestrator_start(body):
+    """Start the full orchestrator chain: watchdog daemon + refill-watcher."""
+    if not WATCHDOG:
+        return {"ok": False, "message": "watchdog.sh not found — is hackbot installed? (see setup.sh)"}, 500
+    if _orchestrator_running():
+        return {"ok": False, "message": "Orchestrator is already running."}, 400
+    try:
+        proc = subprocess.run(
+            [WATCHDOG, "daemon"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except Exception as e:
+        return {"ok": False, "message": f"failed to start watchdog: {e}"}, 500
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "watchdog start failed").strip()
+        msg = tail.splitlines()[-1] if tail else "watchdog start failed"
+        return {"ok": False, "message": msg}, 400
+    # Start the refill-watcher daemon (runs a foreground loop — detach it).
+    if REFILL_WATCHER:
+        try:
+            subprocess.Popen(
+                ["bash", REFILL_WATCHER, "--interval", "1800", "--max-slots", str(MAX_SLOTS)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            return {"ok": True, "message": f"Watchdog started, but refill-watcher failed: {e}"}, 200
+    return {"ok": True, "message": (proc.stdout or "Orchestrator started.").strip()}, 200
+
+
+def _resolve_report(handle, name):
     """Locate a report md file under runs or sessions — normalized, no traversal."""
     safe_h = os.path.basename(os.path.normpath(handle))
     safe_n = os.path.basename(os.path.normpath(name))

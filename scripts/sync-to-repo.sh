@@ -82,24 +82,6 @@ desubstitute() {
   rm -f "$TMP"
 }
 
-sync_antigravity_skills() {
-  # Antigravity skills are 1:1 mirrors of the opencode skills (same frontmatter,
-  # naming by `name:` field). Discovered by glob — everything in the live
-  # ~/.gemini/antigravity-cli/skills dir is synced, new skills picked up
-  # automatically.
-  local SRC_DIR="$HOME/.gemini/antigravity-cli/skills"
-  local DST_DIR="$REPO_ROOT/skills/antigravity"
-  mkdir -p "$DST_DIR"
-  local SRC DST
-  for SRC in "$SRC_DIR"/*.md; do
-    [[ -f "$SRC" ]] || continue
-    DST="$DST_DIR/$(basename "$SRC")"
-    cp "$SRC" "$DST"
-    desubstitute "$DST"
-    ok "synced skills/antigravity/$(basename "$SRC")"
-  done
-}
-
 sync_opencode_skills() {
   local SRC_DIR="$HOME/.config/opencode/skill"
   local DST_DIR="$REPO_ROOT/skills/opencode"
@@ -193,7 +175,6 @@ sync_browser_profiles_scripts() {
 }
 
 info "Syncing from live install to repo..."
-sync_antigravity_skills
 sync_opencode_skills
 sync_opencode_agents
 sync_scripts

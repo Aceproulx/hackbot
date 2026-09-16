@@ -36,6 +36,7 @@ from .util import mtime
 from .layout import pill
 from .util import read_tail
 from .helpers import render_log_html
+from .state import get_workers
 
 # Activity patterns to detect in logs
 ACTIVITY_PATTERNS = [
@@ -175,6 +176,14 @@ def v_console_build(selected, lines=300):
             key = k
             break
 
+    # Which worker logs belong to currently-running workers (from pool state)
+    running_logs = set()
+    for w in get_workers():
+        if w.get("status") == "running":
+            lp = w.get("log", "")
+            if lp:
+                running_logs.add(os.path.basename(lp))
+
     # Build log options with active indicator
     opts = ""
     now = time.time()
@@ -185,6 +194,41 @@ def v_console_build(selected, lines=300):
         is_active = (now - mtime(l)) < 30 if os.path.isfile(l) else False
         active_dot = f' {icon("circle", 8)}' if is_active else ""
         opts += f'<option value="{esc(k)}"{sel}>{esc(label)}{active_dot}</option>'
+
+    # Custom dropdown: dog icon for watchdog logs, RUNNING badge for live workers
+    dd_items = ""
+    for k, l in sorted(logs, key=lambda kv: mtime(kv[1]), reverse=True):
+        base = os.path.basename(l)
+        label = k if k.startswith("sessions/") else base
+        is_running = base in running_logs
+        is_watchdog = base.startswith("watchdog")
+        is_active = (now - mtime(l)) < 30 if os.path.isfile(l) else False
+        sel_cls = ' sel' if l == selected else ""
+        run_cls = ' running' if is_running else ""
+        wd_cls = ' watchdog' if is_watchdog else ""
+        ic = icon("dog", 13) if is_watchdog else icon("terminal", 13)
+        badge = f'<span class="dd-badge">{icon("radio", 9)} RUNNING</span>' if is_running else ""
+        dot = f'<span class="dd-dot"></span>' if is_active else ""
+        dd_items += (f'<a class="dd-item{sel_cls}{run_cls}{wd_cls}" href="/console?l={esc(k)}">'
+                     f'<span class="dd-ic">{ic}</span>'
+                     f'<span class="dd-label">{esc(label)}</span>'
+                     f'{dot}{badge}</a>')
+
+    # Current selection for the dropdown button
+    cur_base = os.path.basename(selected) if selected else ""
+    cur_running = cur_base in running_logs
+    cur_watchdog = cur_base.startswith("watchdog")
+    cur_ic = icon("dog", 13) if cur_watchdog else icon("terminal", 13)
+    cur_badge = f'<span class="dd-badge">{icon("radio", 9)} RUNNING</span>' if cur_running else ""
+    dd = (f'<div class="dd" id="logdd">'
+          f'<button class="dd-btn" onclick="ddToggle(event)">'
+          f'<span class="dd-ic">{cur_ic}</span>'
+          f'<span class="dd-label">{esc(cur_base or "select log")}</span>'
+          f'{cur_badge}'
+          f'<span class="dd-caret">{icon("chevron-down", 12)}</span>'
+          f'</button>'
+          f'<div class="dd-menu">{dd_items}</div>'
+          f'</div>')
 
     line_opts = ""
     for n in (100, 300, 1000, 5000):
@@ -218,7 +262,7 @@ def v_console_build(selected, lines=300):
             f'<div class="title">{icon("terminal", 15)} Operator Console '
             f'<span class="hint">{esc(PLATFORM)} · worker lanes</span></div>'
             # Log selector
-            f'<select onchange="location.href=\'/console?l=\'+encodeURIComponent(this.value)">{opts}</select>'
+            f'{dd}'
             f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="tail window">{line_opts}</select>'
             f'<span class="sp" style="flex:1"></span>'
             # Activity indicator
@@ -252,6 +296,9 @@ f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
         "pre.scrollTop=pre.scrollHeight;"  # open at the latest output
         "var poll=null,lastM=-1,running=true,first=true;"
         "var openCmds={};"  # data-cmd hash -> open state, survives polls
+        # --- Log dropdown toggle ---
+        "window.ddToggle=function(e){e.stopPropagation();var m=document.getElementById('logdd');if(m)m.classList.toggle('open');};"
+        "document.addEventListener('click',function(){var m=document.getElementById('logdd');if(m)m.classList.remove('open');});"
         # --- Smart auto-scroll ---
         "function atBottom(){return pre.scrollHeight-pre.scrollTop-pre.clientHeight<48;}"
         "function pin(){pre.scrollTop=pre.scrollHeight;}"

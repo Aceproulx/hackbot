@@ -5,18 +5,17 @@
 # different target. Designed to run overnight autonomously.
 #
 # Usage:
-#   hackbot-workers start [--slots 2] [--budget 15]
+#   hackbot-workers start [--slots 2]
 #   hackbot-workers status
 #   hackbot-workers stop
 #   hackbot-workers logs [worker_id]
 #   hackbot-workers start-target <handle>   Spawn a worker for one specific target now
 #   hackbot-workers stop-target <handle>    Kill the running worker for one target
 #
-# Each "worker" is a tmux window running an opencode/agy session
+# Each "worker" is a tmux window running an opencode session
 # pointed at a specific target from the queue.
 #
 # Slots: how many parallel workers to run (default: 2)
-# Budget: total USD budget across ALL workers combined (default: $15)
 
 set -euo pipefail
 
@@ -26,7 +25,6 @@ QUEUE={{HACKBOT_MISC_DIR}}/target-queue.json
 FINDINGS={{HACKBOT_MISC_DIR}}/findings.jsonl
 SESSION_NAME="hackbot"       # tmux session name
 MAX_SLOTS="${HACKBOT_SLOTS:-2}"
-TOTAL_BUDGET="${HACKBOT_BUDGET:-15}"
 LOG="$POOL_DIR/pool.log"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -59,8 +57,6 @@ init_pool() {
 {
   "started_at": "$(ts)",
   "max_slots": $MAX_SLOTS,
-  "budget_usd": $TOTAL_BUDGET,
-  "budget_per_worker": $(echo "$TOTAL_BUDGET $MAX_SLOTS" | awk '{printf "%.2f", $1/$2}'),
   "workers": []
 }
 EOF
@@ -73,10 +69,27 @@ spawn_worker() {
   local PROGRAM_ID="$2"
   local MAX_BOUNTY="$3"
   local SLOT="$4"
-  local BUDGET_PER=$(jq -r '.budget_per_worker' "$POOL_STATE")
-  local HUNT_DIR=~/Projects/hunts/${HANDLE}-$(date +%Y%m%d)
+  local HUNT_DIR=~/Projects/hackbot/hunts/${HANDLE}-$(date +%Y%m%d)
   local WORKER_ID="worker-${SLOT}-${HANDLE}"
   local WORKER_LOG="$POOL_DIR/${WORKER_ID}.log"
+
+  # Browser isolation config (see install-mcps.sh install_playwright for the
+  # three modes). per-slot injects PLAYWRIGHT_PROFILE into the runner so this
+  # worker's Playwright MCP server uses its own Chrome profile.
+  local HACKBOT_CONFIG=~/.hackbot/config.json
+  local BROWSER_ISOLATION="isolated"
+  local PROFILES_DIR="$HOME/Projects/hackbot-misc/.agent-browser-profiles"
+  local BASE_PROFILE="$PROFILES_DIR/Profile-userA"
+  if [[ -f "$HACKBOT_CONFIG" ]]; then
+    BROWSER_ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$HACKBOT_CONFIG" 2>/dev/null || echo "isolated")"
+    PROFILES_DIR="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$HACKBOT_CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
+    PROFILES_DIR="${PROFILES_DIR/#\~/$HOME}/.agent-browser-profiles"
+    BASE_PROFILE="$(jq -r '.playwright_profile // ""' "$HACKBOT_CONFIG" 2>/dev/null || echo "")"
+    BASE_PROFILE="${BASE_PROFILE/#\~/$HOME}"
+  fi
+  if [[ -z "$BASE_PROFILE" ]]; then
+    BASE_PROFILE="$PROFILES_DIR/Profile-userA"
+  fi
 
   mkdir -p "$HUNT_DIR"
 
@@ -86,7 +99,7 @@ spawn_worker() {
   # Build the prompt file for this worker
   local PROMPT_FILE="$POOL_DIR/${WORKER_ID}.prompt"
   cat > "$PROMPT_FILE" << PROMPT
-You are an autonomous bug hunter. Load the @bug-hunting skill (Antigravity) or @web-hacking skill (OpenCode) immediately.
+You are an autonomous bug hunter. Load the @web-hacking skill immediately.
 
 TARGET HANDLE: ${HANDLE}
 PROGRAM ID: ${PROGRAM_ID}
@@ -96,8 +109,6 @@ WORKER ID: ${WORKER_ID}
 SLOT: ${SLOT} of ${MAX_SLOTS}
 
 FIRST ACTION: Run intigriti get_program_scope ${PROGRAM_ID} to get exact in-scope/out-of-scope assets.
-
-BUDGET: \$${BUDGET_PER} USD for this worker session. Stop gracefully when you approach this limit.
 
 REGISTRATION EMAILS:
 {{EMAIL_BASE}}+${HANDLE}-a@{{EMAIL_DOMAIN}}  (userA)
@@ -127,23 +138,41 @@ PROMPT
 
   tmux rename-window -t "${SESSION_NAME}:${SLOT}" "${HANDLE}" 2>/dev/null || true
 
-  # Detect AI tool (prefer opencode, fall back to agy)
+  # Detect AI tool (opencode; manual mode as last resort)
   local AI_CMD
   if command -v opencode &>/dev/null; then
     # Run non-interactively via `opencode run`. The prompt is read at runtime
     # ($(cat ...) output inside double quotes is never re-expanded), the hunt
     # dir is chdir'd into, and output is teed to the worker log. A runner
     # script avoids tmux/shell quoting issues with the multi-line prompt.
+    #
+    # Browser isolation: in per-slot mode each worker points its own Playwright
+    # MCP server process at its own Chrome profile (Profile-slot<N>), so two
+    # concurrent workers never fight over the same profile lock. The profile is
+    # cloned from the base profile on first use so extensions (captcha solver)
+    # are present. In isolated mode the global config already passes --isolated
+    # and nothing is needed here.
+    local PLAYWRIGHT_ENV=""
+    if [[ "$BROWSER_ISOLATION" == "per-slot" ]]; then
+      local SLOT_PROFILE="$PROFILES_DIR/Profile-slot${SLOT}"
+      if [[ ! -d "$SLOT_PROFILE" ]]; then
+        # clone-profile.sh expects the account name WITHOUT the Profile- prefix.
+        local BASE_NAME="${BASE_PROFILE##*/}"
+        BASE_NAME="${BASE_NAME#Profile-}"
+        "$PROFILES_DIR/clone-profile.sh" "slot${SLOT}" "$BASE_NAME" >/dev/null 2>&1 \
+          || log "WARN: could not clone slot profile for slot=${SLOT} (falling back to temp profile)"
+      fi
+      PLAYWRIGHT_ENV="export PLAYWRIGHT_PROFILE='${SLOT_PROFILE}'"
+    fi
     local RUNNER="$POOL_DIR/${WORKER_ID}.sh"
     cat > "$RUNNER" << EOF
 #!/usr/bin/env bash
 cd '${HUNT_DIR}'
+${PLAYWRIGHT_ENV}
 exec opencode run --agent hunter "\$(cat '${PROMPT_FILE}')" 2>&1 | tee '${WORKER_LOG}'
 EOF
     chmod +x "$RUNNER"
     AI_CMD="bash '${RUNNER}'"
-  elif command -v agy &>/dev/null; then
-    AI_CMD="agy --no-input < '${PROMPT_FILE}' 2>&1 | tee '${WORKER_LOG}'"
   else
     # Manual mode — just open the prompt for copy-paste
     AI_CMD="echo 'Paste this prompt into your AI tool:' && cat '${PROMPT_FILE}' && bash"
@@ -172,7 +201,6 @@ EOF
   hackbot-notify "🚀 *WORKER STARTED*
 *Slot:* ${SLOT}/${MAX_SLOTS}
 *Target:* \`${HANDLE}\`
-*Budget:* \$${BUDGET_PER}
 _$(ts)_" 2>/dev/null || true
 }
 
@@ -185,14 +213,21 @@ cmd_start() {
   # Parse args
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --slots)  MAX_SLOTS="$2";  shift 2 ;;
-      --budget) TOTAL_BUDGET="$2"; shift 2 ;;
-      *) shift ;;
+      --slots)
+        [[ -n "$2" && "$2" =~ ^[0-9]+$ ]] || { echo "Error: --slots requires a number" >&2; exit 1; }
+        MAX_SLOTS="$2";  shift 2 ;;
+      --budget)
+        echo "Error: --budget was removed — hackbot no longer tracks cost budgets." >&2
+        exit 1 ;;
+      *)
+        echo "Error: unknown option '$1'" >&2
+        echo "Usage: hackbot-workers start [--slots N]" >&2
+        exit 1 ;;
     esac
   done
 
   init_pool
-  log "=== Worker pool starting: slots=${MAX_SLOTS} budget=\$${TOTAL_BUDGET} ==="
+  log "=== Worker pool starting: slots=${MAX_SLOTS} ==="
   hackbot-notify session-start "$POOL_DIR" 2>/dev/null || true
 
   # Fill all slots at startup
@@ -240,12 +275,9 @@ cmd_status() {
 
   local STARTED=$(jq -r '.started_at' "$POOL_STATE")
   local SLOTS=$(jq -r '.max_slots' "$POOL_STATE")
-  local BUDGET=$(jq -r '.budget_usd' "$POOL_STATE")
-  local PER=$(jq -r '.budget_per_worker' "$POOL_STATE")
 
   printf "  %-22s %s\n" "Session started:" "${STARTED:0:19}Z"
   printf "  %-22s %s\n" "Slots:" "$SLOTS"
-  printf "  %-22s \$%s (\\$%s/worker)\n" "Budget:" "$BUDGET" "$PER"
   echo ""
 
   # tmux windows
@@ -427,5 +459,5 @@ case "$CMD" in
   attach)  cmd_attach ;;
   start-target)  cmd_start_target "$@" ;;
   stop-target)   cmd_stop_target "$@" ;;
-  *)       echo "Commands: start [--slots N] [--budget N] | status | stop | logs | attach | start-target <handle> | stop-target <handle>"; exit 1 ;;
+  *)       echo "Commands: start [--slots N] | status | stop | logs | attach | start-target <handle> | stop-target <handle>"; exit 1 ;;
 esac

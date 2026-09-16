@@ -209,12 +209,12 @@ Once SSL pinning is down (via objection above), route the device's traffic
 through Caido same as any web target:
 
 ```bash
-adb shell settings put global http_proxy <caido-host>:8081
+adb shell settings put global http_proxy <caido-host>:8080
 ```
 
 If Caido runs on the same host machine as ADB (not a separate box on the
 LAN), the device can't reach it via `127.0.0.1` — use the host's LAN IP, or
-`adb reverse tcp:8081 tcp:8081` and point the device at `127.0.0.1:8081`
+`adb reverse tcp:8080 tcp:8080` and point the device at `127.0.0.1:8080`
 through the reverse tunnel instead.
 
 - Install Caido's CA cert on the device (`adb push` the cert, then install

@@ -94,6 +94,9 @@ a:hover{text-decoration:underline}
 .btn:hover{background:var(--accent-hi);text-decoration:none}
 .btn.ghost{background:#fff;color:#3d352b;border:1px solid var(--border);box-shadow:none}
 .btn.ghost:hover{color:var(--accent);border-color:#d8c4b8}
+
+.btn.danger{color:#b3261e;border-color:#e6b8b4;background:#fff}
+.btn.danger:hover{color:#fff;background:#b3261e;border-color:#b3261e;box-shadow:0 1px 3px rgba(179,38,30,.4)}
 .btn.small{padding:4px 10px;font-size:12px;border-radius:7px}
 
 /* hero banner */
@@ -184,6 +187,25 @@ th.num{text-align:right}
 .console-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0a0c0f;border-bottom:1px solid #23272d;color:#9aa4b0;font-size:12px}
 .console-bar .title{font-weight:700;color:#e5eaf0;display:flex;align-items:center;gap:8px}
 .console-bar select{background:#16191e;color:#d8dee4;border:1px solid #2c3138;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit}
+/* custom log dropdown */
+.dd{position:relative;min-width:240px;max-width:340px}
+.dd-btn{display:flex;align-items:center;gap:8px;width:100%;background:#16191e;color:#d8dee4;border:1px solid #2c3138;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer;text-align:left}
+.dd-btn:hover{border-color:#3a414c;background:#1e222a}
+.dd-btn .dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-caret{color:#9aa4b0;display:flex}
+.dd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#16191e;border:1px solid #2c3138;border-radius:8px;max-height:340px;overflow-y:auto;z-index:60;display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.dd.open .dd-menu{display:block}
+.dd-item{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;color:#d8dee4;text-decoration:none;cursor:pointer;border-bottom:1px solid #1d2127}
+.dd-item:last-child{border-bottom:none}
+.dd-item:hover{background:#1e222a}
+.dd-item.sel{background:#23282f}
+.dd-item .dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,monospace}
+.dd-item .dd-ic{color:#9aa4b0;display:flex;flex-shrink:0}
+.dd-item.watchdog .dd-ic{color:#e5c07b}
+.dd-item.running{background:rgba(34,197,94,.08)}
+.dd-item.running .dd-label{color:#4ade80;font-weight:600}
+.dd-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:8px;background:rgba(34,197,94,.16);color:#4ade80;border:1px solid rgba(34,197,94,.35);flex-shrink:0}
+.dd-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}
 .console-bar .btn.ghost{background:#16191e;color:#d8dee4;border-color:#2c3138;box-shadow:none}
 .console-bar .btn.ghost:hover{color:#fff;border-color:#3a414c;background:#1e222a}
 .console-bar .btn.ghost:disabled{opacity:.35;cursor:not-allowed;background:#16191e;color:#555b66}

@@ -6,7 +6,7 @@ import shutil
 HOME = os.path.expanduser("~")
 MISC = os.environ.get("HACKBOT_MISC", "/home/aceos/Projects/hackbot-misc")
 MISC = os.path.expanduser(MISC)
-HUNTS_ROOT = os.path.expanduser("~/Projects/hunts")
+HUNTS_ROOT = os.path.expanduser("~/Projects/hackbot/hunts")
 SESSIONS_ROOT = os.path.join(HUNTS_ROOT, "sessions")
 CONFIG_PATH = os.path.expanduser("~/.hackbot/config.json")
 
@@ -91,3 +91,22 @@ _NOTIFY_CANDIDATES = [
     shutil.which("hackbot-notify") or "",
 ]
 NOTIFY = next((p for p in _NOTIFY_CANDIDATES if p and os.path.isfile(p)), None)
+
+_WATCHDOG_CANDIDATES = [
+    os.path.expanduser("~/.local/bin/hackbot-watchdog"),
+    shutil.which("hackbot-watchdog") or "",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "watchdog.sh"),
+]
+WATCHDOG = next(
+    (p for p in _WATCHDOG_CANDIDATES if p and os.path.isfile(p) and _is_rendered(p)),
+    None,
+)
+
+_REFILL_WATCHER_CANDIDATES = [
+    os.path.join(MISC, "refill-watcher.sh"),
+    os.path.expanduser("~/.local/bin/hackbot-refill-watcher"),
+]
+REFILL_WATCHER = next(
+    (p for p in _REFILL_WATCHER_CANDIDATES if p and os.path.isfile(p) and _is_rendered(p)),
+    None,
+)

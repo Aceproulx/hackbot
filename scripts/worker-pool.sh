@@ -12,7 +12,7 @@
 #   hackbot-workers start-target <handle>   Spawn a worker for one specific target now
 #   hackbot-workers stop-target <handle>    Kill the running worker for one target
 #
-# Each "worker" is a tmux window running an opencode session
+# Each "worker" is a tmux window running an opencode/agy session
 # pointed at a specific target from the queue.
 #
 # Slots: how many parallel workers to run (default: 2)
@@ -84,7 +84,7 @@ spawn_worker() {
   local BASE_PROFILE="$PROFILES_DIR/Profile-userA"
   if [[ -f "$HACKBOT_CONFIG" ]]; then
     BROWSER_ISOLATION="$(jq -r '.browser_isolation // "isolated"' "$HACKBOT_CONFIG" 2>/dev/null || echo "isolated")"
-    PROFILES_DIR="$(jq -r '.hackbot_misc_dir // "~/Projects/hackbot-misc"' "$HACKBOT_CONFIG" 2>/dev/null || echo "~/Projects/hackbot-misc")"
+    PROFILES_DIR="$(jq -r '.hackbot_misc_dir // "{{HACKBOT_MISC_DIR}}"' "$HACKBOT_CONFIG" 2>/dev/null || echo "{{HACKBOT_MISC_DIR}}")"
     PROFILES_DIR="${PROFILES_DIR/#\~/$HOME}/.playwright-profiles"
     BASE_PROFILE="$(jq -r '.playwright_profile // ""' "$HACKBOT_CONFIG" 2>/dev/null || echo "")"
     BASE_PROFILE="${BASE_PROFILE/#\~/$HOME}"
@@ -107,7 +107,7 @@ spawn_worker() {
   # Build the prompt file for this worker
   local PROMPT_FILE="$POOL_DIR/${WORKER_ID}.prompt"
   cat > "$PROMPT_FILE" << PROMPT
-You are an autonomous bug hunter. Load the @web-hacking skill immediately.
+You are an autonomous bug hunter. Load the @bug-hunting skill (Antigravity) or @web-hacking skill (OpenCode) immediately.
 
 TARGET HANDLE: ${HANDLE}
 ${TARGET_LINE}
@@ -131,8 +131,10 @@ delete (other users), rotate (keys/tokens), reset (other users' passwords)
 ON CONFIRMED FINDING: run this command:
 hackbot-dashboard add --program "${HANDLE}" --title "<title>" --severity "<sev>" --status "confirmed" --bounty <est> --evidence "<caido_ids>" --url "<url>"
 
-WHEN DONE: run this command and then exit:
+WHEN DONE: run these commands and then exit:
+hackbot-notify done "${HANDLE}" <bugs_found> <RICH_TARGET|MODERATE|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>
 hackbot-queue done "${HANDLE}" <bugs_found> <RICH_TARGET|MODERATE|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>
+(The hackbot-queue done call marks the target done AND releases this worker's pool slot so the next target can start.)
 PROMPT
 
   # Launch tmux window with the worker
@@ -148,7 +150,7 @@ PROMPT
 
   tmux rename-window -t "${SESSION_NAME}:${SLOT}" "${HANDLE}" 2>/dev/null || true
 
-  # Detect AI tool (opencode; manual mode as last resort)
+  # Detect AI tool (prefer opencode, fall back to agy)
   local AI_CMD
   if command -v opencode &>/dev/null; then
     # Run non-interactively via `opencode run`. The prompt is read at runtime
@@ -184,6 +186,8 @@ exec opencode run --agent hunter "\$(cat '${PROMPT_FILE}')" 2>&1 | tee '${WORKER
 EOF
     chmod +x "$RUNNER"
     AI_CMD="bash '${RUNNER}'"
+  elif command -v agy &>/dev/null; then
+    AI_CMD="agy --no-input < '${PROMPT_FILE}' 2>&1 | tee '${WORKER_LOG}'"
   else
     # Manual mode — just open the prompt for copy-paste
     AI_CMD="echo 'Paste this prompt into your AI tool:' && cat '${PROMPT_FILE}' && bash"

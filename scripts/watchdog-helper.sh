@@ -78,7 +78,7 @@ fi
 ORPHAN_WINDOWS="[]"
 if [[ "$TMUX_ALIVE" == "true" ]]; then
   ORPHAN_WINDOWS=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_index}:#{window_name}' 2>/dev/null \
-    | grep -v '^0:' \
+    | { grep -v '^0:' || true; } \
     | while IFS=: read -r WIN WNAME; do
         CLAIMED=$(jq -r --argjson s "$WIN" \
           '[.workers[] | select(.slot == $s and .status == "running")] | length' \

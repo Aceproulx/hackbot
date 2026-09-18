@@ -335,6 +335,11 @@ cmd_stop() {
     rm -f "$POOL_DIR/watchdog-runner.pid"
   fi
   pkill -9 -f "opencode run --agent ${AGENT}" 2>/dev/null || true
+  # Also gracefully stop the refill-watcher (child that refills worker slots),
+  # so one `stop` halts the entire chain including the 60s respawner.
+  if [[ -x {{HACKBOT_MISC_DIR}}/refill-watcher.sh ]]; then
+    bash {{HACKBOT_MISC_DIR}}/refill-watcher.sh stop 2>/dev/null || true
+  fi
   echo -e "${GREEN}✓ Watchdog stopped${RESET}"
 }
 

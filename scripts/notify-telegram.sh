@@ -7,6 +7,7 @@
 #   notify-telegram.sh kill "<domain>" "<reason>"
 #   notify-telegram.sh session-start "<session_dir>"
 #   notify-telegram.sh session-end "<session_dir>" "<bugs>" "<bounty_est>"
+#   notify-telegram.sh done "<handle>" "<bugs>" "<verdict>"
 #   notify-telegram.sh interesting "<domain>" "<note>"
 
 BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-{{TELEGRAM_BOT_TOKEN}}}"
@@ -89,6 +90,17 @@ _${TS}_"
 *Session:* \`$(basename $SESSION)\`
 *Bugs confirmed:* ${BUGS}
 *Est. bounty:* \$${BOUNTY}
+_${TS}_"
+    ;;
+
+  done)
+    HANDLE="$2"
+    BUGS="$3"
+    VERDICT="$4"
+    send "✅ *WORKER DONE*
+*Target:* \`${HANDLE}\`
+*Bugs found:* ${BUGS}
+*Verdict:* ${VERDICT}
 _${TS}_"
     ;;
 

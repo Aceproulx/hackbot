@@ -65,6 +65,16 @@ hackbot-notify session-end "$SESSION_DIR" "<bugs_confirmed>" "<total_bounty_est>
 hackbot-notify session-end "$SESSION_DIR" "3" "7500"
 ```
 
+### Worker Done ✅
+Fire when a pool worker finishes its hunt (part of the worker contract in
+`worker-pool.sh` — run BEFORE `hackbot-queue done` so the alert fires even if
+the queue update fails):
+```bash
+hackbot-notify done "<handle>" "<bugs_found>" "<verdict>"
+# Example:
+hackbot-notify done "challenge-0724-intigriti-io" "1" "THIN_TARGET"
+```
+
 ### Interesting Behavior 👀
 Fire when something triggers spidy sense but isn't confirmed yet:
 ```bash

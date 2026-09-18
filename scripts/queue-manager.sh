@@ -4,9 +4,10 @@
 # Commands:
 #   init                   Pull programs from Intigriti, build/refresh queue
 #   next                   Print the next pending target as JSON, mark it active
-#   done <handle> <bugs> <verdict>   Mark target complete
+#   done <handle> <bugs> <verdict>   Mark target complete (releases pool slot)
 #   skip <handle> [reason] Mark target skipped (thin/WAF/no-auth)
 #   fail <handle> [reason] Mark target failed (crash/error)
+#   release <handle>       Idempotent pool-slot release (heals drift)
 #   status                 Print current queue table
 #   history                Print past hunts from history log
 #   reset <handle>         Reset a target back to pending
@@ -18,7 +19,7 @@ set -euo pipefail
 
 QUEUE_FILE={{HACKBOT_MISC_DIR}}/target-queue.json
 HISTORY_FILE={{HACKBOT_MISC_DIR}}/queue-history.jsonl
-POOL_STATE="{{HACKBOT_MISC_DIR}}/worker-pool/pool.json"
+POOL_STATE={{HACKBOT_MISC_DIR}}/worker-pool/pool.json
 POOL_SESSION="hackbot"
 LOCK_FILE=/tmp/hackbot-queue.lock
 MIN_REHUNT_DAYS="${MIN_REHUNT_DAYS:-7}"     # don't re-hunt a target within this window
@@ -50,7 +51,7 @@ cmd_init() {
   lock
   echo "Fetching programs from Intigriti MCP..."
 
-  # Pull programs via intigriti MCP node script (uses same config as opencode)
+  # Pull programs via intigriti MCP node script (uses same config as opencode/AGY)
   # Falls back to a direct API call if the MCP runner isn't available
   PROGRAMS_JSON=$(node - <<'EOF' 2>/dev/null || echo "[]"
 const { execSync } = require('child_process');
@@ -152,15 +153,43 @@ cmd_next() {
   CUTOFF=$(date -u -d "-${MIN_REHUNT_DAYS} days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
            || date -u -v-"${MIN_REHUNT_DAYS}"d +"%Y-%m-%dT%H:%M:%SZ")  # macOS fallback
 
-  # Pick highest-score pending target not hunted too recently
-  NEXT=$(jq --arg cutoff "$CUTOFF" '
+  # Count currently active targets per pool (self-hosted vs Intigriti)
+  ACTIVE_SELF=$(jq '[.[] | select(.status == "active" and (.program_id | startswith("self:")))] | length' "$QUEUE_FILE")
+  ACTIVE_INT=$(jq '[.[] | select(.status == "active" and (.program_id | startswith("self:") | not))] | length' "$QUEUE_FILE")
+
+  # Alternate pools in blocks of 2: keep 2 self-hosted + 2 Intigriti running.
+  # Prefer the pool that's under its quota; fall back to the other if empty.
+  if [[ "$ACTIVE_SELF" -lt 2 ]]; then
+    PREFER="self"
+  else
+    PREFER="intigriti"
+  fi
+
+  # Pick highest-score pending target from the preferred pool
+  NEXT=$(jq --arg cutoff "$CUTOFF" --arg prefer "$PREFER" '
     [.[] | select(
       .status == "pending" and
-      (.last_hunted == null or .last_hunted < $cutoff)
+      (.last_hunted == null or .last_hunted < $cutoff) and
+      (if $prefer == "self" then (.program_id | startswith("self:"))
+       else (.program_id | startswith("self:") | not) end)
     )]
     | sort_by(-(.score + .boost))
     | first // empty
   ' "$QUEUE_FILE")
+
+  # Fallback: preferred pool exhausted -> take from the other pool
+  if [[ -z "$NEXT" || "$NEXT" == "null" ]]; then
+    NEXT=$(jq --arg cutoff "$CUTOFF" --arg prefer "$PREFER" '
+      [.[] | select(
+        .status == "pending" and
+        (.last_hunted == null or .last_hunted < $cutoff) and
+        (if $prefer == "self" then (.program_id | startswith("self:") | not)
+         else (.program_id | startswith("self:")) end)
+      )]
+      | sort_by(-(.score + .boost))
+      | first // empty
+    ' "$QUEUE_FILE")
+  fi
 
   if [[ -z "$NEXT" || "$NEXT" == "null" ]]; then
     echo "NO_TARGETS_AVAILABLE"
@@ -179,7 +208,7 @@ cmd_next() {
   unlock
 }
 
-# ── pool slot release ─────────────────────────────────────────────────────────
+# ── done ───────────────────────────────────────────────────────────────────────
 
 # Free the worker-pool slot for a target that has finished. Workers end their
 # session by calling `hackbot-queue done` and then sit idle at a tmux shell;
@@ -209,8 +238,6 @@ release_pool_slot() {
     tmux kill-window -t "${POOL_SESSION}:${SLOT}" 2>/dev/null || true
   fi
 }
-
-# ── done ───────────────────────────────────────────────────────────────────────
 
 cmd_done() {
   HANDLE="${2:-}"
@@ -508,12 +535,12 @@ case "$CMD" in
   done)     cmd_done "$@" ;;
   skip)     cmd_skip "$@" ;;
   fail)     cmd_fail "$@" ;;
+  release)  cmd_release "$@" ;;
   status)   cmd_status ;;
   history)  cmd_history ;;
   reset)    cmd_reset "$@" ;;
   requeue)  cmd_requeue "$@" ;;
   boost)    cmd_boost "$@" ;;
   add)      cmd_add "$@" ;;
-  release)  cmd_release "$@" ;;
-  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add release"; exit 1 ;;
+  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail release status history reset requeue boost add"; exit 1 ;;
 esac

@@ -263,22 +263,23 @@ def v_console_build(selected, lines=300):
             f'<span class="hint">{esc(PLATFORM)} · worker lanes</span></div>'
             # Log selector
             f'{dd}'
+            f'<div class="controls">'
             f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="tail window">{line_opts}</select>'
             f'<span class="sp" style="flex:1"></span>'
             # Activity indicator
             f'{activity_html}'
             # Status + toggle button
-f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
+            f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
             f'<button class="btn ghost small" id="btoggle" onclick="con_toggle()">{icon("pause", 13)} Pause</button>'
             # Save log button
             f'<a class="btn ghost small" href="/api/console/save?l={esc(key)}" title="Save full log to file">{icon("download", 13)} Save</a>'
             # Latest link
             f'<a class="btn ghost small" href="/console">latest</a>'
-            f'</div>'
+            f'</div></div>'
             # Terminal output
             f'<pre class="terminal" id="termlog" style="height:72vh;overflow-y:auto">{content}</pre>'
             # Tell agent input
-            f'<div class="console-bar" style="border-top:1px solid var(--border);padding:10px 16px">'
+            f'<div class="console-bar input-bar" style="border-top:1px solid var(--border)">'
             f'{icon("message-square", 13)} '
             f'<input type="text" id="agent-msg" placeholder="Tell the agent something..." '
             f'style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--fg);'
@@ -368,9 +369,11 @@ f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
         "</script>"
     )
 
-    return (f'<!doctype html><html><head><meta charset="utf-8"><title>Console · Hackbot</title>'
+    return (f'<!doctype html><html><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">'
+            f'<title>Console · Hackbot</title>'
             f'<style>{CSS}</style></head>'
-            f'<body style="height:100vh;overflow:hidden;display:flex;flex-direction:column">'
+            f'<body class="console-page">'
             f'<div class="topbar" style="background:#0f1216;border-color:#23272d"><div style="color:#e5eaf0;font-weight:800;letter-spacing:.1em">'
             f'CONSOLE</div><span class="sp" style="flex:1"></span>'
             f'<a class="btn ghost small" href="/v/overview">{icon("arrow-left", 13)} Dashboard</a></div>'

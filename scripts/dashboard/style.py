@@ -214,6 +214,11 @@ th.num{text-align:right}
 .console-bar .btn.ghost{background:#16191e;color:#d8dee4;border-color:#2c3138;box-shadow:none}
 .console-bar .btn.ghost:hover{color:#fff;border-color:#3a414c;background:#1e222a}
 .console-bar .btn.ghost:disabled{opacity:.35;cursor:not-allowed;background:#16191e;color:#555b66}
+/* console page shell: fixed viewport height (dvh for mobile URL bar), no page scroll */
+.console-page{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+/* controls wrapper is layout-transparent on desktop (children flow as direct flex items) */
+.console-bar .controls{display:contents}
+.console-bar.input-bar{padding:10px 16px}
 
 /* modal + toasts */
 .modal-bg{position:fixed;inset:0;background:rgba(20,12,10,.45);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:9vh}
@@ -537,11 +542,22 @@ details.clp-cmd.expanded .clp-more{display:none}
   #evcard tbody td[data-label]:not(:nth-child(2))::before{content:attr(data-label);display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 
   /* console page */
-  .console-body{padding:12px !important}
-  .console-bar{flex-wrap:wrap;gap:8px;padding:8px 12px}
+  .console-body{padding:8px !important}
+  .console-bar{flex-wrap:wrap;gap:8px;padding:8px 10px}
   .console-bar .title{flex:1 1 100%}
   .console-bar .dd{min-width:0;max-width:none;flex:1 1 100%}
   .console-bar .sp{display:none}
-  .console-bar .activity-indicator{flex:1 1 100%}
+  /* controls -> compact horizontally scrollable row */
+  .console-bar .controls{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .console-bar .controls::-webkit-scrollbar{display:none}
+  .console-bar .controls>*{flex:0 0 auto}
+  /* 44px touch targets for console controls */
+  .console-bar .dd-btn,.console-bar select,.console-bar .btn.ghost,.console-bar .pill{min-height:44px}
+  .console-bar .pill{display:inline-flex;align-items:center;padding:0 14px}
+  /* terminal fills remaining height, wraps wide lines, scrolls internally */
+  #termlog{height:auto !important;flex:1 1 auto;min-height:140px;font-size:12px;line-height:1.45;padding:10px 12px}
+  /* input bar pinned to bottom, safe-area inset for mobile browsers */
+  .console-bar.input-bar{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+  .console-bar.input-bar input{min-width:0}
 }
 """

@@ -84,6 +84,27 @@ def fmt_ts(ts):
     except Exception:
         return str(ts)
 
+def fmt_rel(ts):
+    """Compact relative time ('20m ago') for mobile/space-constrained UIs."""
+    if not ts:
+        return "—"
+    try:
+        d = time.time() - float(ts)
+    except Exception:
+        return str(ts)
+    if d < 60:
+        return "just now"
+    if d < 3600:
+        return f"{int(d // 60)}m ago"
+    if d < 86400:
+        return f"{int(d // 3600)}h ago"
+    if d < 86400 * 7:
+        return f"{int(d // 86400)}d ago"
+    try:
+        return datetime.fromtimestamp(float(ts)).strftime("%b %d")
+    except Exception:
+        return str(ts)
+
 def ts_key(ts):
     """Numeric sort/filter key for a timestamp that may be epoch-seconds
     (int/float or numeric string) or an ISO-8601 string such as

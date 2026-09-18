@@ -42,6 +42,7 @@ from .util import esc
 from .util import fmt_size
 from .util import fmt_time
 from .util import fmt_ts
+from .util import fmt_rel
 from .util import ts_key
 from .state import get_findings
 from .state import get_queue
@@ -801,12 +802,6 @@ def v_memory():
             else f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("database", 34)}</div><div class="t">Memory is empty</div></div></div></div>')
     return page("memory", hero("Memory", "Hunt notes, recon and session state"), body)
 
-def _trim_program(handle: str, n: int = 24) -> str:
-    """Trim a program handle for display; full value stays in data-search/link attrs."""
-    h = str(handle)
-    return h if len(h) <= n else h[: n - 1] + "\u2026"
-
-
 def v_findings():
     hs = hunt_stats()
     reps = sorted(all_reports(), key=lambda r: r["mtime"], reverse=True)
@@ -831,11 +826,11 @@ def v_findings():
         f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}"'
         f' data-mark="{esc(r["mark"])}" data-read="{"1" if r["read"] else "0"}">'
         f'<td>{f"<span class=dot-u></span>" if not r["read"] else ""}</td>'
-        f'<td class="mono" title="{esc(r["handle"])}">{esc(_trim_program(r["handle"]))}</td>'
-        f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
-        f'<td>{fmt_ts(r["mtime"])}</td>'
-        f'<td>{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td>'
-        f'<td>{mk_pill(r["mark"])}</td></tr>' for r in reps)
+        f'<td class="mono" data-label="Program" title="{esc(r["handle"])}">{esc(r["handle"])}</td>'
+        f'<td data-label="Report"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
+        f'<td data-label="Drafted"><span class="ts-full">{fmt_ts(r["mtime"])}</span><span class="ts-rel">{fmt_rel(r["mtime"])}</span></td>'
+        f'<td data-label="State">{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td>'
+        f'<td data-label="Mark">{mk_pill(r["mark"])}</td></tr>' for r in reps)
     fbar = (f'<div class="fbar fbar-card" id="rep-filterbar">'
             f'<span class="flbl">Mark</span>'
             f'<button class="f active" data-fmark="" onclick="repFilter(this)">All marks</button>'
@@ -855,10 +850,10 @@ def v_findings():
                     f'<div class="pager" id="rep-pager"></div></div>')
 
     erows = "".join(
-        f'<tr><td class="mono" title="{esc(e["handle"])}">{esc(_trim_program(e["handle"]))}</td>'
-        f'<td class="mono">{esc(e["name"])}</td>'
-        f'<td>{fmt_ts(e["mtime"])}</td></tr>' for e in evi)
-    evidence_card = (f'<div class="card"><div class="hd">Evidence <span class="sp"></span>'
+        f'<tr><td class="mono" data-label="Program" title="{esc(e["handle"])}">{esc(e["handle"])}</td>'
+        f'<td class="mono" data-label="File">{esc(e["name"])}</td>'
+        f'<td data-label="Added"><span class="ts-full">{fmt_ts(e["mtime"])}</span><span class="ts-rel">{fmt_rel(e["mtime"])}</span></td></tr>' for e in evi)
+    evidence_card = (f'<div class="card" id="evcard"><div class="hd">Evidence <span class="sp"></span>'
                      f'<span class="hint">{len(evi)} files</span></div>'
                      f'<table><thead><tr><th>PROGRAM</th><th>FILE</th><th>ADDED</th></tr></thead>'
                      f'<tbody>{erows or f"<tr><td colspan=3><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')

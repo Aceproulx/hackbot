@@ -140,6 +140,11 @@ tbody tr:hover{background:#fbf8f3}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 th.num{text-align:right}
 
+/* findings tables: program column ellipsis on desktop (full value in title attr) */
+#repcard td.mono,#evcard td.mono{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* dual timestamps: full shown on desktop, relative on mobile */
+.ts-rel{display:none}
+
 /* pills */
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
 .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
@@ -270,10 +275,10 @@ code.inline{background:#efe9dd;border-radius:5px;padding:1px 6px;font-size:12px}
 .bc-btn.mk-unreportable.active{background:#F1F5F9;border-color:#94a3b8;color:#475569}
 .bc-btn.mk-underreview.active{background:#FFFBEB;border-color:#F59E0B;color:#B45309}
 .mk{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
-.mk-valid{background:#ECFDF5;color:#047857}
-.mk-duplicate{background:#EEF2FF;color:#4338CA}
-.mk-unreportable{background:#F1F5F9;color:#475569}
-.mk-underreview{background:#FFFBEB;color:#B45309}
+.mk-valid{background:#ECFDF5;color:#047857;border:1px solid #a7f3d0}
+.mk-duplicate{background:#EEF2FF;color:#4338CA;border:1px solid #c7d2fe}
+.mk-unreportable{background:#F1F5F9;color:#475569;border:1px solid #cbd5e1}
+.mk-underreview{background:#FFFBEB;color:#B45309;border:1px solid #fde68a}
 .card.mk-bg-valid{background:#ECFDF5;border-color:#a7f3d0}
 .card.mk-bg-duplicate{background:#EEF2FF;border-color:#c7d2fe}
 .card.mk-bg-unreportable{background:#F1F5F9;border-color:#cbd5e1}
@@ -492,9 +497,44 @@ details.clp-cmd.expanded .clp-more{display:none}
   /* terminal */
   .terminal{padding:12px 14px;font-size:12px}
 
-  /* fbar wraps tighter */
-  .fbar{gap:8px}
-  .fbar .f{padding:4px 10px;font-size:11.5px}
+  /* fbar -> horizontally scrollable chip row (no wrap) */
+  .fbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:8px}
+  .fbar::-webkit-scrollbar{display:none}
+  .fbar .f{flex:0 0 auto;white-space:nowrap;min-height:40px;padding:4px 12px;font-size:11.5px}
+  .fbar .flbl{flex:0 0 auto}
+  .fbar .sp{display:none}
+
+  /* consistent touch targets for action buttons */
+  .btn{min-height:44px}
+
+  /* dual timestamps: relative on mobile */
+  .ts-full{display:none}
+  .ts-rel{display:inline}
+
+  /* findings: reports table -> cards */
+  #repcard thead{display:none}
+  #repcard tbody tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 14px;margin:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:0 1px 2px rgba(20,12,10,.05)}
+  #repcard tbody tr.unread{border-left:3px solid var(--accent)}
+  #repcard tbody tr:hover{background:var(--card)}
+  #repcard tbody tr td{border:none;padding:0}
+  #repcard tbody td:nth-child(1){order:0;flex:0 0 auto}
+  #repcard tbody td:nth-child(3){order:1;flex:1 1 auto;min-width:0}
+  #repcard tbody td:nth-child(3) a{font-size:14px;font-weight:600;line-height:1.35;word-break:break-word;display:block}
+  #repcard tbody td:nth-child(6){order:2;flex:0 0 auto}
+  #repcard tbody td:nth-child(2){order:3;flex:1 1 100%;white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+  #repcard tbody td:nth-child(5){order:4;flex:0 0 auto}
+  #repcard tbody td:nth-child(4){order:5;flex:0 0 auto}
+  #repcard tbody td[data-label]:not(:nth-child(3)):not(:nth-child(6))::before{content:attr(data-label);display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+
+  /* findings: evidence table -> cards */
+  #evcard thead{display:none}
+  #evcard tbody tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 14px;margin:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+  #evcard tbody tr:hover{background:var(--card)}
+  #evcard tbody tr td{border:none;padding:0}
+  #evcard tbody td:nth-child(2){order:1;flex:1 1 auto;min-width:0;word-break:break-word;font-size:13px;font-weight:600}
+  #evcard tbody td:nth-child(1){order:2;flex:1 1 100%;white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+  #evcard tbody td:nth-child(3){order:3;flex:0 0 auto}
+  #evcard tbody td[data-label]:not(:nth-child(2))::before{content:attr(data-label);display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 
   /* console page */
   .console-body{padding:12px !important}

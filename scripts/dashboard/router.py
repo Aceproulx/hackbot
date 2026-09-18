@@ -298,7 +298,7 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                 ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to mark report.');return;}location.reload();});}\n"
                 "function reportClear(){apiPost('/api/report/mark',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "',mark:''})\n"
                 ".then(function(d){if(!d.ok){showMsg(d.message||'Failed to clear mark.');return;}location.reload();});}\n"
-                "var REPORT_MD=" + json.dumps(read_file(rp)) + ";\n"
+                "var REPORT_MD=" + json.dumps(read_file(rp)).replace("</", "<\\/") + ";\n"
                 "function copyReportMd(){\n"
                 "var done=function(){var b=document.querySelector('.btn[onclick=\"copyReportMd()\"]');if(b){var o=b.innerHTML;b.innerHTML='"+icon("check", 13)+" Copied';setTimeout(function(){b.innerHTML=o;},1500);}};\n"
                 "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(REPORT_MD).then(done,function(){fallbackCopy(REPORT_MD);done();});}\n"

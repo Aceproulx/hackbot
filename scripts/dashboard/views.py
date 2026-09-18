@@ -852,7 +852,8 @@ def v_findings():
                     f'<span class="hint">{len(reps)} files · {unread} unread</span></div>'
                     f'{fbar}'
                     f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th class="num">SIZE</th><th>DRAFTED</th><th>STATE</th><th>MARK</th></tr></thead>'
-                    f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table></div>')
+                    f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table>'
+                    f'<div class="pager" id="rep-pager"></div></div>')
 
     erows = "".join(
         f'<tr><td class="mono" title="{esc(e["handle"])}">{esc(_trim_program(e["handle"]))}</td>'
@@ -865,22 +866,45 @@ def v_findings():
                      f'<tbody>{erows or f"<tr><td colspan=4><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')
 
     find_js = """(function(){
-var KEY='hb.find';var st={mark:'',read:''};
-try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o&&typeof o==='object'){st.mark=o.mark||'';st.read=o.read||'';}}}catch(e){}
-function apply(){
-  var rows=document.querySelectorAll('#repcard tbody tr');var i,r,show;
+var KEY='hb.find';var st={mark:'',read:'',page:1};
+try{var s=localStorage.getItem(KEY);if(s){var o=JSON.parse(s);if(o&&typeof o==='object'){st.mark=o.mark||'';st.read=o.read||'';st.page=parseInt(o.page,10)||1;}}}catch(e){}
+var PAGE=30;
+function visibleRows(){
+  var rows=document.querySelectorAll('#repcard tbody tr'),out=[],i,r,show;
   for(i=0;i<rows.length;i++){r=rows[i];show=true;
     if(st.mark&&r.getAttribute('data-mark')!==st.mark){show=false;}
     if(show&&st.read){var rd=r.getAttribute('data-read');show=(st.read==='unread')?(rd==='0'):(rd==='1');}
-    r.classList.toggle('hide-js',!show);}
+    if(show)out.push(r);}
+  return out;}
+function renderPager(total){
+  var el=document.getElementById('rep-pager');if(!el)return;
+  var pages=Math.max(1,Math.ceil(total/PAGE));
+  if(st.page>pages)st.page=pages;
+  if(!total){el.innerHTML='<span class="pg-info">No reports match</span>';return;}
+  var start=(st.page-1)*PAGE+1,end=Math.min(st.page*PAGE,total);
+  var h='<span class="pg-info">'+start+'\u2013'+end+' of '+total+'</span>';
+  h+='<button class="pg-btn" data-pg="prev"'+(st.page<=1?' disabled':'')+'>\u2039 Prev</button>';
+  var from=Math.max(1,st.page-2),to=Math.min(pages,st.page+2);
+  if(from>1){h+='<button class="pg-btn" data-pg="1">1</button>';if(from>2)h+='<span class="pg-ell">\u2026</span>';}
+  for(var p=from;p<=to;p++){h+='<button class="pg-btn'+(p===st.page?' active':'')+'" data-pg="'+p+'">'+p+'</button>';}
+  if(to<pages){if(to<pages-1)h+='<span class="pg-ell">\u2026</span>';h+='<button class="pg-btn" data-pg="'+pages+'">'+pages+'</button>';}
+  h+='<button class="pg-btn" data-pg="next"'+(st.page>=pages?' disabled':'')+'>Next \u203a</button>';
+  el.innerHTML=h;}
+function apply(){
+  var vis=visibleRows();var i,r,rows=document.querySelectorAll('#repcard tbody tr');
+  for(i=0;i<rows.length;i++)rows[i].classList.add('hide-js');
+  var start=(st.page-1)*PAGE,end=Math.min(start+PAGE,vis.length);
+  for(i=start;i<end;i++)vis[i].classList.remove('hide-js');
   var bs=document.querySelectorAll('#rep-filterbar .f'),j,b,m,s;
   for(j=0;j<bs.length;j++){b=bs[j];m=b.getAttribute('data-fmark');s=b.getAttribute('data-fstate');
-    if(m!==null){b.classList.toggle('active',m===st.mark);}else if(s!==null){b.classList.toggle('active',s===st.read);}}
-}
+    if(m!==null)b.classList.toggle('active',m===st.mark);else if(s!==null)b.classList.toggle('active',s===st.read);}
+  renderPager(vis.length);}
 window.repFilter=function(btn){var m=btn.getAttribute('data-fmark'),s=btn.getAttribute('data-fstate');
-  if(m!==null){st.mark=m;}if(s!==null){st.read=s;}
-  try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}
-  apply();};
+  if(m!==null)st.mark=m;if(s!==null)st.read=s;st.page=1;
+  try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}apply();};
+window.repPage=function(btn){var pg=btn.getAttribute('data-pg');
+  if(pg==='prev')st.page=Math.max(1,st.page-1);else if(pg==='next')st.page+=1;else st.page=parseInt(pg,10)||1;
+  try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}apply();};
 apply();
 })();"""
 

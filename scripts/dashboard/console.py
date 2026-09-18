@@ -374,4 +374,4 @@ f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
             f'<div class="topbar" style="background:#0f1216;border-color:#23272d"><div style="color:#e5eaf0;font-weight:800;letter-spacing:.1em">'
             f'CONSOLE</div><span class="sp" style="flex:1"></span>'
             f'<a class="btn ghost small" href="/v/overview">{icon("arrow-left", 13)} Dashboard</a></div>'
-            f'<div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:20px 26px 60px;overflow:hidden">{body}</div>{js}</body></html>')
+            f'<div class="console-body" style="flex:1;min-height:0;display:flex;flex-direction:column;padding:20px 26px 60px;overflow:hidden">{body}</div>{js}</body></html>')

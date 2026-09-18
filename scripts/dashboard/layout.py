@@ -131,6 +131,7 @@ def topbar(active_q=None):
     q = f' value="{esc(active_q or "")}"' if active_q else ""
     return f"""
 <div class="topbar">
+  <button class="menu-btn" id="menu-btn" onclick="toggleSide()" title="Menu" aria-label="Toggle navigation">{icon('menu', 18)}</button>
   <div class="searchbox">{icon('search', 16, 'glass')}
     <input id="globalsearch" placeholder="Search this view…" data-filter="filter-item" data-key="data-search"{q}></div>
   <div class="grow"></div>
@@ -165,6 +166,7 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '<span class="ci ci-open">' + icon('chevron-left', 14) + '</span>'
         '<span class="ci ci-close">' + icon('chevron-right', 14) + '</span></button>\n'
         '  </aside>\n'
+        '  <div class="side-overlay" id="side-overlay"></div>\n'
         '  <div class="console-tab" onclick="location.href=\'/console\'">CONSOLE</div>\n'
         '  <main class="main">\n'
         + topbar() + '\n'
@@ -437,6 +439,11 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '  }catch(e){showMsg(\'Request failed: \'+e,\'Start orchestrator\');}\n'
         '}\n'
         'refreshOrchStatus();\n'
+        'function toggleSide(){var l=document.getElementById(\'layout\');if(l){l.classList.toggle(\'mobile-open\');}}\n'
+        'var __ov=document.getElementById(\'side-overlay\');\n'
+        'if(__ov){__ov.addEventListener(\'click\',function(){var l=document.getElementById(\'layout\');if(l){l.classList.remove(\'mobile-open\');}});}\n'
+        'document.querySelectorAll(\'.nav a\').forEach(function(a){a.addEventListener(\'click\',function(){var l=document.getElementById(\'layout\');if(l){l.classList.remove(\'mobile-open\');}});});\n'
+        'document.querySelectorAll(\'table\').forEach(function(t){if(t.parentElement&&!t.parentElement.classList.contains(\'table-wrap\')){var w=document.createElement(\'div\');w.className=\'table-wrap\';t.parentNode.insertBefore(w,t);w.appendChild(t);}});\n'
         + scripts +
 
         '(function(){\n'

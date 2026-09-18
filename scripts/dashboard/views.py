@@ -833,7 +833,6 @@ def v_findings():
         f'<td>{f"<span class=dot-u></span>" if not r["read"] else ""}</td>'
         f'<td class="mono" title="{esc(r["handle"])}">{esc(_trim_program(r["handle"]))}</td>'
         f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
-        f'<td class="num">{fmt_size(os.path.getsize(r["path"]))}</td>'
         f'<td>{fmt_ts(r["mtime"])}</td>'
         f'<td>{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td>'
         f'<td>{mk_pill(r["mark"])}</td></tr>' for r in reps)
@@ -851,19 +850,18 @@ def v_findings():
     reports_card = (f'<div class="card" id="repcard"><div class="hd">Reports <span class="sp"></span>'
                     f'<span class="hint">{len(reps)} files · {unread} unread</span></div>'
                     f'{fbar}'
-                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th class="num">SIZE</th><th>DRAFTED</th><th>STATE</th><th>MARK</th></tr></thead>'
-                    f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table>'
+                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th>DRAFTED</th><th>STATE</th><th>MARK</th></tr></thead>'
+                    f'<tbody>{rrows or f"<tr><td colspan=6><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table>'
                     f'<div class="pager" id="rep-pager"></div></div>')
 
     erows = "".join(
         f'<tr><td class="mono" title="{esc(e["handle"])}">{esc(_trim_program(e["handle"]))}</td>'
         f'<td class="mono">{esc(e["name"])}</td>'
-        f'<td>{fmt_size(os.path.getsize(e["path"]))}</td>'
         f'<td>{fmt_ts(e["mtime"])}</td></tr>' for e in evi)
     evidence_card = (f'<div class="card"><div class="hd">Evidence <span class="sp"></span>'
                      f'<span class="hint">{len(evi)} files</span></div>'
-                     f'<table><thead><tr><th>PROGRAM</th><th>FILE</th><th class="num">SIZE</th><th>ADDED</th></tr></thead>'
-                     f'<tbody>{erows or f"<tr><td colspan=4><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')
+                     f'<table><thead><tr><th>PROGRAM</th><th>FILE</th><th>ADDED</th></tr></thead>'
+                     f'<tbody>{erows or f"<tr><td colspan=3><span class=muted>No evidence collected yet</span></td></tr>"}</tbody></table></div>')
 
     find_js = """(function(){
 var KEY='hb.find';var st={mark:'',read:'',page:1};
@@ -883,12 +881,12 @@ function renderPager(total){
   if(!total){el.innerHTML='<span class="pg-info">No reports match</span>';return;}
   var start=(st.page-1)*PAGE+1,end=Math.min(st.page*PAGE,total);
   var h='<span class="pg-info">'+start+'\u2013'+end+' of '+total+'</span>';
-  h+='<button class="pg-btn" data-pg="prev"'+(st.page<=1?' disabled':'')+'>\u2039 Prev</button>';
+  h+='<button class="pg-btn" data-pg="prev" onclick="repPage(this)"'+(st.page<=1?' disabled':'')+'>\u2039 Prev</button>';
   var from=Math.max(1,st.page-2),to=Math.min(pages,st.page+2);
-  if(from>1){h+='<button class="pg-btn" data-pg="1">1</button>';if(from>2)h+='<span class="pg-ell">\u2026</span>';}
-  for(var p=from;p<=to;p++){h+='<button class="pg-btn'+(p===st.page?' active':'')+'" data-pg="'+p+'">'+p+'</button>';}
-  if(to<pages){if(to<pages-1)h+='<span class="pg-ell">\u2026</span>';h+='<button class="pg-btn" data-pg="'+pages+'">'+pages+'</button>';}
-  h+='<button class="pg-btn" data-pg="next"'+(st.page>=pages?' disabled':'')+'>Next \u203a</button>';
+  if(from>1){h+='<button class="pg-btn" data-pg="1" onclick="repPage(this)">1</button>';if(from>2)h+='<span class="pg-ell">\u2026</span>';}
+  for(var p=from;p<=to;p++){h+='<button class="pg-btn'+(p===st.page?' active':'')+'" data-pg="'+p+'" onclick="repPage(this)">'+p+'</button>';}
+  if(to<pages){if(to<pages-1)h+='<span class="pg-ell">\u2026</span>';h+='<button class="pg-btn" data-pg="'+pages+'" onclick="repPage(this)">'+pages+'</button>';}
+  h+='<button class="pg-btn" data-pg="next" onclick="repPage(this)"'+(st.page>=pages?' disabled':'')+'>Next \u203a</button>';
   el.innerHTML=h;}
 function apply(){
   var vis=visibleRows();var i,r,rows=document.querySelectorAll('#repcard tbody tr');

@@ -69,6 +69,8 @@ spawn_worker() {
   local PROGRAM_ID="$2"
   local MAX_BOUNTY="$3"
   local SLOT="$4"
+  local BASE_URL="${5:-}"
+  local SELF_HOSTED="${6:-false}"
   local HUNT_DIR=~/Projects/hackbot/hunts/${HANDLE}-$(date +%Y%m%d)
   local WORKER_ID="worker-${SLOT}-${HANDLE}"
   local WORKER_LOG="$POOL_DIR/${WORKER_ID}.log"
@@ -94,7 +96,13 @@ spawn_worker() {
   mkdir -p "$HUNT_DIR"
 
   # Get scope from intigriti MCP (best-effort, continue if unavailable)
-  SCOPE_NOTE="Run: intigriti get_program_scope $PROGRAM_ID for full scope"
+  if [[ "$SELF_HOSTED" == "true" ]]; then
+    TARGET_LINE="TARGET URL: ${BASE_URL}"
+    FIRST_ACTION="FIRST ACTION: This is a SELF-HOSTED target (no Intigriti program scope). Hunt the target at ${BASE_URL} — full browser scope, no platform out-of-scope list. Start with recon: fingerprint the app, enumerate endpoints, then work the attack classes."
+  else
+    TARGET_LINE="PROGRAM ID: ${PROGRAM_ID}"
+    FIRST_ACTION="FIRST ACTION: Run intigriti get_program_scope ${PROGRAM_ID} to get exact in-scope/out-of-scope assets."
+  fi
 
   # Build the prompt file for this worker
   local PROMPT_FILE="$POOL_DIR/${WORKER_ID}.prompt"
@@ -102,13 +110,13 @@ spawn_worker() {
 You are an autonomous bug hunter. Load the @web-hacking skill immediately.
 
 TARGET HANDLE: ${HANDLE}
-PROGRAM ID: ${PROGRAM_ID}
+${TARGET_LINE}
 MAX BOUNTY: \$${MAX_BOUNTY}
 HUNT DIRECTORY: ${HUNT_DIR}/
 WORKER ID: ${WORKER_ID}
 SLOT: ${SLOT} of ${MAX_SLOTS}
 
-FIRST ACTION: Run intigriti get_program_scope ${PROGRAM_ID} to get exact in-scope/out-of-scope assets.
+${FIRST_ACTION}
 
 PENDING INSTRUCTIONS: Before each major action (navigate, register, submit, exploit, report), check for a pending instruction file at ${POOL_DIR}/${WORKER_ID}-instructions.txt. If it exists, read it, follow it, then delete it.
 
@@ -247,8 +255,10 @@ cmd_start() {
     local HANDLE=$(echo "$NEXT" | jq -r '.handle')
     local PROGRAM_ID=$(echo "$NEXT" | jq -r '.program_id')
     local MAX_BOUNTY=$(echo "$NEXT" | jq -r '.max_bounty // 0')
+    local BASE_URL=$(echo "$NEXT" | jq -r '.base_url // ""')
+    local SELF_HOSTED=$(echo "$NEXT" | jq -r '.self_hosted // false')
 
-    spawn_worker "$HANDLE" "$PROGRAM_ID" "$MAX_BOUNTY" "$SLOT"
+    spawn_worker "$HANDLE" "$PROGRAM_ID" "$MAX_BOUNTY" "$SLOT" "$BASE_URL" "$SELF_HOSTED"
     SLOT=$((SLOT + 1))
     sleep 2  # stagger launches slightly
   done
@@ -418,11 +428,13 @@ cmd_start_target() {
     jq --argjson s "$SLOT" '.max_slots = $s' "$POOL_STATE" > /tmp/pool-tmp.json && mv /tmp/pool-tmp.json "$POOL_STATE"
   fi
 
-  local PROGRAM_ID MAX_BOUNTY
+  local PROGRAM_ID MAX_BOUNTY BASE_URL SELF_HOSTED
   PROGRAM_ID=$(echo "$ITEM" | jq -r '.program_id')
   MAX_BOUNTY=$(echo "$ITEM" | jq -r '.max_bounty // 0')
+  BASE_URL=$(echo "$ITEM" | jq -r '.base_url // ""')
+  SELF_HOSTED=$(echo "$ITEM" | jq -r '.self_hosted // false')
 
-  spawn_worker "$HANDLE" "$PROGRAM_ID" "$MAX_BOUNTY" "$SLOT"
+  spawn_worker "$HANDLE" "$PROGRAM_ID" "$MAX_BOUNTY" "$SLOT" "$BASE_URL" "$SELF_HOSTED"
   echo "Started hunt on '$HANDLE' in slot $SLOT"
 }
 

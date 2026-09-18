@@ -44,7 +44,7 @@ Intigriti MCP ──► target-queue.json ──► worker pool (tmux) ──►
 Key config values: `intigriti_username=aceproulx`, `email_base=aceproulx`,
 `email_domain=intigriti.me`, `telegram_chat_id=7699164876`,
 `blind_xss_url=https://xss.report/c/aceos`, `caido_proxy_port=8080`,
-`curl_proxy_port=8081`, `max_worker_slots=2`, `browser_isolation=isolated`.
+`curl_proxy_port=8081`, `max_worker_slots=4`, `browser_isolation=isolated`.
 
 ---
 
@@ -176,10 +176,10 @@ copy has `{{PLACEHOLDERS}}` and won't resolve paths.
 ### Start an autonomous overnight hunt
 ```bash
 hackbot-queue init
-hackbot-workers start --slots 2        # or 3 overnight
+hackbot-workers start --slots 4        # or 3 overnight
 tmux attach -t hackbot                 # watch live
 hackbot-watchdog daemon                # auto-monitor workers
-scripts/refill-watcher.sh --max-slots 2 &   # auto-refill slots
+scripts/refill-watcher.sh --max-slots 4 &   # auto-refill slots
 ```
 Or run the orchestrator agent directly: `opencode run --agent hunter-orchestrator`.
 

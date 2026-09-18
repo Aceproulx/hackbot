@@ -100,7 +100,7 @@ def v_overview():
     stats = ""
     st = [
         ("Reports", hs["reports"], f'{hs["evidence"]} evidence packs', "clipboard-list", "k-findings"),
-        ("Workers", f"{len(active_w)}/{max(len(workers),1)}", "active lanes", "cpu", "k-workers"),
+        ("Workers", f"{len(active_w)}/{max(MAX_SLOTS, len(active_w))}", "active lanes", "cpu", "k-workers"),
         ("Queue", f"{len(pending)}", f"{len(queue)} programs queued", "target", "k-queue"),
         ("Hunts", hs["hunts"], f'{hs["runs"]} runs · {hs["sessions"]} sessions', "sitemap", "k-hunts"),
     ]
@@ -529,7 +529,8 @@ def _wg_rel(ts):
 
 def _wg_verdict(v):
     s = (v or "").strip().rstrip("*").upper()
-    state = {"HEALTHY": "running", "ALIVE": "running", "DEAD": "failed",
+    state = {"HEALTHY": "running", "ALIVE": "running", "DONE": "running",
+             "DEAD": "failed", "FAILED": "failed",
              "STUCK": "attention", "WEDGED": "attention", "HUNG": "attention"}.get(s, "idle")
     return pill(state, s or "—")
 
@@ -800,6 +801,12 @@ def v_memory():
             else f'<div class="card"><div class="bd"><div class="empty"><div class="ic">{icon("database", 34)}</div><div class="t">Memory is empty</div></div></div></div>')
     return page("memory", hero("Memory", "Hunt notes, recon and session state"), body)
 
+def _trim_program(handle: str, n: int = 24) -> str:
+    """Trim a program handle for display; full value stays in data-search/link attrs."""
+    h = str(handle)
+    return h if len(h) <= n else h[: n - 1] + "\u2026"
+
+
 def v_findings():
     hs = hunt_stats()
     reps = sorted(all_reports(), key=lambda r: r["mtime"], reverse=True)
@@ -824,7 +831,7 @@ def v_findings():
         f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}"'
         f' data-mark="{esc(r["mark"])}" data-read="{"1" if r["read"] else "0"}">'
         f'<td>{f"<span class=dot-u></span>" if not r["read"] else ""}</td>'
-        f'<td class="mono">{esc(r["handle"])}</td>'
+        f'<td class="mono" title="{esc(r["handle"])}">{esc(_trim_program(r["handle"]))}</td>'
         f'<td style="font-weight:600"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
         f'<td class="num">{fmt_size(os.path.getsize(r["path"]))}</td>'
         f'<td>{fmt_ts(r["mtime"])}</td>'
@@ -848,7 +855,7 @@ def v_findings():
                     f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table></div>')
 
     erows = "".join(
-        f'<tr><td class="mono">{esc(e["handle"])}</td>'
+        f'<tr><td class="mono" title="{esc(e["handle"])}">{esc(_trim_program(e["handle"]))}</td>'
         f'<td class="mono">{esc(e["name"])}</td>'
         f'<td>{fmt_size(os.path.getsize(e["path"]))}</td>'
         f'<td>{fmt_ts(e["mtime"])}</td></tr>' for e in evi)

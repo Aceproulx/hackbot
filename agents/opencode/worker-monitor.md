@@ -137,6 +137,14 @@ Report what you found in the "Queue maintenance" section.
 
 For each worker in the snapshot, apply these rules **in order**:
 
+0. **DONE** — the target's queue item is already `done` (the worker called
+   `hackbot-queue done`) AND it has stopped working (`proc_alive == false`, or
+   `log_age_min > 5` with `cpu_delta < 10`). The hunt finished successfully —
+   this is **not** dead, and the target must never be requeued or restarted
+   (its `rehunt_after` window is already set). Close the slot — see Step 4,
+   "DONE worker". If the queue item is `done` but the worker is still consuming
+   CPU or writing to its log, it is in post-completion teardown: treat as
+   HEALTHY and re-check next cycle.
 1. **DEAD** — `tmux_alive == false`, OR (`proc_alive == false` AND `log_age_min > 5`).
    The worker is gone. It needs a restart.
 2. **FAILED** — `proc_alive == false` AND `fatal_errors` is non-empty.
@@ -154,13 +162,38 @@ Also check the pool as a whole:
 - If `pool_running == true` but `tmux_session_alive == false` and there are
   workers marked `running` in pool.json → the tmux session died (reboot /
   manual kill). Mark every such worker `failed` (reason: `session_died`) and
-  restart each via `hackbot-workers start-target <handle>`.
+  restart each via `hackbot-workers start-target <handle>` — **except** any
+  whose queue item is already `done`; release those slots instead
+  (`hackbot-queue release <handle>`), since their hunts finished successfully.
 
 ---
 
 ## Step 4 — Fix what's broken
 
+### DONE worker (finished cleanly)
+The slot must be released so the refill-watcher can claim it. Do **not** requeue
+and do **not** restart — the target's hunt is complete and its `rehunt_after`
+window is set.
+
+```bash
+hackbot-queue release <handle>        # marks the pool slot `done`, kills the idle window
+```
+
+`hackbot-queue done` already does this automatically when the worker calls it;
+`release` exists for the case where the worker died, was killed, or completed
+before releasing — it is idempotent and never touches queue bookkeeping. Verify
+with `jq -r '.workers[] | select(.status=="running")' pool.json` afterwards.
+
 ### DEAD or FAILED worker
+**First confirm the target is not already finished.** If its queue item is
+`done`, the worker completed successfully and you misclassified it — follow the
+DONE path above instead (never requeue a finished target):
+
+```bash
+jq -r --arg h "<handle>" '.[] | select(.handle == $h) | .status' \
+  {{HACKBOT_MISC_DIR}}/target-queue.json   # -> "done" means: do NOT requeue
+```
+
 1. Read the tail of its log to extract the actual error:
    ```bash
    tail -60 {{HACKBOT_MISC_DIR}}/worker-pool/worker-<slot>-<handle>.log

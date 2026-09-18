@@ -63,7 +63,9 @@ fs.writeFileSync(configPath, JSON.stringify({ browser }));
 // ---- spawn ----
 const child = spawn('npx', ['-y', '@playwright/mcp@latest', '--config', configPath, '--caps', 'vision', '--console-level', 'info', '--ignore-https-errors'], {
   stdio: ['pipe', 'pipe', 'pipe'],
+  detached: true,
 });
+function killTree() { try { process.kill(-child.pid, 'SIGKILL'); } catch {} try { child.kill('SIGKILL'); } catch {} }
 let buf = '';
 let stderrBuf = '';
 const pending = new Map();
@@ -96,11 +98,11 @@ function send(method, params, id) {
 }
 
 const timeout = setTimeout(() => {
-  console.error('FATAL: no response in 100s. stderr:\n' + stderrBuf);
-  child.kill('SIGKILL');
-  fs.unlinkSync(configPath);
+  console.error('FATAL: no response in 160s. stderr:\n' + stderrBuf);
+  killTree();
+  try { fs.unlinkSync(configPath); } catch {}
   process.exit(1);
-}, 100000);
+}, 160000);
 
 async function main() {
   await send('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'pw-drive', version: '1.0.0' } });
@@ -110,16 +112,36 @@ async function main() {
 
   let toolArgs = {};
   let toolName = cmd;
+  if (cmd === 'script') {
+    const steps = JSON.parse(fs.readFileSync(rest[0], 'utf8'));
+    const results = [];
+    for (const st of steps) {
+      const tn = st.tool || st.name;
+      const ta = st.args || st.params || {};
+      try {
+        const r = await send('tools/call', { name: tn, arguments: ta });
+        const txt = (r.content || []).map(c => (c.type === 'text' ? c.text : c.type === 'image' ? '[image]' : JSON.stringify(c))).join('\n');
+        results.push({ tool: tn, ok: !r.isError, text: txt.slice(0, st.cap || 4000) });
+      } catch (e) {
+        results.push({ tool: tn, ok: false, error: e.message });
+      }
+    }
+    console.log(JSON.stringify(results, null, 2));
+    clearTimeout(timeout);
+    try { child.stdin.end(); } catch {}
+    setTimeout(() => { try { child.kill('SIGKILL'); } catch {} try { fs.unlinkSync(configPath); } catch {} process.exit(0); }, 500);
+    return;
+  }
   switch (cmd) {
-    case 'navigate': toolArgs = { url: rest[0] }; break;
-    case 'snapshot': break;
-    case 'click': toolArgs = { element: rest[0] }; break;
-    case 'type': toolArgs = { element: rest[0], text: rest[1] }; break;
-    case 'press': toolArgs = { key: rest[0] }; break;
-    case 'find': toolArgs = { text: rest[0] }; break;
-    case 'evaluate': toolArgs = { function: rest[0] }; break;
-    case 'screenshot': toolArgs = { path: rest[0] || '/home/aceos/Projects/hackbot/.playwright-mcp/shot.png' }; break;
-    case 'wait': toolArgs = { time: parseInt(rest[0], 10) || 2 }; break;
+    case 'navigate': toolName = 'browser_navigate'; toolArgs = { url: rest[0] }; break;
+    case 'snapshot': toolName = 'browser_snapshot'; break;
+    case 'click': toolName = 'browser_click'; toolArgs = { target: rest[0] }; break;
+    case 'type': toolName = 'browser_type'; toolArgs = { target: rest[0], text: rest[1] }; break;
+    case 'press': toolName = 'browser_press_key'; toolArgs = { key: rest[0] }; break;
+    case 'find': toolName = 'browser_find'; toolArgs = { text: rest[0] }; break;
+    case 'evaluate': toolName = 'browser_evaluate'; toolArgs = { function: rest[0] }; break;
+    case 'screenshot': toolName = 'browser_take_screenshot'; toolArgs = { path: rest[0] || '/home/aceos/Projects/hackbot/.playwright-mcp/shot.png' }; break;
+    case 'wait': toolName = 'browser_wait_for'; toolArgs = { time: parseInt(rest[0], 10) || 2 }; break;
     case 'close-tabs': toolName = 'browser_close'; break;
     case 'tab-list': toolName = 'browser_tab_list'; break;
     default: throw new Error('unknown command ' + cmd);
@@ -134,13 +156,13 @@ async function main() {
 main().then(() => {
   clearTimeout(timeout);
   try { child.stdin.end(); } catch {}
-  setTimeout(() => { try { child.kill('SIGKILL'); } catch {} try { fs.unlinkSync(configPath); } catch {} process.exit(0); }, 500);
+  setTimeout(() => { killTree(); try { fs.unlinkSync(configPath); } catch {} process.exit(0); }, 500);
 }).catch(e => {
   clearTimeout(timeout);
   console.error('ERROR: ' + e.message);
   if (stderrBuf) console.error('stderr:\n' + stderrBuf.slice(-2000));
-  try { child.kill('SIGKILL'); } catch {}
+  killTree();
   try { fs.unlinkSync(configPath); } catch {}
   process.exit(1);
 });
-child.on('exit', () => { try { fs.unlinkSync(configPath); } catch {} });
+child.on('exit', () => { try { fs.unlinkSync(configPath); } catch {} setTimeout(() => process.exit(0), 100); });

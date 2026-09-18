@@ -18,6 +18,8 @@ set -euo pipefail
 
 QUEUE_FILE={{HACKBOT_MISC_DIR}}/target-queue.json
 HISTORY_FILE={{HACKBOT_MISC_DIR}}/queue-history.jsonl
+POOL_STATE="{{HACKBOT_MISC_DIR}}/worker-pool/pool.json"
+POOL_SESSION="hackbot"
 LOCK_FILE=/tmp/hackbot-queue.lock
 MIN_REHUNT_DAYS="${MIN_REHUNT_DAYS:-7}"     # don't re-hunt a target within this window
 NOTIFY="hackbot-notify"
@@ -90,43 +92,46 @@ EOF
 
     programs as $progs |
     existing_map as $ex |
-    $progs
-    | map(select(st == "open" and (maxv // 0) > 0))
-    | map({
-        handle:               .handle,
-        program_id:           .id,
-        name:                 .name,
-        max_bounty:           maxv,
-        min_bounty:           minv,
-        tags:                 (.tags // []),
-        confidentiality:      conf,
-        status:               ($ex[.handle].status // "pending"),
-        score:                ($ex[.handle].score // (
-          # base score from bounty
-          if maxv >= 10000 then 30
-          elif maxv >= 5000 then 20
-          elif maxv >= 1000 then 10
-          else 5 end
-        )),
-        boost:                ($ex[.handle].boost // 0),
-        bugs_found:           ($ex[.handle].bugs_found // 0),
-        last_hunted:          ($ex[.handle].last_hunted // null),
-        last_verdict:         ($ex[.handle].last_verdict // null),
-        active_worker:        null,
-        started_at:           null,
-        queued_at:            (($ex[.handle].queued_at // now) | if type == "string" then (try fromdateiso8601 catch now) else . end | todate),
-        rehunt_after:         ($ex[.handle].rehunt_after // null)
-      })
-    # Re-open targets whose rehunt_after has passed
-    | map(
-        if .status == "done" and .rehunt_after != null
-           and (.rehunt_after < (now | todate))
-        then .status = "pending"
-        else .
-        end
-      )
-    # Sort by effective score desc
-    | sort_by(-(.score + .boost))
+    ($progs
+      | map(select(st == "open" and (maxv // 0) > 0))
+      | map({
+          handle:               .handle,
+          program_id:           .id,
+          name:                 .name,
+          max_bounty:           maxv,
+          min_bounty:           minv,
+          tags:                 (.tags // []),
+          confidentiality:      conf,
+          status:               ($ex[.handle].status // "pending"),
+          score:                ($ex[.handle].score // (
+            # base score from bounty
+            if maxv >= 10000 then 30
+            elif maxv >= 5000 then 20
+            elif maxv >= 1000 then 10
+            else 5 end
+          )),
+          boost:                ($ex[.handle].boost // 0),
+          bugs_found:           ($ex[.handle].bugs_found // 0),
+          last_hunted:          ($ex[.handle].last_hunted // null),
+          last_verdict:         ($ex[.handle].last_verdict // null),
+          active_worker:        null,
+          started_at:           null,
+          queued_at:            (($ex[.handle].queued_at // now) | if type == "string" then (try fromdateiso8601 catch now) else . end | todate),
+          rehunt_after:         ($ex[.handle].rehunt_after // null)
+        })
+      # Re-open targets whose rehunt_after has passed
+      | map(
+          if .status == "done" and .rehunt_after != null
+             and (.rehunt_after < (now | todate))
+          then .status = "pending"
+          else .
+          end
+        )
+      # Sort by effective score desc
+      | sort_by(-(.score + .boost))) as $new_progs |
+    # Preserve self-hosted targets through refreshes (no Intigriti program behind them)
+    ($ex | to_entries | map(select(.value.self_hosted == true)) | map(.value)) as $selfhosted |
+    ($new_progs + $selfhosted)
   ')
 
   echo "$NEW_QUEUE" > "$QUEUE_FILE"
@@ -174,6 +179,37 @@ cmd_next() {
   unlock
 }
 
+# ── pool slot release ─────────────────────────────────────────────────────────
+
+# Free the worker-pool slot for a target that has finished. Workers end their
+# session by calling `hackbot-queue done` and then sit idle at a tmux shell;
+# unless the slot is cleared here, pool.json keeps it "running" forever, the
+# refill watcher sees no free slot, and queued targets never start. Only the
+# pool record is touched — the queue is already being updated by the caller.
+release_pool_slot() {
+  local H="$1" NOTE="${2:-session completed: queue marked done}"
+  [[ -n "$H" && -f "$POOL_STATE" ]] || return 0
+
+  local SLOT
+  SLOT=$(jq -r --arg h "$H" \
+    '[.workers[] | select(.handle==$h and .status=="running")][0].slot // empty' \
+    "$POOL_STATE" 2>/dev/null || true)
+
+  if jq --arg h "$H" --arg ts "$(ts)" --arg note "$NOTE" '
+      .workers |= map(if .handle == $h and .status == "running"
+        then .status = "done" | .done_at = $ts | .done_note = $note
+        else . end)
+    ' "$POOL_STATE" > /tmp/pool-tmp.json 2>/dev/null; then
+    mv /tmp/pool-tmp.json "$POOL_STATE"
+  fi
+
+  # The window outlives `opencode run` as an idle shell — kill it so the slot
+  # is genuinely free (and so the watchdog does not read it as a lost worker).
+  if [[ -n "$SLOT" ]] && command -v tmux >/dev/null 2>&1; then
+    tmux kill-window -t "${POOL_SESSION}:${SLOT}" 2>/dev/null || true
+  fi
+}
+
 # ── done ───────────────────────────────────────────────────────────────────────
 
 cmd_done() {
@@ -214,8 +250,24 @@ cmd_done() {
   echo "{\"ts\":\"$NOW\",\"handle\":\"$HANDLE\",\"bugs\":$BUGS,\"verdict\":\"$VERDICT\",\"rehunt_after\":\"$REHUNT_AFTER\"}" \
     >> "$HISTORY_FILE"
 
+  # Release the pool slot so the refill watcher can start the next target.
+  release_pool_slot "$HANDLE"
+
   echo "Marked $HANDLE as done (bugs=$BUGS, verdict=$VERDICT, rehunt_after=$REHUNT_AFTER)"
   unlock
+}
+
+# ── release ────────────────────────────────────────────────────────────────────
+
+# Idempotent slot release for a target that is already finished (queue status
+# "done"). Used to heal drift — e.g. a worker killed after writing its session
+# log — and by the refill watcher's reconcile pass. Never touches queue
+# bookkeeping.
+cmd_release() {
+  local HANDLE="${2:-}"
+  [[ -z "$HANDLE" ]] && { echo "Usage: queue-manager.sh release <handle>" >&2; exit 1; }
+  release_pool_slot "$HANDLE" "${3:-}"
+  echo "Released pool slot for '$HANDLE' (if it was running)"
 }
 
 # ── skip ───────────────────────────────────────────────────────────────────────
@@ -462,5 +514,6 @@ case "$CMD" in
   requeue)  cmd_requeue "$@" ;;
   boost)    cmd_boost "$@" ;;
   add)      cmd_add "$@" ;;
-  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add"; exit 1 ;;
+  release)  cmd_release "$@" ;;
+  *)        echo "Unknown command: $CMD"; echo "Commands: init next done skip fail status history reset requeue boost add release"; exit 1 ;;
 esac

@@ -216,9 +216,25 @@ th.num{text-align:right}
 .console-bar .btn.ghost:disabled{opacity:.35;cursor:not-allowed;background:#16191e;color:#555b66}
 /* console page shell: fixed viewport height (dvh for mobile URL bar), no page scroll */
 .console-page{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
-/* controls wrapper is layout-transparent on desktop (children flow as direct flex items) */
-.console-bar .controls{display:contents}
-.console-bar.input-bar{padding:10px 16px}
+/* console page: standalone dark shell (unified neutral-900/950 palette) */
+body.console-page{--bg:#0a0a0b;--fg:#d4d4d8;--border:#27272a;--muted:#71717a;background:#0a0a0b;color:#d4d4d8}
+body.console-page .con-hdr{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:8px;height:52px;padding:0 12px;background:#09090b;border-bottom:1px solid #27272a;flex-shrink:0}
+body.console-page .con-brand{display:inline-flex;align-items:center;gap:7px;color:#e4e4e7;font-weight:800;letter-spacing:.12em;font-size:12px;white-space:nowrap;flex-shrink:0}
+body.console-page .con-brand .ic-svg{color:#22c55e}
+body.console-page .con-hdr .dd{min-width:0;max-width:min(44vw,340px);flex:0 1 auto}
+body.console-page .con-hdr .dd-btn{height:28px;padding:0 8px;border-radius:6px;background:#18181b;border-color:#3f3f46;font-size:12px;gap:6px}
+body.console-page .con-hdr .dd-btn:hover{border-color:#52525b;background:#27272a}
+body.console-page .con-hdr .dd-btn .dd-ic{color:#9ca3af}
+body.console-page .con-ctl{display:flex;align-items:center;gap:6px;flex-shrink:0}
+body.console-page .con-ctl select{background:#18181b;color:#d4d4d8;border:1px solid #3f3f46;border-radius:6px;padding:0 6px;height:28px;font-size:12px;font-family:inherit}
+body.console-page .con-ctl .btn.ghost{height:28px;padding:0 8px;border-radius:6px;background:#18181b;color:#d4d4d8;border-color:#3f3f46;box-shadow:none;font-size:12px;gap:5px}
+body.console-page .con-ctl .btn.ghost:hover{color:#fff;border-color:#52525b;background:#27272a}
+body.console-page .con-ctl .pill{height:28px;padding:0 10px;font-size:11px;background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+body.console-page .con-ctl .pill.amber{background:rgba(245,158,11,.12);color:#fbbf24;border-color:rgba(245,158,11,.3)}
+body.console-page .activity-indicator{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+body.console-page .console-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:0;overflow:hidden}
+body.console-page .terminal{flex:1;min-height:0;border-radius:0;padding:12px 14px}
+body.console-page .console-bar.input-bar{padding:8px 12px;border-top:1px solid #27272a;border-bottom:none}
 
 /* modal + toasts */
 .modal-bg{position:fixed;inset:0;background:rgba(20,12,10,.45);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:9vh}
@@ -541,23 +557,20 @@ details.clp-cmd.expanded .clp-more{display:none}
   #evcard tbody td:nth-child(3){order:3;flex:0 0 auto}
   #evcard tbody td[data-label]:not(:nth-child(2))::before{content:attr(data-label);display:block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 
-  /* console page */
-  .console-body{padding:8px !important}
-  .console-bar{flex-wrap:wrap;gap:8px;padding:8px 10px}
-  .console-bar .title{flex:1 1 100%}
-  .console-bar .dd{min-width:0;max-width:none;flex:1 1 100%}
-  .console-bar .sp{display:none}
-  /* controls -> compact horizontally scrollable row */
-  .console-bar .controls{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .console-bar .controls::-webkit-scrollbar{display:none}
-  .console-bar .controls>*{flex:0 0 auto}
-  /* 44px touch targets for console controls */
-  .console-bar .dd-btn,.console-bar select,.console-bar .btn.ghost,.console-bar .pill{min-height:44px}
-  .console-bar .pill{display:inline-flex;align-items:center;padding:0 14px}
+  /* console page: single-row header, controls scroll horizontally */
+  body.console-page .con-hdr{height:52px;padding:0 8px;gap:6px}
+  body.console-page .con-brand span{display:none}
+  body.console-page .con-hdr>span[style]{display:none}
+  body.console-page .con-hdr .dd{flex:1 1 auto;min-width:110px;max-width:none}
+  body.console-page .con-ctl{flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  body.console-page .con-ctl::-webkit-scrollbar{display:none}
+  body.console-page .con-ctl>*{flex:0 0 auto}
+  body.console-page .con-ctl select,body.console-page .con-ctl .btn.ghost,body.console-page .con-ctl .pill{height:32px;min-height:0}
   /* terminal fills remaining height, wraps wide lines, scrolls internally */
-  #termlog{height:auto !important;flex:1 1 auto;min-height:140px;font-size:12px;line-height:1.45;padding:10px 12px}
+  #termlog{height:auto !important;flex:1 1 auto;min-height:140px;font-size:12px;line-height:1.45;padding:8px 10px}
   /* input bar pinned to bottom, safe-area inset for mobile browsers */
-  .console-bar.input-bar{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
-  .console-bar.input-bar input{min-width:0}
+  body.console-page .console-bar.input-bar{padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+  body.console-page .console-bar.input-bar input{min-width:0}
+  body.console-page .console-bar.input-bar .btn.ghost{min-height:44px}
 }
 """

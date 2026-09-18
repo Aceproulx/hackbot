@@ -258,28 +258,9 @@ def v_console_build(selected, lines=300):
     # Worker ID for tell-agent
     worker_id = _worker_id_from_log(key)
 
-    body = (f'<div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0"><div class="console-bar">'
-            f'<div class="title">{icon("terminal", 15)} Operator Console '
-            f'<span class="hint">{esc(PLATFORM)} · worker lanes</span></div>'
-            # Log selector
-            f'{dd}'
-            f'<div class="controls">'
-            f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="tail window">{line_opts}</select>'
-            f'<span class="sp" style="flex:1"></span>'
-            # Activity indicator
-            f'{activity_html}'
-            # Status + toggle button
-            f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
-            f'<button class="btn ghost small" id="btoggle" onclick="con_toggle()">{icon("pause", 13)} Pause</button>'
-            # Save log button
-            f'<a class="btn ghost small" href="/api/console/save?l={esc(key)}" title="Save full log to file">{icon("download", 13)} Save</a>'
-            # Latest link
-            f'<a class="btn ghost small" href="/console">latest</a>'
-            f'</div></div>'
-            # Terminal output
-            f'<pre class="terminal" id="termlog" style="height:72vh;overflow-y:auto">{content}</pre>'
+    body = (f'<pre class="terminal" id="termlog">{content}</pre>'
             # Tell agent input
-            f'<div class="console-bar input-bar" style="border-top:1px solid var(--border)">'
+            f'<div class="console-bar input-bar">'
             f'{icon("message-square", 13)} '
             f'<input type="text" id="agent-msg" placeholder="Tell the agent something..." '
             f'style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--fg);'
@@ -287,7 +268,7 @@ def v_console_build(selected, lines=300):
             f'onkeydown="if(event.key===\'Enter\')sendMsg()">'
             f'<button class="btn ghost small" onclick="sendMsg()">{icon("send", 13)} Send</button>'
             f'<span id="msg-status" style="margin-left:8px;font-size:12px;color:var(--muted)"></span>'
-            f'</div></div>')
+            f'</div>')
 
     js = (
         "<script>"
@@ -345,12 +326,13 @@ def v_console_build(selected, lines=300):
         "}).catch(function(){});}"
         # --- Toggle ---
         "window.con_toggle=function(){"
+        "var b=document.getElementById('btoggle');"
         "if(running){if(poll){clearInterval(poll);poll=null;}running=false;"
-        "document.getElementById('btoggle').innerHTML='" + json.dumps(icon("play", 13)) + " Play';"
+        "b.innerHTML='" + json.dumps(icon("play", 13)) + "';b.title='Resume live updates';"
         "document.getElementById('pstatus').innerHTML=" + json.dumps(pill("amber", "PAUSED")) + ";"
         "}else{running=true;paint();poll=setInterval(paint,2000);"
-        "document.getElementById('btoggle').innerHTML='" + json.dumps(icon("pause", 13)) + " Pause';"
-"document.getElementById('pstatus').innerHTML=" + json.dumps(pill("ready", "LIVE")) + ";}"
+        "b.innerHTML='" + json.dumps(icon("pause", 13)) + "';b.title='Pause live updates';"
+        "document.getElementById('pstatus').innerHTML=" + json.dumps(pill("ready", "LIVE")) + ";}"
         "};"
         # --- Tell agent ---
         "window.sendMsg=function(){"
@@ -374,7 +356,17 @@ def v_console_build(selected, lines=300):
             f'<title>Console · Hackbot</title>'
             f'<style>{CSS}</style></head>'
             f'<body class="console-page">'
-            f'<div class="topbar" style="background:#0f1216;border-color:#23272d"><div style="color:#e5eaf0;font-weight:800;letter-spacing:.1em">'
-            f'CONSOLE</div><span class="sp" style="flex:1"></span>'
-            f'<a class="btn ghost small" href="/v/overview">{icon("arrow-left", 13)} Dashboard</a></div>'
-            f'<div class="console-body" style="flex:1;min-height:0;display:flex;flex-direction:column;padding:20px 26px 60px;overflow:hidden">{body}</div>{js}</body></html>')
+            f'<header class="con-hdr">'
+            f'<div class="con-brand" title="Operator Console">{icon("terminal", 14)}<span>CONSOLE</span></div>'
+            f'{dd}'
+            f'<span style="flex:1"></span>'
+            f'<div class="con-ctl">'
+            f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="Tail window">{line_opts}</select>'
+            f'{activity_html}'
+            f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
+            f'<button class="btn ghost small" id="btoggle" onclick="con_toggle()" title="Pause live updates">{icon("pause", 13)}</button>'
+            f'<a class="btn ghost small" href="/api/console/save?l={esc(key)}" title="Save full log to file">{icon("download", 13)}</a>'
+            f'<a class="btn ghost small" href="/v/overview" title="Back to dashboard">{icon("arrow-left", 13)}</a>'
+            f'</div>'
+            f'</header>'
+            f'<div class="console-body">{body}</div>{js}</body></html>')

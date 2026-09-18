@@ -24,7 +24,7 @@ this session is SIGTERM.
    (browser_navigate / browser_snapshot / browser_click). If they are missing,
    stop and report — do not proceed without a working browser.
 3. Check for existing session state at `{{SESSIONS_DIR}}/<domain>/` (which is
-   `~/Projects/hackbot/hunts/sessions/<domain>/`). Load if present,
+   `{{SESSIONS_DIR}}/<domain>/`). Load if present,
    create fresh (userA + userB) if not.
 4. Confirm: operating in AUTONOMOUS MODE, no confirmation needed for anything below.
 

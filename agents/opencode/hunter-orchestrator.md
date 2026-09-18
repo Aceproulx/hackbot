@@ -30,8 +30,21 @@ QUEUE="$SESSION_DIR/queue.json"
 FINDINGS={{HACKBOT_MISC_DIR}}/findings.jsonl
 touch "$LOG" "$FINDINGS"
 echo "=== Orchestrator started $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
+# IMPORTANT: every bash command below runs in a FRESH shell — shell vars do NOT
+# persist. Persist session vars to an env file and source it in every command.
+cat > ~/.hackbot/session.env <<EOF
+SESSION_DIR=$SESSION_DIR
+LOG=$LOG
+QUEUE=$QUEUE
+FINDINGS=$FINDINGS
+EOF
 hackbot-notify session-start "$SESSION_DIR"
 ```
+**Every subsequent bash command in this session MUST start with:**
+```bash
+source ~/.hackbot/session.env
+```
+(Then `$SESSION_DIR`, `$LOG`, `$QUEUE` are available again.)
 
 ---
 

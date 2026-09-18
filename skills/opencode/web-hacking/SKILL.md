@@ -272,7 +272,7 @@ eval "$(cd "$ABP" && ./claim-account.sh)"
 > (no MCP tools in your toolset, connection closed), the env vars it exports
 > (`AGENT_BROWSER_PROFILE`, `PLAYWRIGHT_MCP_USER_DATA_DIR`) still point at
 > your profile — use the fallback helper with those vars:
-> `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js navigate <url>`
+> `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js navigate <url>`
 > (profile is picked up automatically from the env vars). See the
 > "Playwright MCP UNAVAILABLE — FALLBACK" section.
 
@@ -817,26 +817,26 @@ missing server-side validation). Completely separate from solving.
 directly with the fallback helper:
 
 ```
-node {{HACKBOT_DIR}}/scripts/playwright-fallback.js <command> [args] [--profile <dir>]
+node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js <command> [args] [--profile <dir>]
 ```
 
 #### Command mapping — MCP tool → fallback command
 
 | MCP tool | Fallback command |
 |---|---|
-| `browser_navigate(url)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js navigate <url>` |
-| `browser_snapshot()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js snapshot` |
-| `browser_find(text)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js find <text-or-/regex/>` |
-| `browser_click(ref)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js click <ref>` |
-| `browser_type(ref, text)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js type <ref> <text>` |
-| `browser_press_key(key)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js press <key>` |
-| `browser_hover(ref)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js hover <ref>` |
-| `browser_evaluate(fn)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js evaluate "() => ..."` |
-| `browser_console_messages()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js console` |
-| `browser_network_requests()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js network` |
-| `browser_take_screenshot(path)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js screenshot <path>` |
-| `browser_wait_for(secs)` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js wait <seconds>` |
-| `browser_close()` | `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js close` |
+| `browser_navigate(url)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js navigate <url>` |
+| `browser_snapshot()` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js snapshot` |
+| `browser_find(text)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js find <text-or-/regex/>` |
+| `browser_click(ref)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js click <ref>` |
+| `browser_type(ref, text)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js type <ref> <text>` |
+| `browser_press_key(key)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js press <key>` |
+| `browser_hover(ref)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js hover <ref>` |
+| `browser_evaluate(fn)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js evaluate "() => ..."` |
+| `browser_console_messages()` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js console` |
+| `browser_network_requests()` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js network` |
+| `browser_take_screenshot(path)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js screenshot <path>` |
+| `browser_wait_for(secs)` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js wait <seconds>` |
+| `browser_close()` | `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js close` |
 
 #### Rules — non-negotiable
 
@@ -849,8 +849,8 @@ node {{HACKBOT_DIR}}/scripts/playwright-fallback.js <command> [args] [--profile 
    After `claim-account.sh` the env vars are already set — just run the
    command. Without a profile the session does NOT persist between calls.
 3. **Screenshots must be written inside the project dir.** The server only
-   allows writes under `{{HACKBOT_DIR}}` (e.g.
-   `{{HACKBOT_DIR}}/.playwright-mcp/evidence.png`). Writing to `/tmp` fails
+   allows writes under `/home/aceos/Projects/hackbot` (e.g.
+   `/home/aceos/Projects/hackbot/.playwright-mcp/evidence.png`). Writing to `/tmp` fails
    with `File access denied`.
 4. **Element refs come from `snapshot` output.** Always run `snapshot` first,
    read the `[ref=eNN]` values, then use them in `click` / `type` / `hover`.
@@ -929,7 +929,7 @@ the app is actually doing client-side. Use it constantly, not just when you
 already suspect XSS.
 
 > **MCP tools missing?** Every `browser_*` call below maps 1:1 to
-> `node {{HACKBOT_DIR}}/scripts/playwright-fallback.js <command>` — see the
+> `node /home/aceos/Projects/hackbot/scripts/playwright-fallback.js <command>` — see the
 > "Playwright MCP UNAVAILABLE — FALLBACK" section above for the full mapping
 > and rules. Do not skip browser work because the MCP is down.
 

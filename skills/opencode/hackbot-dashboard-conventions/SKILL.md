@@ -39,7 +39,7 @@ entries, report URLs, and the findings log only carry the bare handle
 
 `scripts/worker-pool.sh` and `scripts/queue-manager.sh` in the repo
 are install templates containing `{{HACKBOT_MISC_DIR}}`,
-`{{EMAIL_BASE}}`, `{{EMAIL_DOMAIN}}` placeholders. Running them
+`{{INTIGRITI_USERNAME}}`, `{{EMAIL_DOMAIN}}` placeholders. Running them
 unrendered points at literal paths like
 `{{HACKBOT_MISC_DIR}}/target-queue.json` and breaks every Start/Stop
 action (it silently falls back to `hackbot-queue init`, which then

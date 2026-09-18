@@ -132,9 +132,9 @@ ON CONFIRMED FINDING: run this command:
 hackbot-dashboard add --program "${HANDLE}" --title "<title>" --severity "<sev>" --status "confirmed" --bounty <est> --evidence "<caido_ids>" --url "<url>"
 
 WHEN DONE: run these commands and then exit:
-hackbot-notify done "${HANDLE}" <bugs_found> <RICH_TARGET|MODERATE|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>
-hackbot-queue done "${HANDLE}" <bugs_found> <RICH_TARGET|MODERATE|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>
-(The hackbot-queue done call marks the target done AND releases this worker's pool slot so the next target can start.)
+1. Write a session summary to ${HUNT_DIR}/SUMMARY.md — verdict, bugs found, what was tested, conclusions (even if 0 findings).
+2. hackbot-queue done "${HANDLE}" <bugs_found> <RICH_TARGET|MODERATE|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>
+(The hackbot-queue done call marks the target done, fires the completion alert, AND releases this worker's pool slot so the next target can start.)
 PROMPT
 
   # Launch tmux window with the worker

@@ -280,6 +280,11 @@ cmd_done() {
   # Release the pool slot so the refill watcher can start the next target.
   release_pool_slot "$HANDLE"
 
+  # Fire the completion alert. Single source of truth: every worker calls
+  # `hackbot-queue done`, so this covers old-contract workers too (the alert
+  # used to live only in the worker prompt, which pre-fix workers lacked).
+  "$NOTIFY" done "$HANDLE" "$BUGS" "$VERDICT" >/dev/null 2>&1 || true
+
   echo "Marked $HANDLE as done (bugs=$BUGS, verdict=$VERDICT, rehunt_after=$REHUNT_AFTER)"
   unlock
 }

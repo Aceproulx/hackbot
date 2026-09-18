@@ -328,10 +328,10 @@ def v_console_build(selected, lines=300):
         "window.con_toggle=function(){"
         "var b=document.getElementById('btoggle');"
         "if(running){if(poll){clearInterval(poll);poll=null;}running=false;"
-        "b.innerHTML='" + json.dumps(icon("play", 13)) + "';b.title='Resume live updates';"
+        "b.innerHTML='" + icon("play", 13) + "';b.title='Resume live updates';"
         "document.getElementById('pstatus').innerHTML=" + json.dumps(pill("amber", "PAUSED")) + ";"
         "}else{running=true;paint();poll=setInterval(paint,2000);"
-        "b.innerHTML='" + json.dumps(icon("pause", 13)) + "';b.title='Pause live updates';"
+        "b.innerHTML='" + icon("pause", 13) + "';b.title='Pause live updates';"
         "document.getElementById('pstatus').innerHTML=" + json.dumps(pill("ready", "LIVE")) + ";}"
         "};"
         # --- Tell agent ---

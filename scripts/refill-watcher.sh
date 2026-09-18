@@ -87,15 +87,18 @@ while true; do
 
   # Reconcile first: a worker that finished (queue item already "done") but is
   # still marked "running" in pool.json holds its slot forever, so the scan
-  # below would never see it as free. Release any such slot before scanning.
+  # below would never see it as free. Release any such slot before scanning,
+  # and fire the completion alert (covers workers that never ran cmd_done).
   jq -r --slurpfile q "$QUEUE" '
     .workers[] | select(.status == "running") | .handle as $h
     | select([$q[0][] | select(.handle == $h and .status == "done")] | length > 0)
-    | .handle
-  ' "$POOL_STATE" 2>/dev/null | while read -r RH; do
+    | [$q[0][] | select(.handle == $h)][0] as $qi
+    | "\($h)\t\($qi.bugs_found // 0)\t\($qi.last_verdict // "UNKNOWN")"
+  ' "$POOL_STATE" 2>/dev/null | while IFS=$'\t' read -r RH RB RV; do
     [[ -n "$RH" ]] || continue
     log "Reconcile: '${RH}' finished (queue=done) but pool slot still running → releasing"
     hackbot-queue release "$RH" >> "$LOG" 2>&1 || true
+    hackbot-notify done "$RH" "$RB" "$RV" >> "$LOG" 2>&1 || true
   done
 
   # Find free slots: slots 1..MAX_SLOTS with no running worker

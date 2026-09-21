@@ -20,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .style import CSS
 from .config import MAX_SLOTS
+from .config import current_max_slots
 from .config import PLATFORM
 from .util import esc
 from .state import get_findings
@@ -37,6 +38,7 @@ NAV = [
     ("WORKSPACE", [
         ("overview", "Overview", "dashboard"),
         ("hunts", "Hunts", "target"),
+        ("queue", "Queue", "inbox"),
         ("findings", "Findings", "file-text"),
         ("history", "History", "clock"),
         ("monitors", "Monitors", "activity"),
@@ -92,16 +94,27 @@ def public_badge(t):
         return ' <span class="pill green"><span class="dot"></span>PUBLIC</span>'
     return ""
 
-def hunt_action_btn(t):
+def hunt_action_btn(t, pending_as_cancel=False):
     h = esc(t.get("handle", ""))
     # Trust actual worker state, not the queue's status field (which can go
     # stale when a pool is stopped/crashes without resetting the queue).
+    workers = get_workers()
     running = any(
         w.get("handle") == t.get("handle") and w.get("status") == "running"
-        for w in get_workers()
+        for w in workers
     )
     if running:
         return f'<button class="btn ghost small" onclick="hunterAction(\'stop\',\'{h}\',this)">{icon("pause", 12)} Stop</button>'
+    # Pool at capacity → offer "queue" instead of "start": the target gets
+    # marked pending and starts in order when a slot frees up.
+    busy = sum(1 for w in workers if w.get("status") == "running")
+    if busy >= current_max_slots():
+        # On the queue page a pending target is already queued — the "Queue"
+        # button is redundant, so it becomes "Cancel" instead.
+        if pending_as_cancel and t.get("status") == "pending":
+            return (f'<button class="btn ghost small" title="Cancel this queued target (skip, +30d cooldown)" '
+                    f'onclick="cancelTarget(\'{h}\',this)">{icon("x", 12)} Cancel</button>')
+        return f'<button class="btn ghost small" onclick="hunterAction(\'queue\',\'{h}\',this)">{icon("clock", 12)} Queue</button>'
     return f'<button class="btn small" onclick="hunterAction(\'start\',\'{h}\',this)">{icon("play", 12)} Start Hunt</button>'
 
 def need_attention():
@@ -115,7 +128,8 @@ def need_attention():
 def sidebar(active):
     hs = hunt_stats()
     queue = get_queue()
-    badges = {"findings": unread_reports(), "assets": len(queue)}
+    n_pending = sum(1 for t in queue if t.get("status") == "pending")
+    badges = {"findings": unread_reports(), "assets": len(queue), "queue": n_pending}
     rows = []
     for sec, items in NAV:
         rows.append(f'<div class="sec">{esc(sec)}</div>')
@@ -299,6 +313,15 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '    location.reload();\n'
         '  });\n'
         '}\n'
+        'function cancelTarget(handle,btn){\n'
+        '  openConfirm(\'Cancel (skip) \'+handle+\'? It gets a +30d cooldown and leaves the queue.\',\'Cancel\',function(){\n'
+        '    var orig=btn?btn.textContent:\'\';if(btn){btn.disabled=true;btn.textContent=\'Cancelling…\';}\n'
+        '    apiPost(\'/api/queue/bulk\',{action:\'skip\',handles:[handle]}).then(function(data){\n'
+        '      if(!data.ok){showMsg(data.message||\'Cancel failed.\');if(btn){btn.disabled=false;btn.textContent=orig;}return;}\n'
+        '      location.reload();\n'
+        '    });\n'
+        '  });\n'
+        '}\n'
         'async function usageRange(range,btn){\n'
         '  document.querySelectorAll(\'.range-pills .r\').forEach(function(p){p.classList.remove(\'active\');});\n'
         '  if(btn){btn.classList.add(\'active\');}\n'
@@ -351,6 +374,17 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '    location.reload();\n'
         '  }catch(e){err.textContent=\'Request failed: \'+e;err.style.display=\'\';btn.disabled=false;btn.textContent=orig;}\n'
         '}\n'
+        'async function saveSlots(){\n'
+        '  var inp=document.getElementById(\'slots-input\');if(!inp)return;\n'
+        '  var val=parseInt(inp.value,10);\n'
+        '  if(!val||val<1||val>8){showMsg(\'Slots must be between 1 and 8.\');return;}\n'
+        '  var btn=event.target;btn.disabled=true;var orig=btn.textContent;btn.textContent=\'Saving…\';\n'
+        '  try{var data=await apiPost(\'/api/config/update\',{section:\'providers\',setting:\'max_worker_slots\',value:String(val)});\n'
+        '    if(!data.ok){showMsg(data.message||\'Failed to update slots.\');btn.disabled=false;btn.textContent=orig;return;}\n'
+        '    showMsg(\'Worker slots set to \'+val+\'. Applies to new pool starts.\');\n'
+        '    btn.disabled=false;btn.textContent=orig;\n'
+        '  }catch(e){showMsg(\'Request failed: \'+e);btn.disabled=false;btn.textContent=orig;}\n'
+        '}\n'
         'async function testProvider(name,btn){\n'
         '  var orig=btn.textContent;btn.disabled=true;btn.textContent=\'Testing…\';\n'
         '  try{var data=await apiPost(\'/api/provider/test\',{name:name});\n'
@@ -396,11 +430,12 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         '  }catch(e){err.textContent=\'Request failed: \'+e;err.style.display=\'\';btn.disabled=false;btn.textContent=orig;}\n'
         '}\n'
         'async function hunterAction(action,handle,btn){\n'
-        '  openConfirm((action===\'start\'?\'Start a hunt on \':\'Stop the hunt on \')+handle+\'?\',\'Confirm\',function(){doHunterAction(action,handle,btn);\n'
+        '  var label=action===\'start\'?\'Start a hunt on \':action===\'queue\'?\'Queue a hunt on \':\'Stop the hunt on \';\n'
+        '  openConfirm(label+handle+\'?\',\'Confirm\',function(){doHunterAction(action,handle,btn);\n'
         '});\n'
         '}\n'
         'async function doHunterAction(action,handle,btn){\n'
-        '  var orig=btn?btn.textContent:\'\'; if(btn){btn.disabled=true;btn.textContent=action===\'start\'?\'Starting…\':\'Stopping…\';}\n'
+        '  var orig=btn?btn.textContent:\'\'; if(btn){btn.disabled=true;btn.textContent=action===\'start\'?\'Starting…\':action===\'queue\'?\'Queueing…\':\'Stopping…\';}\n'
         '  try{\n'
         '    var res=await fetch(\'/api/targets/\'+action,{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({handle:handle})});\n'
         '    var data=await res.json();\n'

@@ -3,7 +3,7 @@
 # pending target from the queue in that slot. Runs until the queue is empty
 # or all slots are busy. Designed for overnight autonomous hunts.
 #
-# Usage: refill-watcher.sh [--interval 1800] [--max-slots 4]
+# Usage: refill-watcher.sh [--interval 1800] [--max-slots 3]
 #        refill-watcher.sh stop       # gracefully stop the running watcher
 # Logs to: {{HACKBOT_MISC_DIR}}/worker-pool/refill-watcher.log
 # (spawned by watchdog.sh — the 30-minute orchestrator)
@@ -13,7 +13,7 @@
 # watcher idles and hands out nothing until resumed.
 
 INTERVAL=1800
-MAX_SLOTS=4
+MAX_SLOTS=3
 POOL_STATE={{HACKBOT_MISC_DIR}}/worker-pool/pool.json
 QUEUE={{HACKBOT_MISC_DIR}}/target-queue.json
 LOG={{HACKBOT_MISC_DIR}}/worker-pool/refill-watcher.log

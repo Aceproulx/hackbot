@@ -66,6 +66,18 @@ install_if_changed() {
   echo "  ✓ $(basename "$DST")"
 }
 
+# Copies a skill's supporting files (reference/, scripts/, etc.) from the repo
+# skill dir into the installed skill dir, applying config substitution to each.
+install_skill_support_files() {
+  local SRC_DIR="$1" DST_DIR="$2"
+  local FILE REL DST
+  while IFS= read -r -d '' FILE; do
+    REL="${FILE#"$SRC_DIR"/}"
+    DST="$DST_DIR/$REL"
+    install_if_changed "$FILE" "$DST"
+  done < <(find "$SRC_DIR" -type f ! -name 'SKILL.md' -print0)
+}
+
 install_opencode() {
   local SKILL_DIR="$REPO_ROOT/skills/opencode"
   if [[ ! -d "$SKILL_DIR" ]]; then
@@ -80,6 +92,11 @@ install_opencode() {
       [[ -f "$SRC" ]] || { echo "  ${YELLOW}!${NC} no SKILL.md in $NAME — skipping"; continue; }
       DST="$HOME/.config/opencode/skill/$SKILL_NAME/SKILL.md"
       install_if_changed "$SRC" "$DST"
+      # Supporting files (reference/, scripts/, ...) — required for skills
+      # that reference relative paths from their base directory.
+      # Normalize NAME (glob leaves a trailing slash) so the prefix-strip
+      # inside install_skill_support_files matches.
+      install_skill_support_files "${NAME%/}" "$HOME/.config/opencode/skill/$SKILL_NAME"
     done
   fi
 

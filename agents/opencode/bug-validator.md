@@ -44,3 +44,17 @@ Every CONFIRMED finding must be classified using the Bugcrowd VRT taxonomy at
 
 Output the priority alongside the verdict, e.g.:
 `CONFIRMED — P2 (Broken Access Control > IDOR > Tenant-Scoped)`
+
+## P4/P5 Gate
+If your verdict is CONFIRMED at **P4 or P5**, state it explicitly in your
+output: `CONFIRMED — P4 (…) — DO NOT SUBMIT, log to interesting.md only`.
+P4/P5 findings are never reported, dashboarded, or notified — they are chain
+material only. The hunting agent must log them to `interesting.md` and move
+on; do not encourage a report write-up for them.
+
+## Always Out of Scope — return FALSE POSITIVE
+Return **FALSE POSITIVE** (do not classify, do not confirm) for any of these,
+regardless of how the hunter frames them:
+- **Email flooding / email bombing** (mass emailing a victim address, signup/OTP/notification spam) — always out of scope.
+- **Missing CAPTCHA or missing/weak rate limiting** — not a paying bug. A missing control is never a finding on its own; only a demonstrated high-impact attack (e.g. actual ATO) is, and the report is about the attack, not the missing control.
+- **User enumeration without exposed data** — email/username enumeration (valid-vs-invalid differential, timing, error-message differences) is always out of scope UNLESS it exposes actual data (PII, tokens, internal info). An existence oracle alone is not a finding.

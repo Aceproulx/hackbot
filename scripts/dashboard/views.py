@@ -25,6 +25,7 @@ from .config import FINDINGS_FILE
 from .config import HUNTS_ROOT
 from .config import INTIGRITI_USER
 from .config import MAX_SLOTS
+from .config import current_max_slots
 from .config import MISC
 from .config import PAYLOADS_DIR
 from .config import PLATFORM
@@ -434,6 +435,34 @@ def v_history():
 
     body = table + ftable
     return page("history", hero("History", "Campaign ledger and findings timeline"), body)
+
+
+def v_queue():
+    queue = get_queue()
+    # Only queued (pending) items — nothing else. Running, done and skipped
+    # targets don't belong on the queue page.
+    shown = [t for t in queue if t.get("status") == "pending"]
+    rows = sorted(shown, key=lambda t: str(t.get("queued_at") or ""))
+    n_pending = len(shown)
+    trows = ""
+    for t in rows:
+        pname, pfull = trunc(t.get("name", "") or "", 25)
+        phint = f' title="{esc(pfull)}"' if pfull != pname else ""
+        trows += (
+            f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))}">'
+            f'<td><a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}"{phint}>{esc(pname)}</a>'
+            f' <span class="mono small muted">{esc(t.get("handle",""))}</span>{self_hosted_badge(t)}</td>'
+            f'<td>{pill(t.get("status",""))}</td>'
+            f'<td class="mono small">{esc(t.get("queued_at") or "—")}</td>'
+            f'<td>{fmt_time(t.get("last_hunted"))}</td>'
+            f'<td>{hunt_action_btn(t, pending_as_cancel=True)}</td></tr>'
+        )
+    table = (f'<div class="card"><div class="hd">Target Queue <span class="sp"></span>'
+             f'<span class="hint">{n_pending} queued</span></div>'
+             f'<table><thead><tr><th>PROGRAM</th><th>STATE</th><th>QUEUED</th>'
+             f'<th>LAST HUNT</th><th></th></tr></thead>'
+             f'<tbody>{trows or ""}</tbody></table></div>')
+    return page("queue", hero("Target Queue", "Everything queued, in start order (FIFO by queued time)"), table)
 
 def v_monitors():
     workers = get_workers()
@@ -931,8 +960,8 @@ def v_assets(q=None):
         uhint = f' title="{esc(ufull)}"' if ufull != udisp else ""
         handle = str(t.get("handle", "")).lower()
         is_hunted = handle in hunted
-        # red left-border only on pending (never started) programs — skip done/skipped
-        never_hunted_style = "" if t.get("status") != "pending" else " border-left:3px solid var(--accent);"
+        # red left-border on programs never hunted (no logged findings)
+        never_hunted_style = "" if is_hunted else " border-left:3px solid var(--accent);"
         # type attribute for filtering: self-hosted, public, inviteonly, or empty
         if t.get("self_hosted"):
             row_type = "self-hosted"
@@ -1302,7 +1331,11 @@ def v_settings():
                  f'<tr><td class="muted">Console CLI</td><td>opencode run --agent hunter</td></tr>'
                  f'<tr><td class="muted">Agent skill</td><td class="mono">@bug-hunting</td></tr>'
                  f'<tr><td class="muted">Models</td><td>provider-managed (opf free tier)</td></tr>'
-                 f'<tr><td class="muted">Worker lanes</td><td>{MAX_SLOTS}</td></tr></table></div></div>')
+                 f'<tr><td class="muted">Worker slots</td><td>'
+                 f'<input id="slots-input" class="fld" type="number" min="1" max="8" value="{current_max_slots()}" '
+                 f'style="width:64px;display:inline-block" title="Max concurrent worker hunts"> '
+                 f'<span class="btn ghost small" onclick="saveSlots()">Save</span>'
+                 f'<span class="hint">max concurrent hunts</span></td></tr></table></div></div>')
     provider_card2 = (f'<div class="card"><div class="hd">DeepSeek (Anthropic) <span class="sp"></span>'
                       f'{pill("enabled")} <span class="btn ghost small" onclick="configOpen(\'providers\')">Configure</span>'
                       f'<span class="btn ghost small" onclick="testProvider(\'deepseek\',this)">Test</span></div>'

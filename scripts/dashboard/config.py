@@ -17,6 +17,8 @@ WATCHDOG_REPORTS_DIR = os.path.join(POOL_DIR, "watchdog-reports")
 WATCHDOG_LOG   = os.path.join(POOL_DIR, "watchdog.log")
 WATCHDOG_PID   = os.path.join(POOL_DIR, "watchdog.pid")
 FINDINGS_FILE  = os.path.join(MISC, "findings.jsonl")
+YWH_TRIAGER_FILE = os.path.join(MISC, "ywh-triager.jsonl")
+YWH_VERDICTS_FILE = os.path.join(MISC, "ywh-verdicts.json")
 README_FILE    = os.path.join(MISC, "read-reports.json")
 MARKS_FILE     = os.path.join(MISC, "report-marks.json")
 REPORTS_DIR    = os.path.join(MISC, "reports")
@@ -85,7 +87,21 @@ EMAIL_DOMAIN  = CONFIG.get("email_domain",          "intigriti.me")
 TELEGRAM_TOKEN = CONFIG.get("telegram_bot_token",   "")
 TELEGRAM_CHAT  = CONFIG.get("telegram_chat_id",     "")
 INTIGRITI_USER = CONFIG.get("intigriti_username",   "")
-MAX_SLOTS      = CONFIG.get("max_worker_slots",     2)
+MAX_SLOTS      = CONFIG.get("max_worker_slots",     3)
+
+
+def current_max_slots() -> int:
+    """Fresh read of the worker-slot cap from disk.
+
+    MAX_SLOTS is a module-level constant captured at import time; the
+    dashboard server does not restart on Settings changes, so anything that
+    decides behavior from the slot count (Start Hunt vs queue button, pool
+    start, refill-watcher) must read the live value instead.
+    """
+    try:
+        return int(load_config().get("max_worker_slots") or 3)
+    except (TypeError, ValueError):
+        return 3
 PORT_HTTP      = CONFIG.get("port_http",            8080)
 PORT_HTTPS     = CONFIG.get("port_https",           8081)
 

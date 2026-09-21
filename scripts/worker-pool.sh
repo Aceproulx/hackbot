@@ -24,7 +24,7 @@ POOL_STATE="$POOL_DIR/pool.json"
 QUEUE={{HACKBOT_MISC_DIR}}/target-queue.json
 FINDINGS={{HACKBOT_MISC_DIR}}/findings.jsonl
 SESSION_NAME="hackbot"       # tmux session name
-MAX_SLOTS="${HACKBOT_SLOTS:-2}"
+MAX_SLOTS="${HACKBOT_SLOTS:-3}"
 LOG="$POOL_DIR/pool.log"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'

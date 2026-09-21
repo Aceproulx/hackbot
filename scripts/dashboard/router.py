@@ -24,6 +24,7 @@ from .config import SESSIONS_ROOT
 from .actions import _api_add_target
 from .actions import _api_start_target
 from .actions import _api_stop_target
+from .actions import _api_queue_target
 from .actions import _api_config_update
 from .actions import _api_findings_add
 from .actions import _api_findings_update
@@ -35,6 +36,7 @@ from .actions import _api_orchestrator_start
 from .actions import _api_provider_test
 from .actions import _api_queue_bulk
 from .actions import _api_report_mark
+from .actions import _api_report_ywh_triage
 from .actions import _api_skills_import
 from .actions import _api_skills_new
 from .actions import _api_telegram_test
@@ -68,8 +70,10 @@ from .tts import tts_js
 from .tts import tts_reader_bar
 from .state import mark_report_read
 from .state import report_mark
+from .state import ywh_verdict
 from .layout import hero
 from .icons import icon
+from .layout import pill
 # UNRESOLVED: json (same-module or missing)
 from .util import mtime
 # UNRESOLVED: os (same-module or missing)
@@ -82,6 +86,7 @@ from .util import skill_dirs
 from .views import v_assets
 from .views import v_findings
 from .views import v_history
+from .views import v_queue
 from .views import v_hunt
 from .views import v_hunts
 from .views import v_knowledge
@@ -162,6 +167,7 @@ def route(path, qs):
             "overview": v_overview,
             "hunts": lambda: v_hunts(q),
             "history": v_history,
+            "queue": v_queue,
             "monitors": v_monitors,
             "watchdog": v_watchdog,
             "topology": v_topology,
@@ -256,9 +262,22 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
             mbtns = "".join(
                 f'<button class="bc-btn mk-{mk}{" active" if mk == cur else ""}" data-mark="{mk}" onclick="reportMark(this)">{esc(MARK_LABELS[mk])}</button>'
                 for mk in ("duplicate", "unreportable", "valid", "underreview"))
+            yv = ywh_verdict(safe, fname)
+            ywh_pill = ""
+            if yv:
+                v = str(yv.get("verdict") or "").upper()
+                pstate = "ready" if v == "READY TO SUBMIT" else ("needs-work" if v == "NEEDS FIXES" else "cancelled")
+                ywh_pill = (f'<span class="bcsep">{icon("shield", 12)} YWH:</span>'
+                            f'{pill(pstate, v)}')
+            ywh_btn = ""
+            if not cur:
+                ywh_btn = (f'<button class="bc-btn bc-ywh" id="ywhbtn" onclick="ywhTriage(this)"'
+                           f' title="Run the ywh-reporter triage pass on this report">'
+                           f'{icon("shield", 12)} ywh triage</button>')
             marks_bar = (f'<span class="bcsep">{icon("flag", 12)} Mark:</span>{mbtns}'
                          f'<button class="bc-btn bc-clear{" off" if not cur else ""}" onclick="reportClear()"'
-                         f'{" disabled" if not cur else ""}>Clear</button>')
+                         f'{" disabled" if not cur else ""}>Clear</button>'
+                         f'{ywh_pill}{ywh_btn}')
             body = (f'<div class="breadcrumb"><span>Hunt / Reports / <b>{esc(fname)}</b></span>'
                     f'<span class="sp"></span>{marks_bar}</div>')
             mkcls = f' mk-bg-{cur}' if cur else ''
@@ -305,8 +324,16 @@ function evShowFile(id,safe,pack,rel){var el=document.getElementById(id);var pq=
                 "else{fallbackCopy(REPORT_MD);done();}\n"
                 "}\n"
                 "function fallbackCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}\n")
+            ywh_js = (
+                "function ywhTriage(btn){\n"
+                "if(btn.disabled)return;btn.disabled=true;var o=btn.innerHTML;btn.innerHTML='"+icon("clock", 12)+" triaging…';\n"
+                "apiPost('/api/report/ywh-triage',{handle:'" + jsq(safe) + "',name:'" + jsq(fname) + "'})\n"
+                ".then(function(d){btn.disabled=false;btn.innerHTML=o;\n"
+                "if(!d.ok){showMsg(d.message||'Triage failed.');return;}\n"
+                "location.reload();})\n"
+                ".catch(function(e){btn.disabled=false;btn.innerHTML=o;showMsg('request failed: '+e);});}\n")
             return page("report", hero("Report", f"Staged submission for {esc(fname)}", back=f"/hunts?name={esc(safe)}", crown=ev_btn + cv_toggle),
-                        body, extra_css=TTS_CSS, scripts=ev_js + cv_js + mark_js + tts_js()).encode()
+                        body, extra_css=TTS_CSS, scripts=ev_js + cv_js + mark_js + ywh_js + tts_js()).encode()
         return b"404 report not found"
 
     if p[0] == "evidence":
@@ -580,6 +607,9 @@ def route_post(path, qs, body):
     if p[:3] == ["api", "targets", "stop"]:
         payload, status = _api_stop_target(body)
         return json.dumps(payload).encode(), status
+    if p[:3] == ["api", "targets", "queue"]:
+        payload, status = _api_queue_target(body)
+        return json.dumps(payload).encode(), status
 
     if p[:3] == ["api", "console", "tell"]:
         payload, status = _api_console_tell(body)
@@ -605,6 +635,10 @@ def route_post(path, qs, body):
 
     if p[:3] == ["api", "report", "mark"]:
         payload, status = _api_report_mark(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "report", "ywh-triage"]:
+        payload, status = _api_report_ywh_triage(body)
         return json.dumps(payload).encode(), status
 
     if p[:3] == ["api", "telegram", "test"]:

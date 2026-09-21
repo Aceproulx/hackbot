@@ -6,9 +6,9 @@ Hackbot is a complete bug-bounty automation framework. It bundles skills, agents
 
 ## Features
 
-- 🎯 Autonomous target queue management (Intigriti integration)
-- 🤖 Parallel worker pool with tmux
-- 📊 Findings dashboard with severity/bounty tracking
+- 🎯 Autonomous target queue management (Intigriti integration) — FIFO queue with scoring, cooldowns, and a live Queue page
+- 🤖 Parallel worker pool with tmux — configurable slot cap (default 3), editable from the dashboard Settings
+- 📊 Findings dashboard with severity/bounty tracking, target queue, hunt history, and report staging
 - 🔔 Real-time Telegram notifications
 - 🧠 70+ bug hunting skills (web, API, mobile, cloud, source code)
 - 🔍 MCP integrations (Caido proxy, Intigriti API, CAPTCHA solver, email)
@@ -58,7 +58,7 @@ All settings live in `~/.hackbot/config.json` (created by `setup.sh`).
 | `sessions_dir` | Where hunt session data is stored | `~/Projects/hackbot/hunts/sessions` |
 | `hackbot_misc_dir` | Where hackbot runtime data lives | `~/Projects/hackbot-misc` |
 | `playwright_profile` | Default Chrome profile dir for Playwright MCP `--user-data-dir` | `~/Projects/hackbot-misc/.playwright-profiles/Profile-userA` |
-| `max_worker_slots` | Max parallel workers | `2` |
+| `max_worker_slots` | Max parallel workers (editable from dashboard Settings) | `3` |
 
 ## CLI Tools
 
@@ -81,16 +81,22 @@ Target queue manager.
 
 ```bash
 hackbot-queue init           # Pull programs from Intigriti, build queue
-hackbot-queue next           # Get next pending target
+hackbot-queue next           # Get next pending target (FIFO by queued time)
 hackbot-queue done <handle> <bugs> <verdict>   # Mark done
-hackbot-queue skip <handle> [reason]           # Skip target
+hackbot-queue skip <handle> [reason]           # Skip target (+30d cooldown)
+hackbot-queue reset <handle>                   # Re-queue a target (back of the FIFO line)
+hackbot-queue requeue <handle>                 # Re-queue after a cooldown
+hackbot-queue boost <handle> <amount>          # Boost a target's score
 hackbot-queue status         # Show queue table
 hackbot-queue history        # Past hunts
 ```
 
 ### hackbot-dashboard
 
-Findings dashboard.
+Findings dashboard (served at `http://127.0.0.1:7878`). Pages include
+Overview, Hunts, **Queue** (everything queued, in FIFO start order — cancel
+pending targets, one button per row), Findings, History, Monitors, Watchdog,
+Topology, and Settings (edit the worker-slot cap live).
 
 ```bash
 hackbot-dashboard show         # Full dashboard
@@ -105,7 +111,7 @@ hackbot-dashboard export       # Export to markdown
 Parallel worker pool manager.
 
 ```bash
-hackbot-workers start [--slots 2]
+hackbot-workers start [--slots 3]
 hackbot-workers status
 hackbot-workers stop
 hackbot-workers logs [worker_id]

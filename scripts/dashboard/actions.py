@@ -28,17 +28,24 @@ from .config import TELEGRAM_CHAT
 from .config import EMAIL_BASE
 from .config import EMAIL_DOMAIN
 from .config import MAX_SLOTS
+from .config import current_max_slots
 from .config import NOTIFY
 from .config import WATCHDOG
 from .config import REFILL_WATCHER
 from .config import POOL_FILE
+from .config import YWH_TRIAGER_FILE
 from .config import load_config
 from .config import HUNTS_ROOT
 from .config import SESSIONS_ROOT
 from .helpers import resolve_hunt_root
 from .helpers import read_jsonl
+from .helpers import read_file
+from .helpers import short_ts
 from .state import VALID_MARKS
 from .state import set_report_mark
+from .state import report_mark
+from .state import set_ywh_verdict
+from .state import get_findings
 from .util import _URL_RE
 from .util import _HANDLE_RE
 # UNRESOLVED: _run_worker_pool (same-module or missing)
@@ -114,6 +121,22 @@ def _api_stop_target(body):
     if not handle or not _HANDLE_RE.match(handle):
         return {"ok": False, "message": "missing or invalid target handle"}, 400
     return _run_worker_pool("stop-target", handle)
+
+def _api_queue_target(body):
+    """Queue a target for the next free slot instead of starting it now.
+
+    Runs `queue-manager reset <handle>`: marks the target pending and clears
+    last_hunted/rehunt_after so `hackbot-queue next` picks it up in order
+    (FIFO by queued_at) as soon as a worker slot frees up.
+    """
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip()
+    if not handle or not _HANDLE_RE.match(handle):
+        return {"ok": False, "message": "missing or invalid target handle"}, 400
+    return _run_queue_manager("reset", handle)
 
 def _api_console_tell(body):
     """Write an instruction for a worker agent to pick up.
@@ -416,7 +439,7 @@ def _api_pool_action(body):
         return {"ok": False, "message": "invalid JSON body"}, 400
     action = (data.get("action") or "").strip()
     if action == "start":
-        slots = int(data.get("slots") or MAX_SLOTS)
+        slots = int(data.get("slots") or current_max_slots())
         return _run_worker_pool("start", "--slots", str(slots))
     if action == "status":
         return _run_worker_pool("status")
@@ -494,7 +517,7 @@ def _api_orchestrator_start(body):
     if REFILL_WATCHER:
         try:
             subprocess.Popen(
-                ["bash", REFILL_WATCHER, "--interval", "1800", "--max-slots", str(MAX_SLOTS)],
+                ["bash", REFILL_WATCHER, "--interval", "1800", "--max-slots", str(current_max_slots())],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
@@ -531,3 +554,120 @@ def _api_report_mark(body):
         return {"ok": False, "message": "report not found"}, 404
     set_report_mark(handle, name, mark or "", path=rp)
     return {"ok": True, "message": f"{name} → {mark or 'cleared'}", "mark": mark or ""}, 200
+
+
+# ── ywh-triage (dashboard-initiated) ──────────────────────────────────────────
+
+_YWH_VERDICT_RE = re.compile(r"VERDICT\s*:\s*(READY TO SUBMIT|NEEDS FIXES|DO NOT SUBMIT)", re.I)
+_YWH_HEADING_RE = re.compile(r"^##\s+(Critical|Major|Minor)\b", re.I)
+_YWH_OTHER_HEADING_RE = re.compile(r"^##\s+", re.I)
+
+
+def _ywh_sections(text: str) -> dict:
+    """Extract {critical, major, minor} bullet lists from a SELF-TRIAGE block."""
+    out = {"critical": [], "major": [], "minor": []}
+    cur = None
+    for line in text.splitlines():
+        m = _YWH_HEADING_RE.match(line)
+        if m:
+            cur = m.group(1).lower()
+            continue
+        if _YWH_OTHER_HEADING_RE.match(line):
+            cur = None
+            continue
+        if cur and line.strip().startswith(("-", "*")):
+            item = line.strip().lstrip("-* ").strip()
+            if item:
+                out[cur].append(item)
+    return out
+
+
+def _ywh_triage_prompt(handle: str, name: str, rp: str) -> tuple:
+    """Build the relay prompt from the report + finding ledger + hunt scope.
+
+    Returns (prompt, severity) — severity comes from the matching finding
+    ledger entry when one can be matched, else ''.
+    """
+    report = read_file(rp)
+    severity = ""
+    parts = [
+        "You are triaging an existing drafted bug bounty report for "
+        "submission-readiness. Run your full ywh-triage pre-submission pass "
+        "against the report below.",
+        "",
+        "## REPORT",
+        report,
+    ]
+    rl = report.lower()
+    for f in get_findings():
+        if f.get("program") == handle and (f.get("title") or "").lower() in rl:
+            severity = str(f.get("severity") or "")
+            parts.append("\n## FINDING LEDGER ENTRY (context)")
+            parts.append(json.dumps(f, indent=2))
+            break
+    scope = read_file(os.path.join(resolve_hunt_root(handle), "scope.json"))
+    if scope.strip():
+        parts.append("\n## HUNT SCOPE (context)")
+        parts.append(scope)
+    else:
+        parts.append("\n## SCOPE\nNot provided — skip scope classification; "
+                     "focus on report quality, completeness, and replayability.")
+    parts.append("\nReturn exactly the SELF-TRIAGE block: "
+                 "VERDICT: [READY TO SUBMIT | NEEDS FIXES | DO NOT SUBMIT], then "
+                 "## Critical (blocks submission), ## Major (needs fixing), "
+                 "## Minor (cleanup), ## What's good sections with bullet items.")
+    return "\n".join(parts), severity
+
+
+def _api_report_ywh_triage(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip()
+    name = (data.get("name") or "").strip()
+    if not handle or not name:
+        return {"ok": False, "message": "handle and report name are required"}, 400
+    rp = _resolve_report(handle, name)
+    if not rp:
+        return {"ok": False, "message": "report not found"}, 404
+    if report_mark(handle, name):
+        return {"ok": False, "message": "report is manually marked — clear the mark first"}, 409
+    prompt, severity = _ywh_triage_prompt(handle, name, rp)
+    try:
+        proc = subprocess.run(
+            ["opencode", "run", "--agent", "ywh-triage-runner", prompt],
+            capture_output=True, text=True, timeout=300,
+            cwd=os.path.dirname(HUNTS_ROOT),
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "message": "triage timed out after 5 minutes"}, 504
+    except Exception as exc:
+        return {"ok": False, "message": f"failed to launch triage agent: {exc}"}, 500
+    out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    m = _YWH_VERDICT_RE.search(out)
+    if not m:
+        return {"ok": False, "message": "no verdict in agent output",
+                "out": out[-1500:]}, 502
+    verdict = m.group(1).upper()
+    sec = _ywh_sections(out)
+    set_ywh_verdict(handle, name, verdict, sec["critical"], sec["major"], sec["minor"], path=rp)
+    entry = {
+        "ts": short_ts(),
+        "program": handle,
+        "finding": name,
+        "severity": severity,
+        "verdict": verdict,
+        "critical": sec["critical"],
+        "major": sec["major"],
+        "minor": sec["minor"],
+        "draft": name,
+    }
+    try:
+        with open(YWH_TRIAGER_FILE, "a") as fh:
+            fh.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
+    return {"ok": True, "verdict": verdict,
+            "critical": len(sec["critical"]), "major": len(sec["major"]),
+            "message": f"{name} → {verdict}"}, 200

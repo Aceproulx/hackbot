@@ -89,7 +89,7 @@ sync_opencode_skills() {
 
   # Discover all skill directories from source — no hardcoded list needed.
   # A skill dir is any directory containing a SKILL.md file.
-  local SKILL_DIR NAME SRC DST
+  local SKILL_DIR NAME SRC DST FILE REL
   for SKILL_DIR in "$SRC_DIR"/*/; do
     [[ -d "$SKILL_DIR" ]] || continue
     NAME="$(basename "$SKILL_DIR")"
@@ -100,6 +100,16 @@ sync_opencode_skills() {
     cp "$SRC" "$DST"
     desubstitute "$DST"
     ok "synced skills/opencode/$NAME/SKILL.md"
+
+    # Sync supporting files (reference/, scripts/, ...) back too.
+    while IFS= read -r -d '' FILE; do
+      REL="${FILE#"$SKILL_DIR"}"
+      DST="$DST_DIR/$NAME/$REL"
+      mkdir -p "$(dirname "$DST")"
+      cp "$FILE" "$DST"
+      desubstitute "$DST"
+      ok "synced skills/opencode/$NAME/$REL"
+    done < <(find "$SKILL_DIR" -type f ! -name 'SKILL.md' -print0)
   done
 }
 

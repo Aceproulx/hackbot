@@ -130,6 +130,7 @@ Note: extension *settings* are synced wholesale; account-specific data
 ## How this maps to the web-hacking skill
 
 The `web-hacking` skill's "Concurrent agents — REQUIRED bootstrap" section
-walks through this exact flow: run `claim-account.sh` first, then every
-Playwright MCP tool call in your connection is isolated to that account's
-profile. See that skill for the full walkthrough.
+(now in `reference/session-bootstrap.md`) walks through this exact flow: run
+`claim-account.sh` first, then every Playwright MCP tool call in your
+connection is isolated to that account's profile. See that skill for the full
+walkthrough.

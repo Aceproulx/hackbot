@@ -32,11 +32,15 @@ touch "$LOG" "$FINDINGS"
 echo "=== Orchestrator started $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
 # IMPORTANT: every bash command below runs in a FRESH shell — shell vars do NOT
 # persist. Persist session vars to an env file and source it in every command.
+# Read the worker-slot cap from the dashboard config so the pool always starts
+# with the operator's configured value (default 3).
+SLOTS=$(jq -r '.max_worker_slots // 3' ~/.hackbot/config.json 2>/dev/null || echo 3)
 cat > ~/.hackbot/session.env <<EOF
 SESSION_DIR=$SESSION_DIR
 LOG=$LOG
 QUEUE=$QUEUE
 FINDINGS=$FINDINGS
+SLOTS=$SLOTS
 EOF
 hackbot-notify session-start "$SESSION_DIR"
 ```
@@ -137,8 +141,8 @@ hackbot-notify skip "$DOMAIN" "Only $SIGNAL_COUNT rich signals"
 
 ### 3.1 CLI mode — use hackbot-workers
 ```bash
-hackbot-workers start --slots 2   # standard
-hackbot-workers start --slots 3   # overnight
+# SLOTS comes from ~/.hackbot/session.env (read from config at bootstrap)
+hackbot-workers start --slots "$SLOTS"   # operator-configured cap (default 3)
 tmux attach -t hackbot                         # watch live
 ```
 
@@ -159,7 +163,7 @@ You are an autonomous bug hunter running under @hunter-orchestrator.
 TARGET HANDLE: <handle>
 PROGRAM ID: <program_id>
 HUNT DIRECTORY: ~/Projects/hackbot/hunts/<handle>-<YYYYMMDD>/
-WORKER SLOT: <N> of <MAX_SLOTS>
+WORKER SLOT: <N> of ${SLOTS}
 
 FIRST ACTION: intigriti get_program_scope <program_id>
   → verbatim returned scope = your ONLY authorized target list
@@ -176,9 +180,19 @@ REGISTRATION EMAILS:
 {{EMAIL_BASE}}+<handle>-b@{{EMAIL_DOMAIN}}  (userB)
 
 ON CONFIRMED FINDING — run immediately (never batch):
-hackbot-dashboard add --program "<handle>" --title "<title>" \
-  --severity "<sev>" --status "confirmed" --bounty <est> \
-  --evidence "<caido_ids>" --url "<url>"
+ hackbot-dashboard add --program "<handle>" --title "<title>" \
+   --severity "<sev>" --status "confirmed" --bounty <est> \
+   --evidence "<caido_ids>" --url "<url>"
+
+SEVERITY GATE — P4/P5 findings are NEVER dashboarded, notified, or reported.
+They go to interesting.md only (per @web-hacking's Logging section), for later
+chaining. Only P1-P3 (Critical/High/Medium) findings run the dashboard add
+above. If the validator returned P4/P5, skip it entirely.
+
+ALWAYS OUT OF SCOPE — NEVER TEST, NEVER REPORT:
+- Email flooding / email bombing (signup/OTP/notification spam) — always out of scope.
+- Missing CAPTCHA or missing/weak rate limiting — not a paying bug on its own; only a supporting detail in a demonstrated high-impact attack (e.g. actual ATO), never the finding itself.
+- User enumeration without exposed data (email/username valid-vs-invalid differential, timing, error differences) — always out of scope UNLESS it exposes actual data (PII, tokens, internal info). An existence oracle alone is not a finding.
 
 ON FINISH — run then exit:
 hackbot-queue done "<handle>" <bugs_found> <RICH_TARGET|THIN_TARGET|WAF_BLOCKED|AUTH_BLOCKED>

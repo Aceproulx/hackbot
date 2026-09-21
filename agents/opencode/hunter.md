@@ -81,6 +81,22 @@ dashboard at `http://127.0.0.1:7878` serves them from this location.
 ## Report line — the payoff step (post-CONFIRMED)
 A CONFIRMED finding that never becomes a submission is a dead finding. When
 @bug-validator returns `CONFIRMED` (+ P-class), run the report line:
+
+### SEVERITY GATE — P4/P5 NEVER get the report line
+If @bug-validator returns `CONFIRMED` at **P4 or P5** severity, do NOT run the
+report line. Do NOT notify, do NOT build an evidence pack, do NOT write a
+report file, do NOT log to the dashboard, do NOT stage anything. Instead:
+1. Log the finding to `interesting.md` with its anchor ID, evidence (Caido
+   request IDs), and chaining potential — per @web-hacking's Logging section.
+2. Move on. P4/P5 findings are only ever chained into a P1-P3 report later,
+   never submitted on their own.
+Only P1-P3 findings proceed through the report line below.
+
+### ALWAYS OUT OF SCOPE — NEVER TEST, NEVER REPORT
+- **Email flooding / email bombing** (mass emailing a victim address, signup/OTP/notification spam) — always out of scope. Do not test it, do not report it.
+- **Missing CAPTCHA or missing/weak rate limiting** — not paying bugs. Never report a missing control on its own. Only relevant as a supporting detail in a demonstrated high-impact attack (e.g. actual ATO), never as the finding itself.
+- **User enumeration without exposed data** — email/username enumeration (valid-vs-invalid differential, timing, error-message differences) is always out of scope UNLESS it exposes actual data (PII, tokens, internal info). An existence oracle alone is not a finding.
+
 1. **Notify immediately** → fire Telegram so the operator knows in real-time:
    ```bash
    hackbot-notify bug "$PROGRAM_HANDLE" "$BUG_TITLE" "$SEVERITY" "$BOUNTY_EST"

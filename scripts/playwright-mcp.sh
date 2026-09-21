@@ -11,6 +11,9 @@
 #   - browser profile: PLAYWRIGHT_PROFILE env (per-slot, set by worker-pool.sh),
 #     or --profile <path> (shared), or --isolated (fresh temp profile).
 #     Unset env falls back to a fresh temp profile.
+#   - headed mode: set "playwright_headed": true in ~/.hackbot/config.json
+#     (or PLAYWRIGHT_HEADED=1 env) to launch a visible browser instead of
+#     headless. Defaults to headless so autonomous workers stay quiet.
 #   - Caido proxy: browser traffic lands in Caido history for evidence.
 #   - captcha extensions: buster + captcha-bridge clicker (unpacked MV3),
 #     loaded regardless of profile mode (persistent-mode contexts only — the
@@ -69,8 +72,20 @@ BASE_ARGS="$(jq -n --arg p "$PROXY" \
   '["--no-sandbox", "--proxy-server="+$p]')"
 ARGS="$(jq -n --argjson b "$BASE_ARGS" --argjson e "$EXT_ARGS" '$b + $e')"
 
-BROWSER="$(jq -n --argjson a "$ARGS" \
-  '{browserName:"chromium", launchOptions:{channel:"chromium", headless:true, ignoreDefaultArgs:["--disable-extensions"], args:$a}}')"
+# Headed mode: opt-in via ~/.hackbot/config.json ("playwright_headed": true)
+# or PLAYWRIGHT_HEADED=1 env. Default headless.
+HEADED="${PLAYWRIGHT_HEADED:-}"
+if [[ -z "$HEADED" && -f "$HOME/.hackbot/config.json" ]]; then
+  HEADED="$(jq -r '.playwright_headed // ""' "$HOME/.hackbot/config.json" 2>/dev/null || true)"
+fi
+if [[ "$HEADED" == "true" || "$HEADED" == "1" ]]; then
+  HEADLESS=false
+else
+  HEADLESS=true
+fi
+
+BROWSER="$(jq -n --argjson a "$ARGS" --argjson h "$HEADLESS" \
+  '{browserName:"chromium", launchOptions:{channel:"chromium", headless:$h, ignoreDefaultArgs:["--disable-extensions"], args:$a}}')"
 
 # Isolated mode: the MCP's `isolated: true` creates a fresh browser context via
 # browser.newContext(), which does NOT carry --load-extension extensions (they

@@ -152,7 +152,7 @@ EOF
           end
         )
       # Sort by effective score desc
-      | sort_by(-(.score + .boost))) as $new_progs |
+      | sort_by(.queued_at, -(.score + .boost))) as $new_progs |
     # Preserve self-hosted targets through refreshes (no Intigriti program behind them)
     ($ex | to_entries | map(select(.value.self_hosted == true)) | map(.value)) as $selfhosted |
     ($new_progs + $selfhosted)
@@ -196,7 +196,7 @@ cmd_next() {
       (if $prefer == "self" then (.program_id | startswith("self:"))
        else (.program_id | startswith("self:") | not) end)
     )]
-    | sort_by(-(.score + .boost))
+    | sort_by(.queued_at, -(.score + .boost))
     | first // empty
   ' "$QUEUE_FILE")
 
@@ -209,7 +209,7 @@ cmd_next() {
         (if $prefer == "self" then (.program_id | startswith("self:") | not)
          else (.program_id | startswith("self:")) end)
       )]
-      | sort_by(-(.score + .boost))
+      | sort_by(.queued_at, -(.score + .boost))
       | first // empty
     ' "$QUEUE_FILE")
   fi
@@ -465,10 +465,12 @@ cmd_reset() {
   [[ -z "$HANDLE" ]] && { echo "Usage: queue-manager.sh reset <handle>" >&2; exit 1; }
   lock
   require_queue
-  jq --arg h "$HANDLE" '
+  NOW=$(ts)
+  jq --arg h "$HANDLE" --arg ts "$NOW" '
     map(if .handle == $h then
       .status = "pending" | .active_worker = null |
-      .started_at = null | .last_hunted = null | .rehunt_after = null
+      .started_at = null | .last_hunted = null | .rehunt_after = null |
+      .queued_at = $ts
     else . end)
   ' "$QUEUE_FILE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE_FILE"
   echo "Reset $HANDLE to pending"

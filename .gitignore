@@ -91,6 +91,12 @@ browser-profiles/open-site.js
 # account creds (.creds), raw evidence, and session logs.
 hunts/
 
+# Scratch work (downloaded target source dumps, decodes) — never commit
+.scratch/
+
+# Empty tool scaffolds / local experiments
+tools/
+
 # Runtime browser profiles (userA/userB are live browsing state, never commit)
 browser-profiles/Profile-userA/
 browser-profiles/Profile-userB/

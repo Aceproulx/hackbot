@@ -27,7 +27,8 @@ state machines, and verifying cache-poisoning/CSRF impact in a real browser.
 - Requires **Google Chrome** installed on the system.
 - Concurrent agents each run their **own** Playwright MCP server process
   pointed at their own profile (`--user-data-dir`), so cookies/tabs/sessions
-  stay isolated. See the `web-hacking` skill "Concurrent agents" section.
+  stay isolated. See the `web-hacking` skill's "Concurrent agents" section
+  (`reference/session-bootstrap.md`).
 
 ## Setup
 

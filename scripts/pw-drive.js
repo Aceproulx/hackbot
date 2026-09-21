@@ -44,14 +44,15 @@ if (!cmd) { console.error('usage: pw-drive.js <navigate|snapshot|click|type|pres
 
 // ---- config ----
 const baseArgs = ['--no-sandbox', '--proxy-server=' + PROXY];
+if (process.env.PW_UA) baseArgs.push('--user-agent=' + process.env.PW_UA);
 if (EXTENSIONS) {
   baseArgs.push('--load-extension=' + EXTENSIONS, '--disable-extensions-except=' + EXTENSIONS);
 }
 const browser = {
   browserName: 'chromium',
   launchOptions: {
-    channel: 'chromium',
-    headless: true,
+    channel: process.env.PW_CHANNEL || 'chromium',
+    headless: process.env.PW_HEADED === '1' ? false : true,
     ignoreDefaultArgs: ['--disable-extensions'],
     args: baseArgs,
   },

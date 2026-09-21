@@ -140,6 +140,10 @@ tbody tr:hover{background:#fbf8f3}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 th.num{text-align:right}
 
+/* assets page: program name ellipsis, badges wrap to their own line */
+.as-row td:first-child{white-space:normal}
+.as-row td:first-child b{display:inline-block;max-width:min(260px,100%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+
 /* findings tables: program column ellipsis on desktop (full value in title attr) */
 #repcard td.mono,#evcard td.mono{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* dual timestamps: full shown on desktop, relative on mobile */

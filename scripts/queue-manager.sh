@@ -20,6 +20,7 @@ set -euo pipefail
 QUEUE_FILE={{HACKBOT_MISC_DIR}}/target-queue.json
 HISTORY_FILE={{HACKBOT_MISC_DIR}}/queue-history.jsonl
 POOL_STATE={{HACKBOT_MISC_DIR}}/worker-pool/pool.json
+FINDINGS_FILE={{HACKBOT_MISC_DIR}}/findings.jsonl
 POOL_SESSION="hackbot"
 LOCK_FILE=/tmp/hackbot-queue.lock
 MIN_REHUNT_DAYS="${MIN_REHUNT_DAYS:-7}"     # don't re-hunt a target within this window
@@ -71,10 +72,32 @@ EOF
   # If MCP call returned nothing, fall back to curl against Intigriti public API
   if [[ "$PROGRAMS_JSON" == "[]" || -z "$PROGRAMS_JSON" ]]; then
     echo "MCP unavailable — falling back to Intigriti REST API..."
-    PROGRAMS_JSON=$(curl -s \
-      -H "Authorization: Bearer ${INTIGRITI_API_TOKEN}" \
-      "https://api.intigriti.com/external/researcher/v1/programs?status=open&limit=100" \
-      2>/dev/null || echo '{"records":[]}')
+    # The API caps `limit` per page (limit=1000 => HTTP 400) and reports the
+    # true total in `maxCount`. A single page of 100 silently dropped ~2/3 of
+    # in-scope programs — including most InviteOnly private invites — so page
+    # through with `offset` and merge every page until a short page comes back.
+    _PAGE=500
+    _OFFSET=0
+    _PARTS=""
+    while :; do
+      _PAGE_JSON=$(curl -s \
+        -H "Authorization: Bearer ${INTIGRITI_API_TOKEN}" \
+        "https://api.intigriti.com/external/researcher/v1/programs?status=open&limit=${_PAGE}&offset=${_OFFSET}" \
+        2>/dev/null || echo '')
+      _N=$(printf '%s' "$_PAGE_JSON" | jq -r '(.records // []) | length' 2>/dev/null || echo 0)
+      if [[ -z "$_PAGE_JSON" || "$_N" -eq 0 ]]; then break; fi
+      _PARTS+="$_PAGE_JSON"$'\n'
+      _OFFSET=$(( _OFFSET + _N ))
+      if [[ "$_N" -lt "$_PAGE" || "$_OFFSET" -ge 5000 ]]; then break; fi
+    done
+    PROGRAMS_JSON=$(printf '%s' "${_PARTS:-}" | jq -s '{records: (map(.records // []) | add // [])}' 2>/dev/null || echo '{"records":[]}')
+    _FETCHED=$(printf '%s' "$PROGRAMS_JSON" | jq -r '(.records // []) | length' 2>/dev/null || echo 0)
+    if [[ "$_FETCHED" -eq 0 ]]; then
+      echo "ERROR: Intigriti fetch returned no programs (missing token / network?) — refusing to overwrite queue." >&2
+      unlock
+      exit 1
+    fi
+    echo "Fetched ${_FETCHED} open programs from Intigriti."
   fi
 
   # Load existing queue if present (to preserve history/scores)
@@ -261,20 +284,35 @@ cmd_done() {
   REHUNT_AFTER=$(date -u -d "+${REHUNT_DAYS} days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
                  || date -u -v+"${REHUNT_DAYS}"d +"%Y-%m-%dT%H:%M:%SZ")
 
-  jq --arg h "$HANDLE" --arg ts "$NOW" --argjson bugs "$BUGS" \
+  # The worker's self-reported bug count is unreliable — workers routinely
+  # pass 0 even after logging confirmed findings. The authoritative count
+  # comes from the findings log: confirmed findings for this program.
+  REAL_BUGS=0
+  if [[ -f "$FINDINGS_FILE" ]]; then
+    REAL_BUGS=$(jq -s -r --arg h "$HANDLE" \
+      '[.[] | select(.program == $h and .status == "confirmed")] | length' \
+      "$FINDINGS_FILE" 2>/dev/null || echo 0)
+  fi
+  # Never let an under-report zero out a real count; fall back to the worker's
+  # number only when the findings log has nothing for this program.
+  if [[ "$REAL_BUGS" -lt "$BUGS" ]]; then
+    REAL_BUGS="$BUGS"
+  fi
+
+  jq --arg h "$HANDLE" --arg ts "$NOW" --argjson bugs "$REAL_BUGS" \
      --arg verdict "$VERDICT" --arg rehunt "$REHUNT_AFTER" '
     map(if .handle == $h then
       .status = "done" |
       .last_hunted = $ts |
       .last_verdict = $verdict |
-      .bugs_found = (.bugs_found + $bugs) |
+      .bugs_found = $bugs |
       .active_worker = null |
       .rehunt_after = $rehunt
     else . end)
   ' "$QUEUE_FILE" > /tmp/queue-tmp.json && mv /tmp/queue-tmp.json "$QUEUE_FILE"
 
   # Append to history
-  echo "{\"ts\":\"$NOW\",\"handle\":\"$HANDLE\",\"bugs\":$BUGS,\"verdict\":\"$VERDICT\",\"rehunt_after\":\"$REHUNT_AFTER\"}" \
+  echo "{\"ts\":\"$NOW\",\"handle\":\"$HANDLE\",\"bugs\":$REAL_BUGS,\"verdict\":\"$VERDICT\",\"rehunt_after\":\"$REHUNT_AFTER\"}" \
     >> "$HISTORY_FILE"
 
   # Release the pool slot so the refill watcher can start the next target.
@@ -283,9 +321,9 @@ cmd_done() {
   # Fire the completion alert. Single source of truth: every worker calls
   # `hackbot-queue done`, so this covers old-contract workers too (the alert
   # used to live only in the worker prompt, which pre-fix workers lacked).
-  "$NOTIFY" done "$HANDLE" "$BUGS" "$VERDICT" >/dev/null 2>&1 || true
+  "$NOTIFY" done "$HANDLE" "$REAL_BUGS" "$VERDICT" >/dev/null 2>&1 || true
 
-  echo "Marked $HANDLE as done (bugs=$BUGS, verdict=$VERDICT, rehunt_after=$REHUNT_AFTER)"
+  echo "Marked $HANDLE as done (bugs=$REAL_BUGS, verdict=$VERDICT, rehunt_after=$REHUNT_AFTER)"
   unlock
 }
 

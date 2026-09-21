@@ -9,8 +9,9 @@ from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
     SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE,
     WATCHDOG, WATCHDOG_LOG, WATCHDOG_PID, WATCHDOG_REPORTS_DIR,
+    YWH_TRIAGER_FILE, YWH_VERDICTS_FILE,
 )
-from .helpers import mtime, read_json, read_jsonl, read_lines, read_file, count_files
+from .helpers import mtime, read_json, read_jsonl, read_lines, read_file, count_files, short_ts
 
 
 # ── queue / workers ────────────────────────────────────────────────────────────
@@ -36,6 +37,18 @@ def workers_by_handle() -> dict:
 
 def get_findings() -> list:
     return read_jsonl(FINDINGS_FILE)
+
+
+def get_hunted_handles() -> set:
+    """Return the set of handles that have at least one logged finding."""
+    return {str(f.get("program", "")).lower() for f in get_findings()}
+
+
+# ── ywh-reporter triage log ───────────────────────────────────────────────────
+
+def get_ywh_triage() -> list:
+    """Newest-first entries from the ywh-reporter triage log."""
+    return list(reversed(read_jsonl(YWH_TRIAGER_FILE)))
 
 
 def need_attention() -> int:
@@ -104,6 +117,11 @@ def set_report_mark(handle: str, name: str, mark: str = "", path: str = "") -> N
     except Exception:
         pass
     if path:
+        # A manual mark supersedes any ywh-triage verdict: drop its banner
+        # and blocking-issues section so the report reflects the operator's
+        # decision, then stamp the manual banner.
+        if mark in VALID_MARKS:
+            clear_ywh_verdict(handle, name, path=path)
         _stamp_report(path, marks.get(kid, ""))
 
 
@@ -124,6 +142,118 @@ def _stamp_report(path: str, mark: str) -> None:
     try:
         with open(path, "w") as fh:
             fh.write("\n".join(keep))
+    except Exception:
+        pass
+
+
+# ── ywh-triage verdicts ───────────────────────────────────────────────────────
+
+YWH_VERDICTS = ("READY TO SUBMIT", "NEEDS FIXES", "DO NOT SUBMIT")
+
+YWH_BANNER_RE = re.compile(r"^#\s*\[YWH TRIAGE:.*?\]\s*$", re.I | re.M)
+YWH_BLOCKING_HEAD = "## YWH Triage — Blocking issues"
+
+
+def get_ywh_verdicts() -> dict:
+    data = read_json(YWH_VERDICTS_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+
+def ywh_verdict(handle: str, name: str) -> dict:
+    """Current ywh-triage verdict entry for a report, or None."""
+    return get_ywh_verdicts().get(f"{handle}|{name}")
+
+
+def set_ywh_verdict(handle: str, name: str, verdict: str,
+                    critical: list = None, major: list = None, minor: list = None,
+                    path: str = "") -> None:
+    """Persist a ywh-triage verdict to the sidecar and stamp the report file."""
+    kid = f"{handle}|{name}"
+    entry = {
+        "verdict": verdict,
+        "critical": critical or [],
+        "major": major or [],
+        "minor": minor or [],
+        "ts": short_ts(),
+        "draft": os.path.basename(path) if path else name,
+    }
+    v = get_ywh_verdicts()
+    v[kid] = entry
+    try:
+        with open(YWH_VERDICTS_FILE, "w") as fh:
+            json.dump(v, fh)
+    except Exception:
+        pass
+    if path:
+        _stamp_ywh_report(path, entry)
+
+
+def clear_ywh_verdict(handle: str, name: str, path: str = "") -> None:
+    """Remove a ywh-triage verdict: sidecar entry + report file artifacts."""
+    kid = f"{handle}|{name}"
+    v = get_ywh_verdicts()
+    if kid in v:
+        v.pop(kid)
+        try:
+            with open(YWH_VERDICTS_FILE, "w") as fh:
+                json.dump(v, fh)
+        except Exception:
+            pass
+    if path:
+        _strip_ywh_artifacts(path)
+
+
+def _strip_ywh_artifacts(path: str) -> None:
+    """Remove the ywh banner line and the trailing blocking-issues section."""
+    try:
+        with open(path, errors="replace") as fh:
+            text = fh.read()
+    except Exception:
+        return
+    # drop the banner line
+    text = YWH_BANNER_RE.sub("", text)
+    # drop the blocking-issues section (from its --- separator to EOF)
+    idx = text.find(YWH_BLOCKING_HEAD)
+    if idx != -1:
+        cut = text.rfind("\n---", 0, idx)
+        text = text[:cut] if cut != -1 else text[:idx]
+    # tidy leading blank lines
+    text = text.lstrip("\n")
+    try:
+        with open(path, "w") as fh:
+            fh.write(text)
+    except Exception:
+        pass
+
+
+def _stamp_ywh_report(path: str, entry: dict) -> None:
+    """Write the verdict banner at the top and blocking issues at the bottom."""
+    verdict = entry.get("verdict", "")
+    critical = entry.get("critical") or []
+    major = entry.get("major") or []
+    try:
+        with open(path, errors="replace") as fh:
+            text = fh.read()
+    except Exception:
+        return
+    # idempotent: strip any previous ywh artifacts first (re-triage overwrites)
+    text = YWH_BANNER_RE.sub("", text)
+    idx = text.find(YWH_BLOCKING_HEAD)
+    if idx != -1:
+        cut = text.rfind("\n---", 0, idx)
+        text = text[:cut] if cut != -1 else text[:idx]
+    text = text.lstrip("\n")
+    banner = f"# [YWH TRIAGE: {verdict}]"
+    body = banner + "\n\n" + text
+    if critical or major:
+        body += "\n\n---\n\n" + YWH_BLOCKING_HEAD + "\n"
+        if critical:
+            body += "\n### Critical\n" + "".join(f"- {c}\n" for c in critical)
+        if major:
+            body += "\n### Major\n" + "".join(f"- {m}\n" for m in major)
+    try:
+        with open(path, "w") as fh:
+            fh.write(body)
     except Exception:
         pass
 
@@ -181,6 +311,7 @@ def all_reports() -> list:
     """Every report .md file across all runs and sessions, with read state."""
     read = get_read_state()
     mks = get_report_marks()
+    ywh = get_ywh_verdicts()
     items = []
     for h in get_run_dirs() + get_session_dirs():
         rp = os.path.join(h["path"], "reports")
@@ -190,7 +321,8 @@ def all_reports() -> list:
                 if f.endswith(".md") and os.path.isfile(fp):
                     items.append({"name": f, "handle": h["handle"], "path": fp,
                                   "mtime": mtime(fp), "read": f"{h['handle']}|{f}" in read,
-                                  "mark": mks.get(f"{h['handle']}|{f}", "")})
+                                  "mark": mks.get(f"{h['handle']}|{f}", ""),
+                                  "ywh": ywh.get(f"{h['handle']}|{f}")})
     return items
 
 

@@ -79,6 +79,19 @@ def severity_pill(sev):
 def self_hosted_badge(t):
     return f' <span class="pill blue"><span class="dot"></span>SELF-HOSTED</span>' if t.get("self_hosted") else ""
 
+def invite_badge(t):
+    """Mark Intigriti InviteOnly (private) programs so private invites are
+    recognisable in the Assets list, not just present in it."""
+    if str(t.get("confidentiality") or "").lower() == "inviteonly":
+        return ' <span class="pill blue"><span class="dot"></span>PRIVATE</span>'
+    return ""
+
+def public_badge(t):
+    """Mark public Intigriti programs — open to anyone with an account."""
+    if str(t.get("confidentiality") or "").lower() == "public" and not t.get("self_hosted"):
+        return ' <span class="pill green"><span class="dot"></span>PUBLIC</span>'
+    return ""
+
 def hunt_action_btn(t):
     h = esc(t.get("handle", ""))
     # Trust actual worker state, not the queue's status field (which can go

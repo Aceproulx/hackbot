@@ -45,7 +45,9 @@ from .util import fmt_ts
 from .util import fmt_rel
 from .util import ts_key
 from .state import get_findings
+from .state import get_hunted_handles
 from .state import get_queue
+from .state import get_ywh_triage
 from .state import MARK_LABELS
 # UNRESOLVED: get_reading (same-module or missing)
 from .state import get_run_dirs
@@ -79,6 +81,8 @@ from .util import redact
 # UNRESOLVED: run_meta (same-module or missing)
 # UNRESOLVED: search_memory (same-module or missing)
 from .layout import self_hosted_badge
+from .layout import invite_badge
+from .layout import public_badge
 from .layout import severity_pill
 from .util import sha
 from .util import trunc
@@ -822,6 +826,13 @@ def v_findings():
             return '<span class="muted small">\u2014</span>'
         return f'<span class="mk mk-{esc(mark)}">{esc(MARK_LABELS.get(mark, mark))}</span>'
 
+    def yv_pill(yv):
+        if not yv:
+            return '<span class="muted small">\u2014</span>'
+        v = str(yv.get("verdict") or "").upper()
+        pstate = "ready" if v == "READY TO SUBMIT" else ("needs-work" if v == "NEEDS FIXES" else "cancelled")
+        return pill(pstate, v)
+
     rrows = "".join(
         f'<tr class="{"unread" if not r["read"] else ""}" data-filter="filter-item" data-search="{esc(r["handle"])} {esc(r["name"])}"'
         f' data-mark="{esc(r["mark"])}" data-read="{"1" if r["read"] else "0"}">'
@@ -830,6 +841,7 @@ def v_findings():
         f'<td data-label="Report"><a href="/report/{esc(r["handle"])}/{esc(r["name"])}">{esc(r["name"][:-3])}</a></td>'
         f'<td data-label="Drafted"><span class="ts-full">{fmt_ts(r["mtime"])}</span><span class="ts-rel">{fmt_rel(r["mtime"])}</span></td>'
         f'<td data-label="State">{f"<span class=unread-tag>UNREAD</span>" if not r["read"] else f"<span class=muted small>read</span>"}</td>'
+        f'<td data-label="YWH">{yv_pill(r["ywh"])}</td>'
         f'<td data-label="Mark">{mk_pill(r["mark"])}</td></tr>' for r in reps)
     fbar = (f'<div class="fbar fbar-card" id="rep-filterbar">'
             f'<span class="flbl">Mark</span>'
@@ -845,8 +857,8 @@ def v_findings():
     reports_card = (f'<div class="card" id="repcard"><div class="hd">Reports <span class="sp"></span>'
                     f'<span class="hint">{len(reps)} files · {unread} unread</span></div>'
                     f'{fbar}'
-                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th>DRAFTED</th><th>STATE</th><th>MARK</th></tr></thead>'
-                    f'<tbody>{rrows or f"<tr><td colspan=6><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table>'
+                    f'<table><thead><tr><th></th><th>PROGRAM</th><th>REPORT</th><th>DRAFTED</th><th>STATE</th><th>YWH</th><th>MARK</th></tr></thead>'
+                    f'<tbody>{rrows or f"<tr><td colspan=7><span class=muted>No reports drafted yet</span></td></tr>"}</tbody></table>'
                     f'<div class="pager" id="rep-pager"></div></div>')
 
     erows = "".join(
@@ -909,6 +921,7 @@ def v_assets(q=None):
     handlers = {}
     for w in get_workers():
         handlers[w.get("handle")] = w
+    hunted = get_hunted_handles()
     rows = ""
     for t in queue:
         pname, pfull = trunc(t.get("name", ""), 25)
@@ -916,19 +929,86 @@ def v_assets(q=None):
         url = t.get("base_url") or ""
         udisp, ufull = trunc(url, 48)
         uhint = f' title="{esc(ufull)}"' if ufull != udisp else ""
-        rows += (f'<tr class="filter-item as-row" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}">'
-                 f'<td><b{phint}>{esc(pname)}</b>{self_hosted_badge(t)}'
+        handle = str(t.get("handle", "")).lower()
+        is_hunted = handle in hunted
+        # red left-border only on pending (never started) programs — skip done/skipped
+        never_hunted_style = "" if t.get("status") != "pending" else " border-left:3px solid var(--accent);"
+        # type attribute for filtering: self-hosted, public, inviteonly, or empty
+        if t.get("self_hosted"):
+            row_type = "self-hosted"
+        else:
+            row_type = str(t.get("confidentiality") or "").lower()
+        rows += (f'<tr class="filter-item as-row" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}" data-hunted="{"1" if is_hunted else "0"}" data-type="{esc(row_type)}">'
+                 f'<td style="{never_hunted_style}"><b{phint}>{esc(pname)}</b>{self_hosted_badge(t)}{invite_badge(t)}{public_badge(t)}'
                  + (f'<div class="mono small muted as-url"{uhint} data-full="{esc(url)}">{esc(udisp)}</div>' if url else "")
                  + f'</td>'
                  f'<td>{pill(t.get("status",""))}</td>'
                  f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
                  f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td>'
                  f'<td>{hunt_action_btn(t)}</td></tr>')
+    private_n = sum(1 for t in queue if str(t.get("confidentiality") or "").lower() == "inviteonly")
+    public_n = sum(1 for t in queue if str(t.get("confidentiality") or "").lower() == "public" and not t.get("self_hosted"))
+    selfhosted_n = sum(1 for t in queue if t.get("self_hosted"))
+    total = len(queue)
+    hunted_n = sum(1 for t in queue if str(t.get("handle", "")).lower() in hunted)
+    never_hunted_n = total - hunted_n
     body = (f'<div class="card"><div class="hd">In-Scope Targets <span class="sp"></span>'
-            f'<span class="hint">{len(queue)} programs · {sum(1 for t in queue if t.get("status")=="active")} active</span></div>'
+            f'<span class="hint" id="asset-count">{total} programs · {sum(1 for t in queue if t.get("status")=="active")} active'
+            + (f' · {private_n} private invites' if private_n else "")
+            + (f' · {public_n} public' if public_n else "")
+            + (f' · {selfhosted_n} self-hosted' if selfhosted_n else "")
+            + '</span></div>'
+            # filters: hunt + type side by side
+            f'<div style="margin:8px 0 12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-left:4px">'
+            f'<div style="display:flex;gap:6px;align-items:center">'
+            f'<span class="hint" style="min-width:50px">Hunt:</span>'
+            f'<button class="btn small filter-hunt active" data-val="all">All ({total})</button>'
+            f'<button class="btn small filter-hunt" data-val="hunted">Hunted ({hunted_n})</button>'
+            f'<button class="btn small filter-hunt" data-val="new">Never Hunted ({never_hunted_n})</button>'
+            f'</div>'
+            f'<span style="color:var(--border);font-size:18px">|</span>'
+            f'<div style="display:flex;gap:6px;align-items:center;margin-left:auto">'
+            f'<span class="hint" style="min-width:50px">Type:</span>'
+            f'<button class="btn small filter-type active" data-val="all">All ({total})</button>'
+            f'<button class="btn small filter-type" data-val="self-hosted">Self-Hosted ({selfhosted_n})</button>'
+            f'<button class="btn small filter-type" data-val="public">Public ({public_n})</button>'
+            f'<button class="btn small filter-type" data-val="inviteonly">Private ({private_n})</button>'
+            f'</div>'
+            f'</div>'
             f'<table><thead><tr><th>PROGRAM</th><th>STATE</th>'
             f'<th>TAGS</th><th>WORKER</th><th></th></tr></thead><tbody>{rows}</tbody></table></div>')
     js = ("(function(){"
+          "var rows=document.querySelectorAll('.as-row');"
+          "var countEl=document.getElementById('asset-count');"
+          "var origText=countEl.textContent;"
+          "var huntBtns=document.querySelectorAll('.filter-hunt');"
+          "var typeBtns=document.querySelectorAll('.filter-type');"
+          "var huntLabels={all:'All',hunted:'Hunted',new:'Never Hunted'};"
+          "var typeLabels={all:'All','self-hosted':'Self-Hosted',public:'Public',inviteonly:'Private'};"
+          "var curHunt='all',curType='all';"
+          "var total=rows.length;"
+          "function applyFilters(){"
+          "var shown=0;"
+          "rows.forEach(function(r){"
+          "var h=r.getAttribute('data-hunted');"
+          "var tp=r.getAttribute('data-type');"
+          "var hMatch=curHunt==='all'||(curHunt==='hunted'&&h==='1')||(curHunt==='new'&&h==='0');"
+          "var tMatch=curType==='all'||tp===curType;"
+          "r.style.display=(hMatch&&tMatch)?'':'none';"
+          "if(hMatch&&tMatch)shown++;"
+          "});"
+          "var active=curHunt!=='all'||curType!=='all';"
+          "countEl.textContent=active?shown+' of '+total+' programs \u00b7 filtered':origText;"
+          "}"
+          "function setActive(btns,val){"
+          "btns.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-val')===val);});"
+          "}"
+          "huntBtns.forEach(function(b){b.addEventListener('click',function(){"
+          "curHunt=b.getAttribute('data-val');setActive(huntBtns,curHunt);applyFilters();"
+          "});});"
+          "typeBtns.forEach(function(b){b.addEventListener('click',function(){"
+          "curType=b.getAttribute('data-val');setActive(typeBtns,curType);applyFilters();"
+          "});});"
           "document.addEventListener('click',function(e){"
           "var t=e.target.closest?e.target.closest('.as-row'):null;"
           "if(!t)return;"
@@ -942,7 +1022,10 @@ def v_assets(q=None):
           "})();")
     css = (".as-row{cursor:pointer}"
            ".as-row .as-url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}"
-           ".as-row.as-open .as-url{white-space:normal;word-break:break-all;max-width:none}")
+           ".as-row.as-open .as-url{white-space:normal;word-break:break-all;max-width:none}"
+           ".btn.active{background:var(--accent);color:#fff!important}"
+           ".filter-hunt,.filter-type{background:#fff!important;color:var(--ink)!important;border:1px solid var(--border)}"
+           ".filter-hunt.active,.filter-type.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)}")
     return page("assets", hero("Assets", "Every in-scope program with tags and hunt state"), body, extra_css=css, scripts=js)
 
 def skill_info(path):
@@ -1063,7 +1146,54 @@ def v_workspaces():
                   f'<div class="m mono" style="word-break:break-all">{esc(path)}</div>'
                   f'<div class="m">{n} items · {hint}</div>'
                   f'<div class="foot">{pill("connected","R/W")}<span class="sp" style="flex:1"></span></div></div>')
-    body = f'<div class="hgrid">{cards}</div>'
+
+    # ywh-reporter triage log — appended by the hunter after each invocation
+    triage = get_ywh_triage()
+    triage_rows = ""
+    for t in triage:
+        verdict = str(t.get("verdict", "")).upper()
+        if verdict == "READY TO SUBMIT":
+            vpill = pill("ready", "READY TO SUBMIT")
+        elif verdict == "NEEDS FIXES":
+            vpill = pill("needs-work", "NEEDS FIXES")
+        elif verdict == "DO NOT SUBMIT":
+            vpill = pill("cancelled", "DO NOT SUBMIT")
+        else:
+            vpill = pill(verdict or "—")
+        fixes = []
+        for k, suf in (("critical", "c"), ("major", "m"), ("minor", "n")):
+            v = t.get(k, 0) or 0
+            cnt = len(v) if isinstance(v, list) else v
+            if cnt:
+                fixes.append(f"{cnt}{suf}")
+        fixes_txt = " · ".join(fixes) if fixes else "—"
+        prog = esc(t.get("program", ""))
+        draft = str(t.get("draft", "") or "")
+        dname = os.path.basename(draft)
+        if dname.endswith(".md"):
+            draft_html = f'<a class="mono" href="/report/{prog}/{esc(dname)}">{esc(dname)}</a>'
+        else:
+            draft_html = f'<span class="mono muted">{esc(draft) or "—"}</span>'
+        triage_rows += (f'<tr class="filter-item" data-filter="filter-item" '
+                        f'data-search="{prog} {esc(t.get("finding",""))}">'
+                        f'<td class="mono">{fmt_time(t.get("ts"))}</td>'
+                        f'<td><b>{prog}</b></td>'
+                        f'<td>{esc(t.get("finding") or "—")}</td>'
+                        f'<td>{severity_pill(t.get("severity"))}</td>'
+                        f'<td>{vpill}</td>'
+                        f'<td class="num">{fixes_txt}</td>'
+                        f'<td>{draft_html}</td></tr>')
+    triage_card = (f'<div class="card" style="margin-top:16px">'
+                   f'<div class="hd">ywh-reporter triage <span class="sp"></span>'
+                   f'<span class="hint">{len(triage)} invocations</span></div>'
+                   f'<table><thead><tr><th>TIME</th><th>PROGRAM</th><th>FINDING</th>'
+                   f'<th>SEVERITY</th><th>VERDICT</th><th class="num">FIXES</th><th>DRAFT</th></tr></thead>'
+                   f'<tbody>{triage_rows or ""}</tbody></table>'
+                   f'<div class="bd small muted" style="border-top:1px solid var(--border)">'
+                   f'Logged by the hunter after each @ywh-reporter invocation (the reporter is read-only and '
+                   f'cannot log itself). Verdicts: READY TO SUBMIT / NEEDS FIXES / DO NOT SUBMIT.</div></div>')
+
+    body = f'<div class="hgrid">{cards}</div>' + triage_card
     return page("workspaces", hero("Workspaces", "Operator workspace mounts — read/write accessible, read-only from the terminal"), body)
 
 def v_registrations():

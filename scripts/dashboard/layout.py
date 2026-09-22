@@ -28,6 +28,7 @@ from .state import get_queue
 from .state import get_workers
 from .state import hunt_stats
 from .state import unread_reports
+from .state import is_favourite
 from .icons import icon
 # UNRESOLVED: need_attention (same-module or missing)
 # UNRESOLVED: pill (same-module or missing)
@@ -93,6 +94,16 @@ def public_badge(t):
     if str(t.get("confidentiality") or "").lower() == "public" and not t.get("self_hosted"):
         return ' <span class="pill green"><span class="dot"></span>PUBLIC</span>'
     return ""
+
+def fav_btn(handle, size=14):
+    """Star toggle for a program handle. Renders filled when favourited."""
+    h = esc(str(handle or "").lower())
+    on = is_favourite(h)
+    cls = "fav-btn on" if on else "fav-btn"
+    title = "Remove from favourites" if on else "Add to favourites"
+    return (f'<button type="button" class="{cls}" data-handle="{h}" onclick="toggleFav(this)" '
+            f'title="{title}" aria-label="{title}" aria-pressed="{"true" if on else "false"}">'
+            f'{icon("star", size)}</button>')
 
 def hunt_action_btn(t, pending_as_cancel=False):
     h = esc(t.get("handle", ""))
@@ -285,6 +296,18 @@ def page(active, hero_html, body, refresh=0, extra_css="", scripts=""):
         'function closeConfirm(){var m=document.getElementById(\'confmodal\');if(m){m.style.display=\'none\';}__confirmCb=null;}\n'
         'function runConfirm(){var cb=__confirmCb;closeConfirm();if(cb){cb();}}\n'
         'function apiPost(url,obj){return fetch(url,{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify(obj||{})}).then(function(r){return r.json().catch(function(){return {ok:false,message:\'bad response\'};});});}\n'
+        'function toggleFav(btn){\n'
+        '  var h=btn.getAttribute(\'data-handle\');\n'
+        '  apiPost(\'/api/favourites/toggle\',{handle:h}).then(function(data){\n'
+        '    if(!data.ok){showMsg(data.message||\'Failed to update favourite.\');return;}\n'
+        '    var on=!!data.favourite;\n'
+        '    btn.classList.toggle(\'on\',on);\n'
+        '    btn.setAttribute(\'aria-pressed\',on?\'true\':\'false\');\n'
+        '    btn.title=on?\'Remove from favourites\':\'Add to favourites\';\n'
+        '    btn.setAttribute(\'aria-label\',btn.title);\n'
+        '    if(window.__favChanged)window.__favChanged(h,on);\n'
+        '  });\n'
+        '}\n'
         'async function logFinding(){\n'
         '  var err=document.getElementById(\'f-err\');err.style.display=\'none\';\n'
         '  var payload={program:document.getElementById(\'f-program\').value.trim(),\n'

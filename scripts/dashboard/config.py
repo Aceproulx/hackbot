@@ -21,6 +21,7 @@ YWH_TRIAGER_FILE = os.path.join(MISC, "ywh-triager.jsonl")
 YWH_VERDICTS_FILE = os.path.join(MISC, "ywh-verdicts.json")
 README_FILE    = os.path.join(MISC, "read-reports.json")
 MARKS_FILE     = os.path.join(MISC, "report-marks.json")
+FAVOURITES_FILE = os.path.join(MISC, "program-favourites.json")
 REPORTS_DIR    = os.path.join(MISC, "reports")
 SKILL_DIRS = [
     os.path.expanduser("~/.config/opencode/skill"),

@@ -48,6 +48,7 @@ from .util import ts_key
 from .state import get_findings
 from .state import get_hunted_handles
 from .state import get_queue
+from .state import is_favourite
 from .state import get_ywh_triage
 from .state import MARK_LABELS
 # UNRESOLVED: get_reading (same-module or missing)
@@ -70,6 +71,7 @@ from .tts import tts_js
 from .tts import tts_settings_panel
 from .layout import hero
 from .layout import hunt_action_btn
+from .layout import fav_btn
 from .icons import icon
 from .util import mtime
 from .layout import need_attention
@@ -143,7 +145,7 @@ def v_overview():
     for t in top:
         pname, pfull = trunc(t.get("name", "") or "", 13)
         phint = f' title="{esc(pfull)}"' if pfull != pname else ""
-        qrows += (f'<tr><td><a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}"{phint}>{esc(pname)}</a>'
+        qrows += (f'<tr><td>{fav_btn(t.get("handle"))}<a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}"{phint}>{esc(pname)}</a>'
                   f' <span class="mono small muted">{esc(t.get("handle",""))}</span>{self_hosted_badge(t)}</td>'
                   f'<td>{pill(t.get("status","pending"))}</td>'
                   f'<td>{fmt_time(t.get("last_hunted"))}</td>'
@@ -292,6 +294,7 @@ def v_hunt(name):
     h = get_reading(hpath)
     h["kind"] = "RUN" if os.path.realpath(hpath).startswith(os.path.realpath(HUNTS_ROOT)) else "SESSION"
     handle = h["name"]
+    qhandle = re.sub(r"-\d{8}$", "", handle)  # hunt dirs are <handle>-<YYYYMMDD>
     worker = workers_by_handle().get(handle)
     qitem = next((t for t in get_queue() if t.get("handle") == handle), None)
     findings = [f for f in get_findings() if f.get("program") in (handle, hpath)]
@@ -392,7 +395,7 @@ def v_hunt(name):
     body += f'<div class="tabs">{tb}</div>{panels}'
     hp = hero(f"<span class='mono'>{esc(target)}</span>",
               sub=f"{esc(h['kind'])} · {esc(os.path.basename(hpath))} · evidence {len(h['evidence'])} · reports {len(h['reports'])} · threads in operator console",
-              back="/v/hunts", raw=True)
+              back="/v/hunts", crown=fav_btn(qhandle), raw=True)
     return page("hunt", hp, body, scripts=clp_toggle_js())
 
 def v_history():
@@ -402,7 +405,7 @@ def v_history():
     trows = "".join(
         f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))}">'
         f'<td><input type="checkbox" class="qsel" data-h="{esc(t.get("handle",""))}"></td>'
-        f'<td><b>{esc(t.get("name",""))}</b> <span class="mono small muted">{esc(t.get("handle",""))}</span></td>'
+        f'<td>{fav_btn(t.get("handle"))}<b>{esc(t.get("name",""))}</b> <span class="mono small muted">{esc(t.get("handle",""))}</span></td>'
         f'<td>{pill(t.get("status",""))}</td>'
         f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:2])}</td>'
         f'<td class="num">{t.get("bugs_found",0)}</td>'
@@ -450,7 +453,7 @@ def v_queue():
         phint = f' title="{esc(pfull)}"' if pfull != pname else ""
         trows += (
             f'<tr class="filter-item" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))}">'
-            f'<td><a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}"{phint}>{esc(pname)}</a>'
+            f'<td>{fav_btn(t.get("handle"))}<a class="node-link" href="/v/assets?target={esc(t.get("handle",""))}"{phint}>{esc(pname)}</a>'
             f' <span class="mono small muted">{esc(t.get("handle",""))}</span>{self_hosted_badge(t)}</td>'
             f'<td>{pill(t.get("status",""))}</td>'
             f'<td class="mono small">{esc(t.get("queued_at") or "—")}</td>'
@@ -957,6 +960,7 @@ def v_assets(q=None):
     queue = sorted(get_queue(), key=lambda t: (0 if is_running(t) else 1, -(float(t.get("score") or 0))))
     hunted = get_hunted_handles()
     running_n = sum(1 for t in queue if is_running(t))
+    fav_n = sum(1 for t in queue if is_favourite(t.get("handle")))
     rows = ""
     rest_header_emitted = False
     for t in queue:
@@ -975,6 +979,7 @@ def v_assets(q=None):
         uhint = f' title="{esc(ufull)}"' if ufull != udisp else ""
         handle = str(t.get("handle", "")).lower()
         is_hunted = handle in hunted
+        is_fav = is_favourite(handle)
         # left-border: green = running now, red = never hunted
         if run:
             left_style = " border-left:3px solid var(--green);"
@@ -987,8 +992,8 @@ def v_assets(q=None):
             row_type = "self-hosted"
         else:
             row_type = str(t.get("confidentiality") or "").lower()
-        rows += (f'<tr class="filter-item as-row{" as-run" if run else ""}" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}" data-hunted="{"1" if is_hunted else "0"}" data-type="{esc(row_type)}" data-running="{"1" if run else "0"}">'
-                 f'<td style="{left_style}"><b{phint}>{esc(pname)}</b>'
+        rows += (f'<tr class="filter-item as-row{" as-run" if run else ""}" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}" data-hunted="{"1" if is_hunted else "0"}" data-type="{esc(row_type)}" data-running="{"1" if run else "0"}" data-fav="{"1" if is_fav else "0"}" data-handle="{esc(handle)}">'
+                 f'<td style="{left_style}">{fav_btn(handle)}<b{phint}>{esc(pname)}</b>'
                  + (f'{pill("running","ACTIVE")} ' if run else "")
                  + f'{self_hosted_badge(t)}{invite_badge(t)}{public_badge(t)}'
                  + (f'<div class="mono small muted as-url"{uhint} data-full="{esc(url)}">{esc(udisp)}</div>' if url else "")
@@ -1016,6 +1021,7 @@ def v_assets(q=None):
             f'<button class="btn small filter-hunt active" data-val="all">All ({total})</button>'
             f'<button class="btn small filter-hunt" data-val="hunted">Hunted ({hunted_n})</button>'
             f'<button class="btn small filter-hunt" data-val="new">Never Hunted ({never_hunted_n})</button>'
+            f'<button class="btn small filter-hunt" data-val="fav">Favourites ({fav_n})</button>'
             f'</div>'
             f'<span style="color:var(--border);font-size:18px">|</span>'
             f'<div style="display:flex;gap:6px;align-items:center;margin-left:auto">'
@@ -1034,7 +1040,7 @@ def v_assets(q=None):
           "var origText=countEl.textContent;"
           "var huntBtns=document.querySelectorAll('.filter-hunt');"
           "var typeBtns=document.querySelectorAll('.filter-type');"
-          "var huntLabels={all:'All',hunted:'Hunted',new:'Never Hunted'};"
+          "var huntLabels={all:'All',hunted:'Hunted',new:'Never Hunted',fav:'Favourites'};"
           "var typeLabels={all:'All','self-hosted':'Self-Hosted',public:'Public',inviteonly:'Private'};"
           "var curHunt='all',curType='all';"
           "var total=rows.length;"
@@ -1042,8 +1048,9 @@ def v_assets(q=None):
           "var shown=0;"
           "rows.forEach(function(r){"
           "var h=r.getAttribute('data-hunted');"
+          "var fav=r.getAttribute('data-fav');"
           "var tp=r.getAttribute('data-type');"
-          "var hMatch=curHunt==='all'||(curHunt==='hunted'&&h==='1')||(curHunt==='new'&&h==='0');"
+          "var hMatch=curHunt==='all'||(curHunt==='hunted'&&h==='1')||(curHunt==='new'&&h==='0')||(curHunt==='fav'&&fav==='1');"
           "var tMatch=curType==='all'||tp===curType;"
           "r.style.display=(hMatch&&tMatch)?'':'none';"
           "if(hMatch&&tMatch)shown++;"
@@ -1079,6 +1086,12 @@ def v_assets(q=None):
           "if(u.classList.contains('open')){u.textContent=u.getAttribute('data-short')||u.textContent;u.classList.remove('open');t.classList.remove('as-open');}"
           "else{u.setAttribute('data-short',u.textContent);u.textContent=full;u.classList.add('open');t.classList.add('as-open');}"
           "});"
+          "window.__favChanged=function(h,on){"
+          "var b=document.querySelector('.filter-hunt[data-val=\"fav\"]');"
+          "if(b){var m=b.textContent.match(/\\((\\d+)\\)/);var n=m?parseInt(m[1],10):0;b.textContent='Favourites ('+(n+(on?1:-1))+')';}"
+          "var r=document.querySelector('.as-row[data-handle=\"'+h+'\"]');"
+          "if(r)r.setAttribute('data-fav',on?'1':'0');"
+          "};"
           "})();")
     css = (".as-row{cursor:pointer}"
            ".as-row .as-url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}"

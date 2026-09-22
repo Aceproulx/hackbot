@@ -37,6 +37,7 @@ from .actions import _api_provider_test
 from .actions import _api_queue_bulk
 from .actions import _api_report_mark
 from .actions import _api_report_ywh_triage
+from .actions import _api_favourite_toggle
 from .actions import _api_skills_import
 from .actions import _api_skills_new
 from .actions import _api_telegram_test
@@ -635,6 +636,10 @@ def route_post(path, qs, body):
 
     if p[:3] == ["api", "report", "mark"]:
         payload, status = _api_report_mark(body)
+        return json.dumps(payload).encode(), status
+
+    if p[:3] == ["api", "favourites", "toggle"]:
+        payload, status = _api_favourite_toggle(body)
         return json.dumps(payload).encode(), status
 
     if p[:3] == ["api", "report", "ywh-triage"]:

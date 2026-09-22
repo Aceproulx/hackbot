@@ -98,6 +98,11 @@ a:hover{text-decoration:underline}
 .btn.danger{color:#b3261e;border-color:#e6b8b4;background:#fff}
 .btn.danger:hover{color:#fff;background:#b3261e;border-color:#b3261e;box-shadow:0 1px 3px rgba(179,38,30,.4)}
 .btn.small{padding:4px 10px;font-size:12px;border-radius:7px}
+.fav-btn{background:none;border:none;cursor:pointer;padding:3px;margin-right:2px;color:#c9c0b2;display:inline-flex;align-items:center;vertical-align:middle;border-radius:6px;line-height:0}
+.fav-btn:hover{color:var(--amber);background:rgba(185,107,0,.08)}
+.fav-btn.on{color:var(--amber)}
+.fav-btn.on svg{fill:currentColor}
+.fav-btn.on:hover{color:#8a5200}
 
 /* hero banner */
 .hero{position:relative;padding:38px 34px 32px;color:#f6efe4;background:

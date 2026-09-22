@@ -46,6 +46,7 @@ from .state import set_report_mark
 from .state import report_mark
 from .state import set_ywh_verdict
 from .state import get_findings
+from .state import toggle_favourite
 from .util import _URL_RE
 from .util import _HANDLE_RE
 # UNRESOLVED: _run_worker_pool (same-module or missing)
@@ -554,6 +555,18 @@ def _api_report_mark(body):
         return {"ok": False, "message": "report not found"}, 404
     set_report_mark(handle, name, mark or "", path=rp)
     return {"ok": True, "message": f"{name} → {mark or 'cleared'}", "mark": mark or ""}, 200
+
+
+def _api_favourite_toggle(body):
+    try:
+        data = json.loads(body or "{}")
+    except Exception:
+        return {"ok": False, "message": "invalid JSON body"}, 400
+    handle = (data.get("handle") or "").strip().lower()
+    if not handle or not _HANDLE_RE.match(handle):
+        return {"ok": False, "message": "missing or invalid target handle"}, 400
+    new = toggle_favourite(handle)
+    return {"ok": True, "handle": handle, "favourite": new}, 200
 
 
 # ── ywh-triage (dashboard-initiated) ──────────────────────────────────────────

@@ -7,7 +7,7 @@ from time import time
 
 from .config import (
     FINDINGS_FILE, HUNTS_ROOT, POOL_FILE, QUEUE_FILE,
-    SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE,
+    SESSIONS_ROOT, SKILL_DIRS, README_FILE, MARKS_FILE, FAVOURITES_FILE,
     WATCHDOG, WATCHDOG_LOG, WATCHDOG_PID, WATCHDOG_REPORTS_DIR,
     YWH_TRIAGER_FILE, YWH_VERDICTS_FILE,
 )
@@ -89,6 +89,36 @@ def get_ywh_triage() -> list:
 def need_attention() -> int:
     skip = {"paid", "dismissed", "informational", "closed", "n/a", "unreportable"}
     return sum(1 for f in get_findings() if str(f.get("status", "")).lower() not in skip)
+
+
+# ── program favourites ────────────────────────────────────────────────────────
+
+def get_favourites() -> dict:
+    """{handle: epoch-ts} for programs starred as favourites."""
+    data = read_json(FAVOURITES_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+
+def is_favourite(handle: str) -> bool:
+    return str(handle or "").lower() in get_favourites()
+
+
+def toggle_favourite(handle: str) -> bool:
+    """Flip favourite state for a program handle. Returns the new state."""
+    favs = get_favourites()
+    h = str(handle or "").lower()
+    if h in favs:
+        favs.pop(h, None)
+        new = False
+    else:
+        favs[h] = int(time())
+        new = True
+    try:
+        with open(FAVOURITES_FILE, "w") as fh:
+            json.dump(favs, fh)
+    except Exception:
+        pass
+    return new
 
 
 # ── report read-state ─────────────────────────────────────────────────────────

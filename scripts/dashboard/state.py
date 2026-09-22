@@ -42,20 +42,40 @@ def get_findings() -> list:
 def get_hunted_handles() -> set:
     """Handles that have been hunted before.
 
-    A handle counts as hunted when it has a logged finding, OR its queue
-    entry has been through a hunt cycle (status done/skipped/active — active
-    means a hunt is running right now, so the "never hunted" marker must
-    clear the moment a hunt starts), OR it carries a last_hunted timestamp.
-    Only untouched pending targets stay marked as never hunted.
+    A handle counts as hunted when it has a logged finding, OR a hunt run
+    directory exists on disk (hunts/<handle>-YYYYMMDD — ground truth that a
+    hunt session was created), OR its queue entry shows a hunt actually ran:
+      - status done (completed a hunt) or active (hunting right now)
+      - status skipped with a real worker verdict (THIN_TARGET, WAF_BLOCKED,
+        ...) — a worker ran and produced a verdict
+      - status skipped with the bulk "cleared from queue" verdict BUT a
+        started_at timestamp — hunted before, then re-queued and cleared
+      - status pending with a started_at or last_hunted timestamp — a hunt
+        started (pool stopped before completion) or was hunted previously
+
+    Only untouched pending targets — and bulk-cleared targets that were never
+    started — stay marked as never hunted.
     """
     hunted = {str(f.get("program", "")).lower() for f in get_findings()}
+    # Hunt run dirs are ground truth: a hunt session was actually created.
+    hunted |= {str(r.get("handle", "")).lower() for r in get_run_dirs()}
     for t in get_queue():
         h = str(t.get("handle", "")).lower()
         if not h:
             continue
-        if str(t.get("status", "")).lower() in ("done", "skipped", "active") \
-                or t.get("last_hunted"):
+        status = str(t.get("status", "")).lower()
+        verdict = str(t.get("last_verdict") or "")
+        if status in ("done", "active"):
             hunted.add(h)
+        elif status == "skipped":
+            if verdict.startswith("SKIPPED: cleared from queue"):
+                if t.get("started_at"):
+                    hunted.add(h)
+            else:
+                hunted.add(h)
+        elif status == "pending":
+            if t.get("started_at") or t.get("last_hunted"):
+                hunted.add(h)
     return hunted
 
 

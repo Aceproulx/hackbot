@@ -946,13 +946,28 @@ apply();
     return page("findings", hero("Findings", "Reports and evidence across every hunt"), body, scripts=find_js)
 
 def v_assets(q=None):
-    queue = sorted(get_queue(), key=lambda t: -(float(t.get("score") or 0)))
     handlers = {}
     for w in get_workers():
         handlers[w.get("handle")] = w
+    running_handles = {h for h, w in handlers.items() if w.get("status") == "running"}
+    def is_running(t):
+        return t.get("handle") in running_handles
+    # Running programs are indexed on top as the ACTIVE group; the rest keep
+    # score order underneath.
+    queue = sorted(get_queue(), key=lambda t: (0 if is_running(t) else 1, -(float(t.get("score") or 0))))
     hunted = get_hunted_handles()
+    running_n = sum(1 for t in queue if is_running(t))
     rows = ""
+    rest_header_emitted = False
     for t in queue:
+        run = is_running(t)
+        if run and not rows:
+            rows += (f'<tr class="as-grp" data-grp="active"><td colspan="5">'
+                     f'<span class="grp-dot"></span>Active — {running_n} running now</td></tr>')
+        elif not run and running_n and not rest_header_emitted:
+            rows += ('<tr class="as-grp" data-grp="rest"><td colspan="5">'
+                     'All programs</td></tr>')
+            rest_header_emitted = True
         pname, pfull = trunc(t.get("name", ""), 25)
         phint = f' title="{esc(pfull)}"' if pfull != pname else ""
         url = t.get("base_url") or ""
@@ -960,20 +975,27 @@ def v_assets(q=None):
         uhint = f' title="{esc(ufull)}"' if ufull != udisp else ""
         handle = str(t.get("handle", "")).lower()
         is_hunted = handle in hunted
-        # red left-border on programs never hunted (no logged findings)
-        never_hunted_style = "" if is_hunted else " border-left:3px solid var(--accent);"
+        # left-border: green = running now, red = never hunted
+        if run:
+            left_style = " border-left:3px solid var(--green);"
+        elif not is_hunted:
+            left_style = " border-left:3px solid var(--accent);"
+        else:
+            left_style = ""
         # type attribute for filtering: self-hosted, public, inviteonly, or empty
         if t.get("self_hosted"):
             row_type = "self-hosted"
         else:
             row_type = str(t.get("confidentiality") or "").lower()
-        rows += (f'<tr class="filter-item as-row" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}" data-hunted="{"1" if is_hunted else "0"}" data-type="{esc(row_type)}">'
-                 f'<td style="{never_hunted_style}"><b{phint}>{esc(pname)}</b>{self_hosted_badge(t)}{invite_badge(t)}{public_badge(t)}'
+        rows += (f'<tr class="filter-item as-row{" as-run" if run else ""}" data-filter="filter-item" data-search="{esc(t.get("handle",""))} {esc(t.get("name",""))} {esc(url)}" data-hunted="{"1" if is_hunted else "0"}" data-type="{esc(row_type)}" data-running="{"1" if run else "0"}">'
+                 f'<td style="{left_style}"><b{phint}>{esc(pname)}</b>'
+                 + (f'{pill("running","ACTIVE")} ' if run else "")
+                 + f'{self_hosted_badge(t)}{invite_badge(t)}{public_badge(t)}'
                  + (f'<div class="mono small muted as-url"{uhint} data-full="{esc(url)}">{esc(udisp)}</div>' if url else "")
                  + f'</td>'
                  f'<td>{pill(t.get("status",""))}</td>'
                  f'<td>{" ".join(pill(tg) for tg in (t.get("tags") or [])[:3])}</td>'
-                 f'<td>{pill("running","HUNTING") if t.get("handle") in handlers and handlers[t.get("handle")].get("status") == "running" else pill("idle","IDLE")}</td>'
+                 f'<td>{pill("running","ACTIVE") if run else pill("idle","IDLE")}</td>'
                  f'<td>{hunt_action_btn(t)}</td></tr>')
     private_n = sum(1 for t in queue if str(t.get("confidentiality") or "").lower() == "inviteonly")
     public_n = sum(1 for t in queue if str(t.get("confidentiality") or "").lower() == "public" and not t.get("self_hosted"))
@@ -982,7 +1004,7 @@ def v_assets(q=None):
     hunted_n = sum(1 for t in queue if str(t.get("handle", "")).lower() in hunted)
     never_hunted_n = total - hunted_n
     body = (f'<div class="card"><div class="hd">In-Scope Targets <span class="sp"></span>'
-            f'<span class="hint" id="asset-count">{total} programs · {sum(1 for t in queue if t.get("status")=="active")} active'
+            f'<span class="hint" id="asset-count">{total} programs · {running_n} running now'
             + (f' · {private_n} private invites' if private_n else "")
             + (f' · {public_n} public' if public_n else "")
             + (f' · {selfhosted_n} self-hosted' if selfhosted_n else "")
@@ -1026,6 +1048,15 @@ def v_assets(q=None):
           "r.style.display=(hMatch&&tMatch)?'':'none';"
           "if(hMatch&&tMatch)shown++;"
           "});"
+          "document.querySelectorAll('.as-grp').forEach(function(g){"
+          "var kind=g.getAttribute('data-grp');"
+          "var vis=0;"
+          "rows.forEach(function(r){"
+          "if(r.style.display==='none')return;"
+          "if((kind==='active')===(r.getAttribute('data-running')==='1'))vis++;"
+          "});"
+          "g.style.display=vis?'':'none';"
+          "});"
           "var active=curHunt!=='all'||curType!=='all';"
           "countEl.textContent=active?shown+' of '+total+' programs \u00b7 filtered':origText;"
           "}"
@@ -1052,6 +1083,13 @@ def v_assets(q=None):
     css = (".as-row{cursor:pointer}"
            ".as-row .as-url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}"
            ".as-row.as-open .as-url{white-space:normal;word-break:break-all;max-width:none}"
+           ".as-row.as-run{background:rgba(26,122,67,.04)}"
+           ".as-row.as-run:hover{background:rgba(26,122,67,.08)}"
+           ".as-grp td{background:#faf6ef;padding:7px 12px;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border)}"
+           ".as-grp:hover td{background:#faf6ef}"
+           ".as-grp[data-grp='active'] td{background:rgba(26,122,67,.08);color:var(--green)}"
+           ".as-grp[data-grp='active']:hover td{background:rgba(26,122,67,.08)}"
+           ".as-grp .grp-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:8px;vertical-align:middle}"
            ".btn.active{background:var(--accent);color:#fff!important}"
            ".filter-hunt,.filter-type{background:#fff!important;color:var(--ink)!important;border:1px solid var(--border)}"
            ".filter-hunt.active,.filter-type.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)}")

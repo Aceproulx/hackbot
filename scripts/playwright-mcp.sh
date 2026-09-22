@@ -101,4 +101,5 @@ fi
 
 jq -n --argjson b "$BROWSER" '{browser:$b}' > "$CONFIG"
 
+export NPM_CONFIG_PREFER_OFFLINE=true NPM_CONFIG_OFFLINE=true
 exec npx -y @playwright/mcp@latest --config "$CONFIG" "${MCP_ARGS[@]}"

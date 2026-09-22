@@ -166,6 +166,26 @@ def _worker_id_from_log(key):
     return base
 
 
+def _age_str(age):
+    """Format seconds-since-last-write as a compact human string."""
+    if age < 5:
+        return "just now"
+    if age < 60:
+        return f"{int(age)}s ago"
+    if age < 3600:
+        return f"{int(age // 60)}m ago"
+    return f"{int(age // 3600)}h ago"
+
+
+def _age_color(age):
+    """Color for the last-command indicator: green active, amber suspicious, red stuck."""
+    if age < 180:      # < 3 min — agent actively writing
+        return "#22c55e"
+    if age < 600:      # 3-10 min — possibly stuck
+        return "#f59e0b"
+    return "#ef4444"   # > 10 min — likely stuck
+
+
 def v_console_build(selected, lines=300):
     _ensure_caido()
     logs = _log_index()
@@ -258,6 +278,16 @@ def v_console_build(selected, lines=300):
     # Worker ID for tell-agent
     worker_id = _worker_id_from_log(key)
 
+    # Last-command indicator: seconds since the agent last wrote to this log.
+    last_cmd_html = ""
+    if selected and os.path.isfile(selected):
+        mt = mtime(selected)
+        age = max(0, time.time() - mt)
+        ts = datetime.fromtimestamp(mt, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        last_cmd_html = (f'<span class="last-cmd" id="lastcmd" style="color:{_age_color(age)}" '
+                         f'title="Last log write: {ts} UTC">'
+                         f'last cmd: {esc(_age_str(age))}</span>')
+
     body = (f'<pre class="terminal" id="termlog">{content}</pre>'
             # Tell agent input
             f'<div class="console-bar input-bar">'
@@ -300,8 +330,19 @@ def v_console_build(selected, lines=300):
         "}"
         "});"
         # --- Paint (poll) ---
+        "function fmtAge(age){if(age<5)return 'just now';if(age<60)return Math.floor(age)+'s ago';if(age<3600)return Math.floor(age/60)+'m ago';return Math.floor(age/3600)+'h ago';}"
+        "function lastCmdColor(age){if(age<180)return '#22c55e';if(age<600)return '#f59e0b';return '#ef4444';}"
+        "function updateLastCmd(mt){"
+        "if(!mt)return;"
+        "var el=document.getElementById('lastcmd');if(!el)return;"
+        "var age=(Date.now()/1000)-mt;"
+        "el.textContent='last cmd: '+fmtAge(age);"
+        "el.style.color=lastCmdColor(age);"
+        "el.title='Last log write: '+new Date(mt*1000).toISOString().replace('T',' ').slice(0,19)+' UTC';"
+        "}"
         "function paint(){"
         "fetch('/api/console?l=" + esc(key) + "&lines=" + str(lines) + "').then(function(r){return r.json();}).then(function(d){"
+        "updateLastCmd(d.mtime);"
         "if(d.mtime===lastM)return;lastM=d.mtime;"
         "if(first){wasAtBottom=true;first=false;}else{wasAtBottom=atBottom();}"
         # Preserve scroll position across innerHTML replacement
@@ -363,6 +404,7 @@ def v_console_build(selected, lines=300):
             f'<div class="con-ctl">'
             f'<select onchange="location.href=\'/console?l={esc(key)}&lines=\'+encodeURIComponent(this.value)" title="Tail window">{line_opts}</select>'
             f'{activity_html}'
+            f'{last_cmd_html}'
             f'<span id="pstatus">{pill("ready", "LIVE")}</span>'
             f'<button class="btn ghost small" id="btoggle" onclick="con_toggle()" title="Pause live updates">{icon("pause", 13)}</button>'
             f'<a class="btn ghost small" href="/api/console/save?l={esc(key)}" title="Save full log to file">{icon("download", 13)}</a>'

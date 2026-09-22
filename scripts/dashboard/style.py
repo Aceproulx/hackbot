@@ -236,6 +236,7 @@ body.console-page .con-ctl .btn.ghost:hover{color:#fff;border-color:#52525b;back
 body.console-page .con-ctl .pill{height:28px;padding:0 10px;font-size:11px;background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
 body.console-page .con-ctl .pill.amber{background:rgba(245,158,11,.12);color:#fbbf24;border-color:rgba(245,158,11,.3)}
 body.console-page .activity-indicator{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+body.console-page .last-cmd{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-variant-numeric:tabular-nums}
 body.console-page .console-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:0;overflow:hidden}
 body.console-page .terminal{flex:1;min-height:0;border-radius:0;padding:12px 14px}
 body.console-page .console-bar.input-bar{padding:8px 12px;border-top:1px solid #27272a;border-bottom:none}

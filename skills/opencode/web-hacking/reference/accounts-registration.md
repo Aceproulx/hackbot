@@ -15,8 +15,8 @@ account is useless the moment the target requires email verification.
 
 Every registration email MUST follow this pattern:
 ```
-{{EMAIL_BASE}}+<target>-a@{{EMAIL_DOMAIN}}   # userA
-{{EMAIL_BASE}}+<target>-b@{{EMAIL_DOMAIN}}   # userB
+aceproulx+<target>-a@intigriti.me   # userA
+aceproulx+<target>-b@intigriti.me   # userB
 ```
 (`-` also works as the separator if `+` gets stripped by a target's input
 validation — try `+` first, fall back to `-`.) These forward into the
@@ -63,7 +63,7 @@ Extract the OTP/verification code from the message body.
    → scan latest message from the target's sender for the OTP code
 4. Enter the OTP via Playwright MCP to complete verification
 5. Write the chosen number into the creds file:
-   echo "phone=+19392529150" >> {{SESSIONS_DIR}}/<target>/userA.creds
+   echo "phone=+19392529150" >> /home/aceos/Projects/hackbot/hunts/sessions/<target>/userA.creds
 ```
 
 **If no SMS arrives within 60 seconds:**
@@ -76,13 +76,13 @@ Extract the OTP/verification code from the message body.
 ## Before registering ANY account, in this order:
 1. **You must have claimed your account first** — `$AGENT_BROWSER_ACCOUNT` must
    be set (see `reference/session-bootstrap.md`). Check: `echo $AGENT_BROWSER_ACCOUNT`.
-2. Check `{{SESSIONS_DIR}}/<domain>/$AGENT_BROWSER_ACCOUNT.creds` for
+2. Check `/home/aceos/Projects/hackbot/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds` for
    an existing account. If found and not dead/banned, log in with those
    credentials instead of registering a new one.
 3. If no creds file exists, ensure your profile exists (it should — `claim-account.sh`
    validates this, but check anyway):
    ```bash
-   ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
+   ABP=/home/aceos/Projects/hackbot-misc/.playwright-profiles
    [ -d "$ABP/Profile-$AGENT_BROWSER_ACCOUNT" ] || \
      (cd "$ABP" && ./clone-profile.sh "$AGENT_BROWSER_ACCOUNT")
    ```
@@ -97,12 +97,12 @@ Extract the OTP/verification code from the message body.
    ```bash
    # Derive the email suffix: userA → "a", userB → "b"
    SUFFIX=$(echo "$AGENT_BROWSER_ACCOUNT" | sed 's/user//')
-   cat > {{SESSIONS_DIR}}/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds <<EOF
-   email={{EMAIL_BASE}}+${TARGET}-${SUFFIX}@{{EMAIL_DOMAIN}}
+   cat > /home/aceos/Projects/hackbot/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds <<EOF
+   email=aceproulx+${TARGET}-${SUFFIX}@intigriti.me
    password=${GENERATED_PASSWORD}
    created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
    EOF
-   chmod 600 {{SESSIONS_DIR}}/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds
+   chmod 600 /home/aceos/Projects/hackbot/hunts/sessions/${TARGET}/$AGENT_BROWSER_ACCOUNT.creds
    ```
    This is not an end-of-hunt cleanup step — do it immediately or a
    crash/pivot mid-hunt loses the account.
@@ -111,7 +111,7 @@ Extract the OTP/verification code from the message body.
 
 ## Workflow (profile-based; curl still the IDOR transport)
 ```bash
-ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
+ABP=/home/aceos/Projects/hackbot-misc/.playwright-profiles
 TARGET=https://example.com
 
 # 0. Bootstrap — each agent runs this ONCE at session start.

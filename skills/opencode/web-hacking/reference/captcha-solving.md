@@ -141,14 +141,14 @@ Step 3: Wait for solve
   remainingMs = 117 500 ms → well within window, proceed immediately
 
 Step 4: Fill form and submit (while token is still live)
-  Playwright MCP: browser_type(element="Email field", ref="#email", text="{{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}")
+  Playwright MCP: browser_type(element="Email field", ref="#email", text="aceproulx+target-a@intigriti.me")
   Playwright MCP: browser_type(element="Password field", ref="#password", text="P@ss9z!mX2")
   Playwright MCP: browser_click(element="Submit button", ref="#submit-btn")
   → account created
 
 Step 5: Write creds immediately (see reference/accounts-registration.md)
-  cat > {{SESSIONS_DIR}}/target/userA.creds << EOF
-  email={{EMAIL_BASE}}+target-a@{{EMAIL_DOMAIN}}
+  cat > /home/aceos/Projects/hackbot/hunts/sessions/target/userA.creds << EOF
+  email=aceproulx+target-a@intigriti.me
   password=P@ss9z!mX2
   created=2026-09-13T18:31:00Z
   EOF

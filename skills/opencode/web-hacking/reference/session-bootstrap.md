@@ -26,7 +26,7 @@ slot, tells you who you are, and now also **launches (or attaches to) your own
 Playwright MCP server instance pointed at that slot's profile dir**:
 
 ```bash
-ABP={{HACKBOT_MISC_DIR}}/.playwright-profiles
+ABP=/home/aceos/Projects/hackbot-misc/.playwright-profiles
 
 # Run this ONCE at the very start of the agent session:
 eval "$(cd "$ABP" && ./claim-account.sh)"
@@ -53,12 +53,12 @@ eval "$(cd "$ABP" && ./claim-account.sh)"
 Check your identity any time:
 ```bash
 echo "I am: $AGENT_BROWSER_ACCOUNT"
-echo "My creds: {{SESSIONS_DIR}}/<target>/$AGENT_BROWSER_ACCOUNT.creds"
+echo "My creds: /home/aceos/Projects/hackbot/hunts/sessions/<target>/$AGENT_BROWSER_ACCOUNT.creds"
 ```
 
 ### Release on clean exit
 ```bash
-cd {{HACKBOT_MISC_DIR}}/.playwright-profiles && ./release-account.sh
+cd /home/aceos/Projects/hackbot-misc/.playwright-profiles && ./release-account.sh
 # frees the slot for the next agent and signals your Playwright MCP server
 # instance to shut down
 ```
@@ -81,7 +81,7 @@ shared browser process).
 
 ## Profile layout
 One Chrome profile per account under
-`{{HACKBOT_MISC_DIR}}/.playwright-profiles/Profile-<name>`. The profile
+`/home/aceos/Projects/hackbot-misc/.playwright-profiles/Profile-<name>`. The profile
 IS the session — cookies/localStorage persist inside it, and it's what you
 pass as Playwright MCP's `--user-data-dir`. Every profile is cloned from
 `Profile-Default`, so extensions + config (FoxyProxy, captcha solver) are
@@ -100,7 +100,7 @@ identical everywhere.
   in the source profile, run `sync-extensions.sh` so the change reaches every
   account profile.
 - **Creds**: durable login credentials live in
-  `{{SESSIONS_DIR}}/<domain>/$AGENT_BROWSER_ACCOUNT.creds`.
+  `/home/aceos/Projects/hackbot/hunts/sessions/<domain>/$AGENT_BROWSER_ACCOUNT.creds`.
   The auth state itself lives in the Chrome profile, not a state JSON.
 
 ## Browser Session — Keep Open
@@ -119,13 +119,13 @@ add a timeout back.
 - **Switch account** (concurrent agents) = set env vars and point your
   Playwright MCP server at a different profile via `use-account.sh`:
   ```bash
-  eval "$(cd {{HACKBOT_MISC_DIR}}/.playwright-profiles && ./use-account.sh userB)"
+  eval "$(cd /home/aceos/Projects/hackbot-misc/.playwright-profiles && ./use-account.sh userB)"
   ```
   This sets `AGENT_BROWSER_PROFILE` and relaunches your own Playwright MCP
   server instance with `--user-data-dir` pointed at it. The old account's
   login stays in its profile dir — nothing to save or load. This does not
   touch any other agent's Playwright MCP server.
 - **Switch account** (sequential, single agent only) = `switch-account.sh <name>`
-  (in `{{HACKBOT_MISC_DIR}}/.playwright-profiles/`); re-points your
+  (in `/home/aceos/Projects/hackbot-misc/.playwright-profiles/`); re-points your
   single Playwright MCP server's `--user-data-dir` and restarts the browser
   process on the old profile only. Do not use when two agents are live.

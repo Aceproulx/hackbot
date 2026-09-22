@@ -10,7 +10,7 @@ Hackbot is a complete bug-bounty automation framework. It bundles skills, agents
 - 🤖 Parallel worker pool with tmux — configurable slot cap (default 3), editable from the dashboard Settings
 - 📊 Findings dashboard with severity/bounty tracking, target queue, hunt history, and report staging
 - 🔔 Real-time Telegram notifications
-- 🧠 70+ bug hunting skills (web, API, mobile, cloud, source code)
+- 🧠 90+ bug hunting skills (web, API, mobile, cloud, source code)
 - 🔍 MCP integrations (Caido proxy, Intigriti API, CAPTCHA solver, email)
 
 ## Prerequisites

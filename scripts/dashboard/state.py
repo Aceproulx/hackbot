@@ -40,8 +40,23 @@ def get_findings() -> list:
 
 
 def get_hunted_handles() -> set:
-    """Return the set of handles that have at least one logged finding."""
-    return {str(f.get("program", "")).lower() for f in get_findings()}
+    """Handles that have been hunted before.
+
+    A handle counts as hunted when it has a logged finding, OR its queue
+    entry has been through a hunt cycle (status done/skipped/active — active
+    means a hunt is running right now, so the "never hunted" marker must
+    clear the moment a hunt starts), OR it carries a last_hunted timestamp.
+    Only untouched pending targets stay marked as never hunted.
+    """
+    hunted = {str(f.get("program", "")).lower() for f in get_findings()}
+    for t in get_queue():
+        h = str(t.get("handle", "")).lower()
+        if not h:
+            continue
+        if str(t.get("status", "")).lower() in ("done", "skipped", "active") \
+                or t.get("last_hunted"):
+            hunted.add(h)
+    return hunted
 
 
 # ── ywh-reporter triage log ───────────────────────────────────────────────────
